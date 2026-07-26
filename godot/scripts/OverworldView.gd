@@ -40,6 +40,11 @@ const CHEST_MIN_DIST: float = 40.0
 const CHEST_MAX_DIST: float = 220.0
 const CHEST_RARITY_BIAS: float = 0.3   # etwas höher als Basis-Gegner-Loot -> Truhen lohnen sich
 
+# ── Persistenz (SaveManager, seit Phase 2 fertig — hier zum ersten Mal an eine Szene
+# angeschlossen): Slot 0 als laufender Spielstand dieser Sandbox. ──────────────
+const SAVE_SLOT: int = 0
+const AUTOSAVE_INTERVAL_SEC: float = 10.0
+
 var _player: Node3D
 var _cam: Camera3D
 var _hp: float = 100.0
@@ -55,9 +60,12 @@ var _toast_until: float = 0.0
 var _touch_id: int = -1
 var _touch_start: Vector2 = Vector2.ZERO
 var _touch_vec: Vector2 = Vector2.ZERO
+var _save_loaded: bool = false
+var _save_cd: float = AUTOSAVE_INTERVAL_SEC
 
 
 func _ready() -> void:
+	_load_or_init_save()   # vor allem Weiteren: GameState (Level/Gold/Ausrüstung) korrekt setzen
 	_build_environment()
 	_build_ground_and_biomes()
 	_build_sector_lines_and_rim()
@@ -68,7 +76,28 @@ func _ready() -> void:
 	_spawn_pack()
 	_spawn_chest_near(_rustwater_spawn() + Vector3(-18.0, 0.0, 14.0))
 	_hp = float(PlayerStats.max_hp())
-	_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. [Tab] wechselt die Waffe.", 5.0)
+	if _save_loaded:
+		_say("💾 Spielstand geladen — Lv %d · %d 💰 · 🎽 %d/%d   [Tab] Waffe" % [
+			GameState.level, GameState.gold, EquipManager.worn().size(), EquipManager.GEAR_SLOTS.size()], 4.0)
+	else:
+		_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. [Tab] wechselt die Waffe.", 5.0)
+
+
+## Lädt den laufenden Spielstand (falls vorhanden), BEVOR irgendetwas anderes GameState liest
+## (Leben/Schaden hängen an Level & Ausrüstung). Reine GameState-Mutation, keine Szenen-Abhängigkeit.
+func _load_or_init_save() -> void:
+	_save_loaded = SaveManager.has_slot(SAVE_SLOT)
+	if _save_loaded:
+		SaveManager.load_from_slot(SAVE_SLOT)
+
+
+## Schreibt den Spielstand in festem Takt weg (Gold/Level/Ausrüstung/Kills — alles, was
+## SaveManager.serialize() abdeckt). Reine Datei-I/O, kein Einfluss auf die laufende Szene.
+func _process_autosave(delta: float) -> void:
+	_save_cd -= delta
+	if _save_cd <= 0.0:
+		_save_cd = AUTOSAVE_INTERVAL_SEC
+		SaveManager.save_to_slot(SAVE_SLOT)
 
 
 # ── Weltaufbau ────────────────────────────────────────────────────────────────
@@ -489,6 +518,7 @@ func _process(delta: float) -> void:
 	_process_hazards(delta)
 	_process_spawns(delta)
 	_process_chests(delta)
+	_process_autosave(delta)
 	_update_hud()
 
 
