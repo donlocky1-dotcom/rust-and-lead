@@ -7,6 +7,8 @@ class_name OverworldView extends Node3D
 ## mit Rand-Tunnel, alle POIs als Landmarken. Dazu ein steuerbarer Spieler (4,7 m/s,
 ## virtueller Joystick + Tastatur), ein Gegner-Rudel bei Rustwater und Auto-Feuer über
 ## die ECHTEN Systeme (PlayerStats → CombatEngine → CombatTarget → GameState-XP/Gold).
+## Truhen rollen echte Ausrüstung über `ProgressionManager`/`EquipManager` aus — Kämpfen wirkt
+## sich dadurch sofort auf den nächsten Schuss aus (PlayerStats liest live aus GameState.equip).
 
 const AGGRO_M: float = 45.0          # Gegner erwachen in dieser Distanz
 const SHOOT_RANGE_M: float = 32.0    # Auto-Ziel-Reichweite des Spielers
@@ -30,6 +32,14 @@ const TRACER_COLOR: Dictionary = {
 	"saeure": Color(0.55, 0.85, 0.25), "brenner": Color(0.95, 0.42, 0.15),
 }
 
+# ── Truhen: echte Ausrüstung über ProgressionManager/EquipManager (Diablo-Loot-Achse) ──
+const CHEST_INTERACT_M: float = 2.5
+const CHEST_MAX: int = 3
+const CHEST_SPAWN_INTERVAL_SEC: float = 15.0
+const CHEST_MIN_DIST: float = 40.0
+const CHEST_MAX_DIST: float = 220.0
+const CHEST_RARITY_BIAS: float = 0.3   # etwas höher als Basis-Gegner-Loot -> Truhen lohnen sich
+
 var _player: Node3D
 var _cam: Camera3D
 var _hp: float = 100.0
@@ -37,6 +47,8 @@ var _fire_cd: float = 0.0
 var _spawn_cd: float = SPAWN_INTERVAL_SEC * 0.5   # erster Nachschub etwas früher
 var _weapon_id: String = "karabiner"
 var _enemies: Array = []             # { node, target: CombatTarget, bar: MeshInstance3D }
+var _chests: Array = []              # { node, label, pos: Vector3 }
+var _chest_spawn_cd: float = 3.0      # erste Truhe erscheint schnell
 var _hud: Label
 var _toast: Label
 var _toast_until: float = 0.0
@@ -54,6 +66,7 @@ func _ready() -> void:
 	_build_player()
 	_build_hud()
 	_spawn_pack()
+	_spawn_chest_near(_rustwater_spawn() + Vector3(-18.0, 0.0, 14.0))
 	_hp = float(PlayerStats.max_hp())
 	_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. [Tab] wechselt die Waffe.", 5.0)
 
@@ -354,6 +367,89 @@ func _process_spawns(delta: float) -> void:
 	_enemies.append(e)
 
 
+# ── Truhen: echte Ausrüstung, sofort wirksam über EquipManager/PlayerStats ───
+
+## Baut eine Truhe an `pos` (Modell + schwebende Beschriftung zur Fernsicht) und trägt sie ein.
+func _spawn_chest_near(pos: Vector3) -> void:
+	var node := Node3D.new()
+	var model: Node3D = AssetRegistry.instantiate("chest", 0.7)
+	if model != null:
+		node.add_child(model)
+	else:
+		var body := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.6, 0.5, 0.4)
+		body.mesh = bm
+		body.material_override = _mat(Color(0.55, 0.38, 0.16))
+		body.position = Vector3(0.0, 0.25, 0.0)
+		node.add_child(body)
+	node.position = pos
+	add_child(node)
+	var label: Label3D = _label(pos + Vector3(0.0, 1.3, 0.0), "📦 Truhe", Color(1.0, 0.85, 0.4), 110)
+	_chests.append({ "node": node, "label": label, "pos": pos })
+
+
+## Nachschub an Truhen — ähnlich dem Gegner-Spawner, aber seltener und mit eigener Kappe.
+func _process_chest_spawns(delta: float) -> void:
+	_chest_spawn_cd -= delta
+	if _chest_spawn_cd > 0.0 or _chests.size() >= CHEST_MAX:
+		return
+	_chest_spawn_cd = CHEST_SPAWN_INTERVAL_SEC
+	var ang: float = randf() * TAU
+	var dist: float = randf_range(CHEST_MIN_DIST, CHEST_MAX_DIST)
+	var pos: Vector3 = _player.position + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
+	pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
+	pos.z = clampf(pos.z, -(WorldManager.WORLD_METERS - 20.0), -20.0)
+	var rel: Vector2 = WorldManager.scene_to_world(pos)
+	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)):
+		return
+	_spawn_chest_near(pos)
+
+
+## Läuft der Spieler nah genug an eine Truhe, wird sie sofort geplündert (kein Knopf nötig,
+## passend zum reinen Auto-Kampf-Sandbox-Charakter dieser Szene).
+func _process_chests(delta: float) -> void:
+	_process_chest_spawns(delta)
+	for c in _chests.duplicate():
+		if _player.position.distance_to(c["pos"]) <= CHEST_INTERACT_M:
+			_loot_chest()
+			(c["node"] as Node3D).queue_free()
+			(c["label"] as Label3D).queue_free()
+			_chests.erase(c)
+
+
+## Rollt ein echtes Ausrüstungsstück (ProgressionManager) und legt es an, wenn es das aktuell
+## getragene Teil übertrifft (EquipManager) — sonst wird es zu Gold eingeschmolzen. Wirkt sich
+## dank PlayerStats' Live-Zugriff auf GameState.equip ab dem NÄCHSTEN Schuss aus.
+func _loot_chest() -> void:
+	var rarity: String = ProgressionManager.roll_rarity(CHEST_RARITY_BIAS)
+	var slot: String = EquipManager.GEAR_SLOTS[randi_range(0, EquipManager.GEAR_SLOTS.size() - 1)]
+	var gear: Dictionary = ProgressionManager.make_gear(slot, rarity)
+	var current: Dictionary = EquipManager.equipped(slot)
+	var new_value: int = ProgressionManager.gear_value(gear)
+	var rarity_name: String = String(ProgressionManager.RARITY[rarity]["name"])
+	if current.is_empty() or new_value > ProgressionManager.gear_value(current):
+		EquipManager.equip_item(gear, slot)
+		_say("✦ %s %s angelegt (+%d %s)" % [rarity_name, String(gear["name"]), int(gear["stat"]["val"]), String(gear["stat"]["key"])], 3.5)
+		sfx_equip()
+	else:
+		var gold: int = maxi(1, roundi(new_value * 0.5))
+		GameState.add_gold(gold)
+		_say("📦 %s %s eingeschmolzen (+%d Gold)" % [rarity_name, String(gear["name"]), gold], 3.0)
+
+
+## Kleiner Aufblitz-Effekt beim Anlegen, damit ein Ausrüstungswechsel spürbar ist.
+func sfx_equip() -> void:
+	if _player == null:
+		return
+	var flash := OmniLight3D.new()
+	flash.light_color = Color(1.0, 0.9, 0.5)
+	flash.omni_range = 4.0
+	flash.light_energy = 2.0
+	_player.add_child(flash)
+	get_tree().create_timer(0.25).timeout.connect(flash.queue_free)
+
+
 # ── Eingabe: virtueller Joystick (Touch) + Tastatur ───────────────────────────
 
 func _input(event: InputEvent) -> void:
@@ -392,6 +488,7 @@ func _process(delta: float) -> void:
 	_process_enemies(delta)
 	_process_hazards(delta)
 	_process_spawns(delta)
+	_process_chests(delta)
 	_update_hud()
 
 
@@ -508,8 +605,10 @@ func _update_hud() -> void:
 	var biome: Dictionary = WorldManager.biome(WorldManager.biome_at(rel))
 	var poi_id: String = WorldManager.nearest_poi(rel)
 	var poi_d: int = roundi(_player.position.distance_to(WorldManager.poi_scene_position(poi_id)))
-	_hud.text = "❤ %d/%d   💰 %d   ⭐ Lv %d   %s %s\n➡ %s (%d m)   Sektor %d · %s   [Tab] Waffe" % [
+	var worn_n: int = EquipManager.worn().size()
+	_hud.text = "❤ %d/%d   💰 %d   ⭐ Lv %d   🎽 %d/%d   %s %s\n➡ %s (%d m)   Sektor %d · %s   [Tab] Waffe" % [
 		maxi(0, roundi(_hp)), PlayerStats.max_hp(), GameState.gold, GameState.level,
+		worn_n, EquipManager.GEAR_SLOTS.size(),
 		WEAPON_ICON[_weapon_id], String(CombatData.WEAPONS[_weapon_id]["name"]),
 		String(WorldManager.POIS[poi_id]["name"]), poi_d,
 		WorldManager.sector_of_pos(rel), String(biome["name"])]

@@ -23,6 +23,7 @@ func _ready() -> void:
 	_test_world_manager()
 	_test_world_scale()
 	_test_asset_registry()
+	_test_overworld_loot_flow()
 	_test_memory_manager()
 	_test_encounter_manager()
 	_test_progression_manager()
@@ -819,3 +820,32 @@ func _test_asset_registry() -> void:
 	_check("Bodentextur ist in der Registry vorgesehen", AssetRegistry.PATHS.has("ground_sand"))
 	_check("Unbekanntes Material liefert null (→ Einheitsfarbe)",
 		AssetRegistry.material_from_model("gibts_nicht") == null)
+
+
+# ── Overworld-Truhen: derselbe Mechanismus wie OverworldView._loot_chest() ────
+## Prüft NICHT die Node3D-Szene (Platzierung/Distanz — headless per Smoke-Test abgedeckt),
+## sondern den eigentlichen Loot-Mechanismus: ProgressionManager.make_gear() ->
+## EquipManager.equip_item() -> PlayerStats liest SOFORT das neue Gear (kein Cache/Refresh
+## nötig). Deterministisch über einen geseedeten RNG (dieselbe API, die die Truhe nutzt).
+func _test_overworld_loot_flow() -> void:
+	print("· Overworld-Truhen (Truhe → ProgressionManager/EquipManager → PlayerStats)")
+	_reset_state()
+	var base_dmg: int = PlayerStats.damage_per_bullet("karabiner")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	# Gewöhnlich (0 Affixe) hält den Test einfach: nur der Haupt-Stat zählt, keine Affix-Überlagerung.
+	var gear: Dictionary = ProgressionManager.make_gear("weapon", "common", "", rng)
+	_check("Gerolltes Waffen-Teil hat Haupt-Stat 'damage'", String(gear["stat"]["key"]) == "damage")
+	_check("EquipManager: Slot vorher leer", not EquipManager.is_equipped("weapon"))
+	_check("equip_item meldet Erfolg", EquipManager.equip_item(gear, "weapon") == true)
+	var new_dmg: int = PlayerStats.damage_per_bullet("karabiner")
+	_check("Anlegen wirkt SOFORT auf den nächsten Schuss (kein Cache/Refresh)",
+		new_dmg == base_dmg + int(gear["stat"]["val"]),
+		"vorher %d, nachher %d, Stat +%d" % [base_dmg, new_dmg, int(gear["stat"]["val"])])
+	_check("worn() zeigt genau 1 getragenes Teil", EquipManager.worn().size() == 1)
+	# Vergleichslogik der Truhe (_loot_chest): ein spürbar schwächeres Teil würde NICHT
+	# angelegt, sondern eingeschmolzen -- Beute muss sich lohnen, nicht nur variieren.
+	var worse: Dictionary = { "uid": -1, "slot": "weapon", "rarity": "common", "req": 1,
+		"name": "Testattrappe", "stat": { "key": "damage", "val": 1, "q": 0.0 }, "affixes": [] }
+	_check("Deutlich schwächeres Teil hat niedrigeren Marktwert (würde eingeschmolzen)",
+		ProgressionManager.gear_value(worse) < ProgressionManager.gear_value(gear))
