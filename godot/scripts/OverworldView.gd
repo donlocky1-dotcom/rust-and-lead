@@ -15,10 +15,27 @@ const ENEMY_SPEED_MS: float = 3.4    # Rudel etwas langsamer als der Spieler (4,
 ## Spawn liegt neben, nicht auf der Rustwater-Landmarken-Säule (die am exakten POI-Punkt steht).
 const RUSTWATER_SPAWN_OFFSET: Vector3 = Vector3(0.0, 0.0, 25.0)   # 25 m südlich der Säule
 
+# ── Kontinuierliches Spawning (echter Biom-Gegnermix aus WorldManager) ────────
+const ENEMY_MAX: int = 10
+const SPAWN_INTERVAL_SEC: float = 6.0
+const SPAWN_MIN_DIST: float = 140.0
+const SPAWN_MAX_DIST: float = 300.0
+
+# ── Waffen (alle vier Schadensarten testbar — Kapitel-Gating folgt später über
+# das Quest-/Reveal-System; dieser Sandbox-Screen ist bewusst ungesperrt). ────
+const WEAPON_ORDER: Array = ["karabiner", "voltgun", "saeure", "brenner"]
+const WEAPON_ICON: Dictionary = { "karabiner": "🔫", "voltgun": "⚡", "saeure": "🧪", "brenner": "🔥" }
+const TRACER_COLOR: Dictionary = {
+	"karabiner": Color(0.98, 0.75, 0.14), "voltgun": Color(0.35, 0.75, 0.98),
+	"saeure": Color(0.55, 0.85, 0.25), "brenner": Color(0.95, 0.42, 0.15),
+}
+
 var _player: Node3D
 var _cam: Camera3D
 var _hp: float = 100.0
 var _fire_cd: float = 0.0
+var _spawn_cd: float = SPAWN_INTERVAL_SEC * 0.5   # erster Nachschub etwas früher
+var _weapon_id: String = "karabiner"
 var _enemies: Array = []             # { node, target: CombatTarget, bar: MeshInstance3D }
 var _hud: Label
 var _toast: Label
@@ -38,7 +55,7 @@ func _ready() -> void:
 	_build_hud()
 	_spawn_pack()
 	_hp = float(PlayerStats.max_hp())
-	_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. Rustwater liegt hinter dir.", 5.0)
+	_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. [Tab] wechselt die Waffe.", 5.0)
 
 
 # ── Weltaufbau ────────────────────────────────────────────────────────────────
@@ -246,43 +263,76 @@ func _build_hud() -> void:
 	layer.add_child(_toast)
 
 
+## Baut einen Gegner-Node (Modell oder Primitive + Lebensleiste), fügt ihn NICHT in die Szene
+## ein (Aufrufer setzt zuerst die Position) und trägt ihn NICHT in `_enemies` ein.
+func _make_enemy(type_id: String) -> Dictionary:
+	var target: CombatTarget = CombatTarget.from_type(type_id)
+	var node := Node3D.new()
+	# Modell, sobald eines unter assets/models/enemies/<typ>.glb liegt — sonst Primitive.
+	var model: Node3D = AssetRegistry.instantiate(AssetRegistry.enemy_asset(type_id), 1.6)
+	if model != null:
+		node.add_child(model)
+	else:
+		var body := MeshInstance3D.new()
+		if target.classification == CombatData.MECHANICAL:
+			var bm := BoxMesh.new()                  # Kampf-Lesbarkeit: eckig = Maschine
+			bm.size = Vector3(1.1, 1.4, 1.1)
+			body.mesh = bm
+			body.material_override = _mat(Color(0.49, 0.83, 0.99))
+			body.position = Vector3(0.0, 0.7, 0.0)
+		else:
+			var cm := CapsuleMesh.new()              # rund = organisch
+			cm.radius = 0.45
+			cm.height = 1.6
+			body.mesh = cm
+			body.material_override = _mat(Color(0.97, 0.44, 0.44))
+			body.position = Vector3(0.0, 0.8, 0.0)
+		node.add_child(body)
+	var bar := MeshInstance3D.new()                  # simple Lebensleiste
+	var bar_mesh := BoxMesh.new()
+	bar_mesh.size = Vector3(1.4, 0.12, 0.12)
+	bar.mesh = bar_mesh
+	bar.material_override = _mat(Color(0.52, 0.80, 0.09), true)
+	bar.position = Vector3(0.0, 2.1, 0.0)
+	node.add_child(bar)
+	return { "node": node, "target": target, "bar": bar }
+
+
 func _spawn_pack() -> void:
-	# Grenzgänger-Rudel + ein Kessel-Kläffer südöstlich von Rustwater (echter Biom-Leitmix).
+	# Grenzgänger-Rudel + ein Kessel-Kläffer südöstlich von Rustwater (echter Biom-Leitmix) —
+	# der erste Kontakt beim Einstieg; danach übernimmt der kontinuierliche Spawner unten.
 	var base: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(40.0, 0.0, 55.0)
 	for i in 4:
 		var type_id: String = "klaeffer" if i == 3 else "outlaw"
-		var target: CombatTarget = CombatTarget.from_type(type_id)
-		var node := Node3D.new()
-		# Modell, sobald eines unter assets/models/enemies/<typ>.glb liegt — sonst Primitive.
-		var model: Node3D = AssetRegistry.instantiate(AssetRegistry.enemy_asset(type_id), 1.6)
-		if model != null:
-			node.add_child(model)
-		else:
-			var body := MeshInstance3D.new()
-			if target.classification == CombatData.MECHANICAL:
-				var bm := BoxMesh.new()                  # Kampf-Lesbarkeit: eckig = Maschine
-				bm.size = Vector3(1.1, 1.4, 1.1)
-				body.mesh = bm
-				body.material_override = _mat(Color(0.49, 0.83, 0.99))
-				body.position = Vector3(0.0, 0.7, 0.0)
-			else:
-				var cm := CapsuleMesh.new()              # rund = organisch
-				cm.radius = 0.45
-				cm.height = 1.6
-				body.mesh = cm
-				body.material_override = _mat(Color(0.97, 0.44, 0.44))
-				body.position = Vector3(0.0, 0.8, 0.0)
-			node.add_child(body)
-		var bar := MeshInstance3D.new()                  # simple Lebensleiste
-		var bar_mesh := BoxMesh.new()
-		bar_mesh.size = Vector3(1.4, 0.12, 0.12)
-		bar.mesh = bar_mesh
-		bar.material_override = _mat(Color(0.52, 0.80, 0.09), true)
-		bar.position = Vector3(0.0, 2.1, 0.0)
-		node.add_child(bar)
-		node.position = base + Vector3(float(i) * 5.0 - 7.5, 0.0, float(i % 2) * 6.0)
-		add_child(node)
-		_enemies.append({ "node": node, "target": target, "bar": bar })
+		var e: Dictionary = _make_enemy(type_id)
+		(e["node"] as Node3D).position = base + Vector3(float(i) * 5.0 - 7.5, 0.0, float(i % 2) * 6.0)
+		add_child(e["node"])
+		_enemies.append(e)
+
+
+## Nachschub aus dem echten Biom-Gegnermix (WorldManager), solange die Kappe nicht erreicht ist.
+## Spawnt in Lauf-Distanz um den Spieler herum, aber nie in einem noch gesperrten Sektor
+## (Gates sind aus GameState/WorldManager abgeleitet — sobald die Kampagne hier andockt,
+## respektiert der Nachschub automatisch Kapitel-/Tor-Fortschritt).
+func _process_spawns(delta: float) -> void:
+	_spawn_cd -= delta
+	if _spawn_cd > 0.0 or _enemies.size() >= ENEMY_MAX:
+		return
+	_spawn_cd = SPAWN_INTERVAL_SEC
+	var ang: float = randf() * TAU
+	var dist: float = randf_range(SPAWN_MIN_DIST, SPAWN_MAX_DIST)
+	var pos: Vector3 = _player.position + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
+	pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
+	pos.z = clampf(pos.z, -(WorldManager.WORLD_METERS - 20.0), -20.0)
+	var rel: Vector2 = WorldManager.scene_to_world(pos)
+	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)):
+		return   # jenseits eines noch geschlossenen Tors — hier siedelt sich (noch) nichts an
+	var biome_id: String = WorldManager.biome_at(rel)
+	var type_id: String = WorldManager.pick_enemy_type(biome_id, GameState.is_revealed)
+	var e: Dictionary = _make_enemy(type_id)
+	(e["node"] as Node3D).position = pos
+	add_child(e["node"])
+	_enemies.append(e)
 
 
 # ── Eingabe: virtueller Joystick (Touch) + Tastatur ───────────────────────────
@@ -299,6 +349,15 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag and event.index == _touch_id:
 		var v: Vector2 = event.position - _touch_start
 		_touch_vec = Vector2.ZERO if v.length() < 12.0 else (v / 100.0).limit_length(1.0)
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
+		_cycle_weapon()
+
+
+func _cycle_weapon() -> void:
+	var i: int = WEAPON_ORDER.find(_weapon_id)
+	_weapon_id = WEAPON_ORDER[(i + 1) % WEAPON_ORDER.size()]
+	var dt: String = String(CombatData.WEAPONS[_weapon_id]["type"])
+	_say("%s %s (%s)" % [WEAPON_ICON[_weapon_id], String(CombatData.WEAPONS[_weapon_id]["name"]), dt], 2.0)
 
 
 func _move_vector() -> Vector2:
@@ -313,6 +372,7 @@ func _process(delta: float) -> void:
 	_process_combat(delta)
 	_process_enemies(delta)
 	_process_hazards(delta)
+	_process_spawns(delta)
 	_update_hud()
 
 
@@ -354,10 +414,12 @@ func _process_combat(delta: float) -> void:
 	var e: Dictionary = _nearest_enemy(SHOOT_RANGE_M)
 	if e.is_empty():
 		return
-	_fire_cd = float(PlayerStats.fire_ms("karabiner")) / 1000.0
+	_fire_cd = float(PlayerStats.fire_ms(_weapon_id)) / 1000.0
 	var target: CombatTarget = e["target"]
+	var damage_type: String = String(CombatData.WEAPONS[_weapon_id]["type"])
+	var acid: int = CombatData.weapon_acid(_weapon_id, 0)
 	var res: Dictionary = CombatEngine.resolve_hit(
-		CombatData.KINETIC, target, PlayerStats.damage_per_bullet("karabiner"), 0, Time.get_ticks_msec())
+		damage_type, target, PlayerStats.damage_per_bullet(_weapon_id), acid, Time.get_ticks_msec())
 	_spawn_tracer(e["node"].position)
 	var frac: float = clampf(float(target.health) / float(target.max_health), 0.0, 1.0)
 	(e["bar"] as MeshInstance3D).scale.x = maxf(frac, 0.02)
@@ -376,7 +438,7 @@ func _spawn_tracer(to_pos: Vector3) -> void:
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3(0.07, 0.07, from_pos.distance_to(to_pos))
 	tracer.mesh = mesh
-	tracer.material_override = _mat(Color(0.98, 0.75, 0.14), true)
+	tracer.material_override = _mat(TRACER_COLOR[_weapon_id], true)
 	add_child(tracer)
 	tracer.position = (from_pos + Vector3(to_pos.x, 1.0, to_pos.z)) / 2.0
 	tracer.look_at(Vector3(to_pos.x, 1.0, to_pos.z))
@@ -427,9 +489,10 @@ func _update_hud() -> void:
 	var biome: Dictionary = WorldManager.biome(WorldManager.biome_at(rel))
 	var poi_id: String = WorldManager.nearest_poi(rel)
 	var poi_d: int = roundi(_player.position.distance_to(WorldManager.poi_scene_position(poi_id)))
-	_hud.text = "❤ %d/%d   💰 %d   ⭐ Lv %d   Sektor %d · %s\n➡ %s (%d m)" % [
+	_hud.text = "❤ %d/%d   💰 %d   ⭐ Lv %d   %s %s\n➡ %s (%d m)   Sektor %d · %s   [Tab] Waffe" % [
 		maxi(0, roundi(_hp)), PlayerStats.max_hp(), GameState.gold, GameState.level,
-		WorldManager.sector_of_pos(rel), String(biome["name"]),
-		String(WorldManager.POIS[poi_id]["name"]), poi_d]
+		WEAPON_ICON[_weapon_id], String(CombatData.WEAPONS[_weapon_id]["name"]),
+		String(WorldManager.POIS[poi_id]["name"]), poi_d,
+		WorldManager.sector_of_pos(rel), String(biome["name"])]
 	if Time.get_ticks_msec() / 1000.0 > _toast_until:
 		_toast.text = ""
