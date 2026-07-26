@@ -12,6 +12,8 @@ const AGGRO_M: float = 45.0          # Gegner erwachen in dieser Distanz
 const SHOOT_RANGE_M: float = 32.0    # Auto-Ziel-Reichweite des Spielers
 const CONTACT_RANGE_M: float = 2.2   # Nahkampf-Kontakt
 const ENEMY_SPEED_MS: float = 3.4    # Rudel etwas langsamer als der Spieler (4,7)
+## Spawn liegt neben, nicht auf der Rustwater-Landmarken-Säule (die am exakten POI-Punkt steht).
+const RUSTWATER_SPAWN_OFFSET: Vector3 = Vector3(0.0, 0.0, 25.0)   # 25 m südlich der Säule
 
 var _player: Node3D
 var _cam: Camera3D
@@ -201,6 +203,10 @@ func _scatter_decor() -> void:
 		add_child(rock)
 
 
+func _rustwater_spawn() -> Vector3:
+	return WorldManager.poi_scene_position("rustwater") + RUSTWATER_SPAWN_OFFSET
+
+
 func _build_player() -> void:
 	_player = Node3D.new()
 	# Modell, sobald eines unter assets/models/characters/player.glb liegt — sonst Kapsel.
@@ -216,7 +222,7 @@ func _build_player() -> void:
 		body.material_override = _mat(Color(0.23, 0.51, 0.96))
 		body.position = Vector3(0.0, 0.9, 0.0)
 		_player.add_child(body)
-	_player.position = WorldManager.poi_scene_position("rustwater")
+	_player.position = _rustwater_spawn()
 	add_child(_player)
 	_cam = Camera3D.new()
 	_cam.position = Vector3(0.0, 46.0, 34.0)
@@ -405,7 +411,7 @@ func _process_hazards(delta: float) -> void:
 
 func _respawn() -> void:
 	_hp = float(PlayerStats.max_hp())
-	_player.position = WorldManager.poi_scene_position("rustwater")
+	_player.position = _rustwater_spawn()
 	_say("💀 Ausgeknockt — zurück in Rustwater.", 3.0)
 
 
