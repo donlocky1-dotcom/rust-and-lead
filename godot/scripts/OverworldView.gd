@@ -81,6 +81,24 @@ func _box(size: Vector3, pos: Vector3, color: Color, alpha: float = 1.0) -> Mesh
 	return mi
 
 
+## Echte Sand-PBR-Textur (Diffuse/Normal/ARM aus "ground_sand"), über die gesamte Fläche
+## gekachelt — Kachelgröße wird aus den tatsächlichen Modell-Bounds abgeleitet (kein geratener
+## Wert). Fällt auf die alte Einheitsfarbe zurück, solange kein Asset vorhanden ist.
+func _ground_material() -> BaseMaterial3D:
+	var mat: BaseMaterial3D = AssetRegistry.material_from_model("ground_sand")
+	if mat == null:
+		return _mat(Color(0.76, 0.64, 0.42))
+	var tile_m: float = 2.5
+	var probe: Node3D = AssetRegistry.instantiate("ground_sand")
+	if probe != null:
+		var sz: Vector3 = AssetRegistry.local_size(probe)
+		tile_m = maxf(sz.x, sz.z)
+		probe.queue_free()
+	var repeats: float = WorldManager.WORLD_METERS / maxf(tile_m, 0.1)
+	mat.uv1_scale = Vector3(repeats, repeats, 1.0)
+	return mat
+
+
 func _build_environment() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52.0, 35.0, 0.0)
@@ -104,7 +122,7 @@ func _build_ground_and_biomes() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(WorldManager.WORLD_METERS, WorldManager.WORLD_METERS)
 	ground.mesh = plane
-	ground.material_override = _mat(Color(0.76, 0.64, 0.42))
+	ground.material_override = _ground_material()
 	ground.position = Vector3(half, 0.0, -half)
 	add_child(ground)
 	# Benannte Biom-Kreiszonen (WorldManager.BIOMES) als getönte Scheiben.

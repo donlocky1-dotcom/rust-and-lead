@@ -812,4 +812,10 @@ func _test_asset_registry() -> void:
 	_check("Höhe berücksichtigt verschachtelte Skalierung (6 m)",
 		is_equal_approx(AssetRegistry.local_height(root), 6.0),
 		"gemessen: %.3f" % AssetRegistry.local_height(root))
+	_check("local_size liefert volle Bounds (1×6×1 m, gleicher Baum)",
+		AssetRegistry.local_size(root).is_equal_approx(Vector3(2.0, 6.0, 2.0)),
+		"gemessen: %s" % AssetRegistry.local_size(root))
 	root.free()
+	_check("Bodentextur ist in der Registry vorgesehen", AssetRegistry.PATHS.has("ground_sand"))
+	_check("Unbekanntes Material liefert null (→ Einheitsfarbe)",
+		AssetRegistry.material_from_model("gibts_nicht") == null)
