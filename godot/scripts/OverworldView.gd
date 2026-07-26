@@ -242,9 +242,10 @@ func _build_player() -> void:
 	_player.position = _rustwater_spawn()
 	add_child(_player)
 	_cam = Camera3D.new()
-	_cam.position = Vector3(0.0, 46.0, 34.0)
-	_cam.rotation_degrees = Vector3(-54.0, 0.0, 0.0)
-	_cam.far = 8000.0   # Kraterrand & Herz bleiben am Horizont sichtbar (Landmark-Navigation)
+	# Nahe Diablo-Immortal-Kamera statt Strategie-Übersicht: Figur füllt sichtbar den Rahmen.
+	_cam.position = Vector3(0.0, 13.0, 10.0)
+	_cam.rotation_degrees = Vector3(-50.0, 0.0, 0.0)
+	_cam.far = 8000.0   # Kraterrand & Herz bleiben trotzdem am Horizont sichtbar (Landmark-Navigation)
 	_player.add_child(_cam)
 
 
