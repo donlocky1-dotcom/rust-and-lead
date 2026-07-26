@@ -39,6 +39,10 @@ automatisch beschossen. Erster Import dauert wegen der 3D-Assets etwas.
   Systeme zu den finalen Zahlen — Basis-Waffe + Werkstatt-Upgrades + Loadout + Perks +
   getragene/Set-verliehene legendäre Kräfte (Schaden, Feuerrate, Krit, Rüstung/Mitigation,
   max. Leben, Tempo, Regen, Magnet, Spread/Pierce, Loot). Formeln 1:1 aus dem Prototyp, deterministisch.
+- `scripts/AssetRegistry.gd` — **Asset-Pipeline**: logischer Name → 3D-Modell mit
+  automatischem **Fallback auf Primitives**, wenn die Datei (noch) fehlt. Skaliert Modelle
+  beliebiger Herkunft auf ihre Zielhöhe in Metern (inkl. verschachtelter glTF-Transforms).
+  Neues Asset = Datei ablegen, kein Code-Change (Pfade & Zielhöhen: `assets/README.md`).
 - `scripts/OverworldView.gd` + `scenes/Overworld.tscn` — **sichtbare Overworld** (GDD §1.4/§1.6):
   generiert den 5000-m-Krater zur Laufzeit aus `WorldManager` (Boden, Biom-Zonen, Sprengtor-/
   Smog-Linie, Kraterrand + Rand-Tunnel, POI-Landmarken, Eisernes-Herz-Turm), Spieler mit
@@ -171,7 +175,7 @@ Bei jedem Push/PR fährt der **CI-Workflow** (`.github/workflows/godot-backend.y
 Prüfung automatisch: `gdparse` + Godot-4.3-Headless (Import-Pass + TestRunner) gegen eine
 asset-freie Projektkopie.
 
-> **Verifiziert:** Godot **4.3.stable**, headless — **265/265 Checks grün, Exit 0**.
+> **Verifiziert:** Godot **4.3.stable**, headless — **272/272 Checks grün, Exit 0**.
 > Die **gesamte Spiel-Logik** ist portiert; offen bleibt nur die Präsentations-/Render-Schicht.
 > Der schwere 3D-Asset-Import unter `assets/models`
 > verlangsamt Pass 1; für reine Logik-Tests kann man Scripts/Tests/`project.godot` in ein

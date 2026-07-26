@@ -22,6 +22,7 @@ func _ready() -> void:
 	_test_grid_inventory()
 	_test_world_manager()
 	_test_world_scale()
+	_test_asset_registry()
 	_test_memory_manager()
 	_test_encounter_manager()
 	_test_progression_manager()
@@ -776,3 +777,39 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+func _test_asset_registry() -> void:
+	print("· AssetRegistry (Asset-Pipeline mit Platzhalter-Fallback)")
+	_check("Gegner-Typ → Asset-Name", AssetRegistry.enemy_asset("outlaw") == "enemy_outlaw")
+	_check("Unbekannter Name liefert '' (→ Platzhalter)", AssetRegistry.resolve("gibts_nicht") == "")
+	_check("Unbekannter Name instanziiert nichts", AssetRegistry.instantiate("gibts_nicht") == null)
+	_check("Kein Modell → has_model false", AssetRegistry.has_model("gibts_nicht") == false)
+	# Jeder registrierte Eintrag muss mindestens einen Kandidatenpfad haben.
+	var all_have_paths: bool = true
+	for name in AssetRegistry.PATHS.keys():
+		if (AssetRegistry.PATHS[name] as Array).is_empty():
+			all_have_paths = false
+	_check("Alle Registry-Einträge haben Kandidatenpfade", all_have_paths)
+	# Jeder Gegnertyp aus dem Kampf-Roster ist in der Registry vorgesehen.
+	var every_enemy_mapped: bool = true
+	for type_id in CombatData.ENEMY_TYPES.keys():
+		if not AssetRegistry.PATHS.has(AssetRegistry.enemy_asset(String(type_id))):
+			every_enemy_mapped = false
+	_check("Jeder Gegnertyp hat einen Registry-Eintrag", every_enemy_mapped)
+	# Höhenmessung muss die komplette Transform-Kette berücksichtigen (glTF-Hierarchien sind
+	# verschachtelt) — sonst skalieren Assets falsch. Synthetischer Baum, assetfrei prüfbar.
+	var root := Node3D.new()
+	var mid := Node3D.new()
+	mid.scale = Vector3(2.0, 2.0, 2.0)      # verschachtelte Skalierung
+	mid.position = Vector3(0.0, 1.0, 0.0)   # und Versatz
+	root.add_child(mid)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.0, 3.0, 1.0)        # 3 m hoch, ×2 verschachtelt = 6 m
+	mi.mesh = bm
+	mid.add_child(mi)
+	_check("Höhe berücksichtigt verschachtelte Skalierung (6 m)",
+		is_equal_approx(AssetRegistry.local_height(root), 6.0),
+		"gemessen: %.3f" % AssetRegistry.local_height(root))
+	root.free()

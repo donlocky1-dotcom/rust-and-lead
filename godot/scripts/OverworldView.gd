@@ -31,6 +31,7 @@ func _ready() -> void:
 	_build_ground_and_biomes()
 	_build_sector_lines_and_rim()
 	_build_pois()
+	_scatter_decor()
 	_build_player()
 	_build_hud()
 	_spawn_pack()
@@ -169,16 +170,52 @@ func _build_pois() -> void:
 		_label(pos + Vector3(0.0, 46.0, 0.0), String(p["name"]), col.lightened(0.35), 150)
 
 
+func _scatter_decor() -> void:
+	## Streut vorhandene CC0-Umgebungsmodelle um Rustwater — beweist die Asset-Pipeline und
+	## gibt der Wüste Maßstab. Nur nahe dem Startbereich (der Rest der 5000 m folgt via
+	## Streaming/LOD, GDD §1.4). Deterministisch, damit die Welt bei jedem Start gleich aussieht.
+	var kinds: Array = ["rock_small", "rock_boulder", "cliff"]
+	var available: Array = []
+	for k in kinds:
+		if AssetRegistry.has_model(k):
+			available.append(k)
+	if available.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1337
+	var origin: Vector3 = WorldManager.poi_scene_position("rustwater")
+	for i in 90:
+		var kind: String = available[rng.randi_range(0, available.size() - 1)]
+		var height: float = 1.2 if kind == "rock_small" else (3.5 if kind == "rock_boulder" else 9.0)
+		var rock: Node3D = AssetRegistry.instantiate(kind, height * rng.randf_range(0.7, 1.5))
+		if rock == null:
+			continue
+		var ang: float = rng.randf() * TAU
+		var dist: float = rng.randf_range(60.0, 700.0)
+		var pos: Vector3 = origin + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
+		# Nicht in die Smog-Zone streuen und im Kraterbecken bleiben.
+		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
+		pos.z = clampf(pos.z, -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT), -20.0)
+		rock.position = pos
+		rock.rotation.y = rng.randf() * TAU
+		add_child(rock)
+
+
 func _build_player() -> void:
 	_player = Node3D.new()
-	var body := MeshInstance3D.new()
-	var cap := CapsuleMesh.new()
-	cap.radius = 0.5
-	cap.height = 1.8
-	body.mesh = cap
-	body.material_override = _mat(Color(0.23, 0.51, 0.96))
-	body.position = Vector3(0.0, 0.9, 0.0)
-	_player.add_child(body)
+	# Modell, sobald eines unter assets/models/characters/player.glb liegt — sonst Kapsel.
+	var model: Node3D = AssetRegistry.instantiate("player", 1.8)
+	if model != null:
+		_player.add_child(model)
+	else:
+		var body := MeshInstance3D.new()
+		var cap := CapsuleMesh.new()
+		cap.radius = 0.5
+		cap.height = 1.8
+		body.mesh = cap
+		body.material_override = _mat(Color(0.23, 0.51, 0.96))
+		body.position = Vector3(0.0, 0.9, 0.0)
+		_player.add_child(body)
 	_player.position = WorldManager.poi_scene_position("rustwater")
 	add_child(_player)
 	_cam = Camera3D.new()
@@ -210,21 +247,26 @@ func _spawn_pack() -> void:
 		var type_id: String = "klaeffer" if i == 3 else "outlaw"
 		var target: CombatTarget = CombatTarget.from_type(type_id)
 		var node := Node3D.new()
-		var body := MeshInstance3D.new()
-		if target.classification == CombatData.MECHANICAL:
-			var bm := BoxMesh.new()                      # Kampf-Lesbarkeit: eckig = Maschine
-			bm.size = Vector3(1.1, 1.4, 1.1)
-			body.mesh = bm
-			body.material_override = _mat(Color(0.49, 0.83, 0.99))
-			body.position = Vector3(0.0, 0.7, 0.0)
+		# Modell, sobald eines unter assets/models/enemies/<typ>.glb liegt — sonst Primitive.
+		var model: Node3D = AssetRegistry.instantiate(AssetRegistry.enemy_asset(type_id), 1.6)
+		if model != null:
+			node.add_child(model)
 		else:
-			var cm := CapsuleMesh.new()                  # rund = organisch
-			cm.radius = 0.45
-			cm.height = 1.6
-			body.mesh = cm
-			body.material_override = _mat(Color(0.97, 0.44, 0.44))
-			body.position = Vector3(0.0, 0.8, 0.0)
-		node.add_child(body)
+			var body := MeshInstance3D.new()
+			if target.classification == CombatData.MECHANICAL:
+				var bm := BoxMesh.new()                  # Kampf-Lesbarkeit: eckig = Maschine
+				bm.size = Vector3(1.1, 1.4, 1.1)
+				body.mesh = bm
+				body.material_override = _mat(Color(0.49, 0.83, 0.99))
+				body.position = Vector3(0.0, 0.7, 0.0)
+			else:
+				var cm := CapsuleMesh.new()              # rund = organisch
+				cm.radius = 0.45
+				cm.height = 1.6
+				body.mesh = cm
+				body.material_override = _mat(Color(0.97, 0.44, 0.44))
+				body.position = Vector3(0.0, 0.8, 0.0)
+			node.add_child(body)
 		var bar := MeshInstance3D.new()                  # simple Lebensleiste
 		var bar_mesh := BoxMesh.new()
 		bar_mesh.size = Vector3(1.4, 0.12, 0.12)
