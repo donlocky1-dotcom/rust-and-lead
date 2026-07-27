@@ -67,6 +67,12 @@ Spiel schaden. Gemessen: Spieler-Chassis **40,7 MB → 2,3 MB**, Panzer **51,8 M
   die restliche Szene. Reduziert wird mit Quadric Edge Collapse **mit Texturkoordinaten**, die
   Bemalung bleibt also an Ort und Stelle. Gehäutete Modelle (mit Skelett) bleiben unangetastet,
   weil dort Knochengewichte an jedem Eckpunkt hängen.
+  Vorher werden die Eckpunkte **verschweißt**: glTF spaltet sie an jeder Textur-Naht, ein
+  Reduzierer sieht dann keinen Körper, sondern hunderttausende Einzelflicken, und zerlegt das
+  Modell (gemessen: 59 % aller Kanten offen — Löcher zum Durchsehen). Verschweißt: 0,1 %.
+  Der Anteil offener Kanten steht im Protokoll; ist er hoch, stimmt etwas nicht.
+* **doubleSided nur aus, wenn der Körper geschlossen ist.** Bei einem offenen Netz schneidet
+  man sonst genau die Flächen weg, die das Loch verdecken.
 * **4k-Texturen → 2k** (und JPEG statt PNG, wenn kein echtes Alpha drin ist).
 * **Selbstleuchten raus — aber nur, wo es keins sein soll.** Drei Fälle, drei Gründe:
   ist die Emissive-Textur *identisch mit der Farbtextur*, ist es Meshys Vorschau-Trick (das
@@ -75,8 +81,8 @@ Spiel schaden. Gemessen: Spieler-Chassis **40,7 MB → 2,3 MB**, Panzer **51,8 M
 * **metallicFactor → 0**, wenn keine Metallic-Textur dabei ist. Der glTF-Standardwert ist 1,0,
   also vollmetallisch — und ein metallisches Material ohne Spiegelungsumgebung rendert
   **schwarz**. Genau daran lag die schwarze Spielerfigur.
-* **alphaMode BLEND → OPAQUE** und **doubleSided aus**: eine undurchsichtige Figur als
-  transparent zu rendern kostet Sortierung und Füllrate, ohne dass man etwas davon hätte.
+* **alphaMode BLEND → OPAQUE**: eine undurchsichtige Figur als transparent zu rendern kostet
+  Sortierung und Füllrate, ohne dass man etwas davon hätte.
 * Animationen bleiben unangetastet.
 
 **Was du NICHT selbst richten musst** — das macht die `AssetRegistry` beim Instanziieren:

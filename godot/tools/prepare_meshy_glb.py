@@ -156,7 +156,7 @@ def emissive_verdict(gltf: dict, binary: bytes, mat: dict) -> tuple[bool, str]:
     return (False, "")
 
 
-def clean_materials(gltf: dict, binary: bytes, log: list[str]) -> None:
+def clean_materials(gltf: dict, binary: bytes, log: list[str], watertight: bool = True) -> None:
     for mat in gltf.get("materials", []):
         name = mat.get("name", "?")
         drop, why = emissive_verdict(gltf, binary, mat)
@@ -187,8 +187,12 @@ def clean_materials(gltf: dict, binary: bytes, log: list[str]) -> None:
             mat["alphaMode"] = "OPAQUE"
             log.append(f"  · {name}: alphaMode BLEND -> OPAQUE")
         if mat.get("doubleSided"):
-            mat["doubleSided"] = False
-            log.append(f"  · {name}: doubleSided aus")
+            if watertight:
+                mat["doubleSided"] = False
+                log.append(f"  · {name}: doubleSided aus (Koerper ist geschlossen)")
+            else:
+                log.append(f"  · {name}: doubleSided BLEIBT an — das Netz ist offen, "
+                           "sonst sieht man hindurch")
 
 
 def drop_unused(gltf: dict, log: list[str]) -> None:
@@ -291,18 +295,23 @@ def decimate(gltf: dict, binary: bytes, max_tris: int, log: list[str]) -> tuple[
                                        v_tex_coords_matrix=uvs) if uvs is not None
                         else pymeshlab.Mesh(vertex_matrix=verts, face_matrix=faces))
             if uvs is not None:
+                # UVs auf die Ecken (Wedges) legen, BEVOR verschweisst wird — sonst gehen die
+                # Texturkoordinaten an den Nahtstellen verloren.
                 ms.compute_texcoord_transfer_vertex_to_wedge()
-            # Mehrere Durchgaenge: ein einzelner Aufruf bleibt bei stark zerkluefteten Meshes
-            # weit ueber dem Ziel stehen (gemessen: 1,4 Mio -> 106 k statt 15 k). `preserveboundary`
-            # muss dabei AUS bleiben — generierte Meshes bestehen aus vielen offenen Schalen,
-            # deren Raender sonst jede Reduktion blockieren.
+            # ENTSCHEIDEND: Eckpunkte verschweissen. glTF speichert eine UV je Eckpunkt und
+            # spaltet ihn deshalb an jeder Textur-Naht — MeshLab sieht dann keinen Koerper,
+            # sondern hunderttausende Einzelflicken mit lauter freien Raendern. Reduziert man
+            # das, zerfaellt das Modell (gemessen: 59 % aller Kanten offen, Loecher zum
+            # Durchsehen). Verschweisst hat dasselbe Modell 0,1 % offene Kanten.
+            ms.meshing_merge_close_vertices(threshold=pymeshlab.PercentageValue(0.0001))
+            # Mehrere Durchgaenge: ein einzelner Aufruf bleibt bei grossen Meshes ueber dem Ziel.
             for _ in range(8):
                 if uvs is not None:
                     ms.meshing_decimation_quadric_edge_collapse_with_texture(
-                        targetfacenum=max_tris, preserveboundary=False, preservenormal=False)
+                        targetfacenum=max_tris, preserveboundary=True, preservenormal=True)
                 else:
                     ms.meshing_decimation_quadric_edge_collapse(
-                        targetfacenum=max_tris, preserveboundary=False, preservenormal=False)
+                        targetfacenum=max_tris, preserveboundary=True, preservenormal=True)
                 now = ms.current_mesh().face_number()
                 if now <= max_tris or now > last_pass * 0.97:
                     break
@@ -318,9 +327,53 @@ def decimate(gltf: dict, binary: bytes, max_tris: int, log: list[str]) -> tuple[
                 new_uv = None
 
             _write_primitive(gltf, prim, extra, new_v, new_n, new_uv, new_f)
+            open_share = open_edge_share(new_v, new_f)
             log.append(f"  · Mesh '{mesh.get('name', '?')}': {before:,} -> {new_f.shape[0]:,} Dreiecke"
-                       .replace(",", "."))
+                       .replace(",", ".") + f", offene Kanten {100 * open_share:.1f} %")
     return binary, extra
+
+
+def _is_watertight(gltf: dict, binary: bytes, extra: dict[int, bytes] | None = None,
+                   limit: float = 0.02) -> bool:
+    """Ist das Modell geschlossen genug, um Rueckseiten wegschneiden zu duerfen?"""
+    import numpy as np
+
+    def read(index: int):
+        acc = gltf["accessors"][index]
+        if extra is not None and acc["bufferView"] in extra:
+            ncomp = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[acc["type"]]
+            dtype = {5126: np.float32, 5125: np.uint32}[acc["componentType"]]
+            return np.frombuffer(extra[acc["bufferView"]], dtype=dtype).reshape(-1, ncomp)
+        return read_accessor(gltf, binary, index)
+
+    for mesh in gltf.get("meshes", []):
+        for prim in mesh["primitives"]:
+            if "indices" not in prim:
+                continue
+            faces = read(prim["indices"]).reshape(-1, 3).astype(np.int64)
+            verts = read(prim["attributes"]["POSITION"]).astype(np.float64)
+            if open_edge_share(verts, faces) > limit:
+                return False
+    return True
+
+
+def open_edge_share(verts, faces) -> float:
+    """Anteil der Kanten, die nur zu EINEM Dreieck gehoeren — das Mass fuer Loecher im Netz.
+
+    Gemessen wird geometrisch verschweisst: an Textur-Nahtstellen liegen zwei Eckpunkte auf
+    demselben Punkt, und die Kante dazwischen ist keine echte Oeffnung. Ein geschlossener
+    Koerper liegt nahe 0; alles darueber sieht man im Spiel als Loch, sobald Rueckseiten
+    weggeschnitten werden.
+    """
+    import numpy as np
+
+    if faces.size == 0:
+        return 0.0
+    _, inv = np.unique(np.round(np.asarray(verts), 5), axis=0, return_inverse=True)
+    welded = inv[np.asarray(faces)]
+    edges = np.sort(np.vstack([welded[:, [0, 1]], welded[:, [1, 2]], welded[:, [2, 0]]]), axis=1)
+    uniq, counts = np.unique(edges, axis=0, return_counts=True)
+    return float((counts == 1).sum()) / float(len(uniq))
 
 
 def _smooth_normals(verts, faces):
@@ -503,13 +556,16 @@ def main() -> int:
 
     gltf, binary = read_glb(args.source)
     log: list[str] = []
-    clean_materials(gltf, binary, log)
-    drop_unused(gltf, log)
-
+    # Reihenfolge mit Grund: Erst reduzieren, dann Materialien putzen. Ob `doubleSided` weg darf,
+    # haengt daran, ob das FERTIGE Netz geschlossen ist — und das entscheidet die Reduktion.
     replaced: dict[int, bytes] = {}
+    watertight = _is_watertight(gltf, binary)
     if args.max_tris > 0:
         binary, extra = decimate(gltf, binary, args.max_tris, log)
         replaced.update(extra)
+        watertight = _is_watertight(gltf, binary, replaced)
+    clean_materials(gltf, binary, log, watertight)
+    drop_unused(gltf, log)
     for img in gltf.get("images", []):
         if "bufferView" not in img:
             continue
