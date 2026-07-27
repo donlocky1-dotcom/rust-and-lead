@@ -45,6 +45,16 @@ const CHEST_RARITY_BIAS: float = 0.3   # etwas höher als Basis-Gegner-Loot -> T
 const SAVE_SLOT: int = 0
 const AUTOSAVE_INTERVAL_SEC: float = 10.0
 
+## Rustwater ist Schutzzone: innerhalb dieses Radius spawnt nichts Feindliches und es
+## wird kein Dekor gestreut — die Stadt bleibt Stadt (GDD §1.6: befriedete Hubs).
+const TOWN_SAFE_M: float = 95.0
+
+## Schnellreise-Ziele (Tasten 1–5) — nur echte Hubs, passend zu GDD §1.4.
+const FAST_TRAVEL: Array = ["rustwater", "zugdepot", "fort_freedom", "rogues_landing", "sektor01"]
+
+func _in_town(pos: Vector3) -> bool:
+	return pos.distance_to(WorldManager.poi_scene_position("rustwater")) < TOWN_SAFE_M
+
 var _player: Node3D
 var _cam: Camera3D
 var _hp: float = 100.0
@@ -55,6 +65,7 @@ var _enemies: Array = []             # { node, target: CombatTarget, bar: MeshIn
 var _chests: Array = []              # { node, label, pos: Vector3 }
 var _chest_spawn_cd: float = 3.0      # erste Truhe erscheint schnell
 var _hud: Label
+var _minimap: Minimap
 var _toast: Label
 var _toast_until: float = 0.0
 var _touch_id: int = -1
@@ -69,7 +80,9 @@ func _ready() -> void:
 	_build_environment()
 	_build_ground_and_biomes()
 	_build_sector_lines_and_rim()
+	_build_roads()
 	_build_pois()
+	_build_township()
 	_scatter_decor()
 	_build_player()
 	_build_hud()
@@ -197,10 +210,10 @@ func _build_sector_lines_and_rim() -> void:
 	var smog_z: float = -float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT
 	# Gate 1 — Iron-Rail-Sprengtore (dunkle Stahlwand quer über den Krater).
 	_box(Vector3(w, 22.0, 5.0), Vector3(half, 11.0, blast_z), Color(0.24, 0.16, 0.13))
-	_label(Vector3(half, 30.0, blast_z), "⛔ IRON-RAIL-SPRENGTORE", Color(1.0, 0.55, 0.35), 160)
+	_label(Vector3(half, 30.0, blast_z), "⛔ IRON-RAIL-SPRENGTORE", Color(1.0, 0.55, 0.35), 150, 600.0)
 	# Gate 2 — Smog-Linie (durchscheinend, giftgrün).
 	_box(Vector3(w, 28.0, 4.0), Vector3(half, 14.0, smog_z), Color(0.35, 0.75, 0.30), 0.45)
-	_label(Vector3(half, 38.0, smog_z), "☣ SMOG-LINIE", Color(0.6, 1.0, 0.5), 160)
+	_label(Vector3(half, 38.0, smog_z), "☣ SMOG-LINIE", Color(0.6, 1.0, 0.5), 150, 600.0)
 	# Kraterrand: 350 m Fels an allen vier Horizonten — die diegetische Außengrenze.
 	var rock := Color(0.28, 0.22, 0.18)
 	_box(Vector3(w + 300.0, 350.0, 150.0), Vector3(half, 175.0, 75.0), rock)            # Süd
@@ -209,18 +222,27 @@ func _build_sector_lines_and_rim() -> void:
 	_box(Vector3(150.0, 350.0, w + 300.0), Vector3(w + 75.0, 175.0, -half), rock)       # Ost
 	# Rand-Tunnel (§1.7.4): das eine, verriegelte Tor durch die Nordwand.
 	_box(Vector3(60.0, 80.0, 40.0), Vector3(half, 40.0, -w - 20.0), Color(0.08, 0.07, 0.06))
-	_label(Vector3(half, 95.0, -w + 5.0), "🚪 RAND-TUNNEL (verriegelt)", Color(0.95, 0.85, 0.6), 140)
+	_label(Vector3(half, 95.0, -w + 5.0), "🚪 RAND-TUNNEL (verriegelt)", Color(0.95, 0.85, 0.6), 130, 500.0)
 
 
-func _label(pos: Vector3, text: String, color: Color, size: int = 120) -> Label3D:
+## Schwebende Beschriftung. Höhe in Weltmetern = font_size × pixel_size; mit LABEL_PIXEL
+## ergibt `size` also grob die Zeichenhöhe in Zentimetern (150 ≈ 1,8 m) — vorher waren es
+## 7,5 m, was die Szene zugepflastert hat. `fade_m` blendet die Schrift auf Distanz aus,
+## damit ferne POI-Namen nicht über der halben Karte kleben.
+const LABEL_PIXEL: float = 0.012
+
+func _label(pos: Vector3, text: String, color: Color, size: int = 120, fade_m: float = 260.0) -> Label3D:
 	var l := Label3D.new()
 	l.text = text
 	l.font_size = size
-	l.pixel_size = 0.05
+	l.pixel_size = LABEL_PIXEL
 	l.modulate = color
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.outline_size = int(size / 8.0)
+	l.outline_size = maxi(1, int(size / 10.0))
 	l.position = pos
+	if fade_m > 0.0:
+		l.visibility_range_end = fade_m
+		l.visibility_range_end_margin = fade_m * 0.2
 	add_child(l)
 	return l
 
@@ -234,8 +256,9 @@ func _build_pois() -> void:
 		var col: Color = sector_color[int(p["sector"])]
 		if id == "eisernes_herz":
 			# Zentrale Landmarke: hoher, dunkler Turm — von überall am Horizont sichtbar.
+			# Der Turm trägt die Fernsicht; die Schrift bleibt dezent und blendet früher aus.
 			_box(Vector3(120.0, 420.0, 120.0), pos + Vector3(0.0, 210.0, 0.0), Color(0.15, 0.13, 0.14))
-			_label(pos + Vector3(0.0, 460.0, 0.0), "🖤 " + String(p["name"]), Color(1.0, 0.45, 0.35), 260)
+			_label(pos + Vector3(0.0, 445.0, 0.0), "🖤 " + String(p["name"]), Color(1.0, 0.45, 0.35), 220, 900.0)
 			continue
 		var pillar := MeshInstance3D.new()
 		var cyl := CylinderMesh.new()
@@ -246,7 +269,79 @@ func _build_pois() -> void:
 		pillar.material_override = _mat(col)
 		pillar.position = pos + Vector3(0.0, 18.0, 0.0)
 		add_child(pillar)
-		_label(pos + Vector3(0.0, 46.0, 0.0), String(p["name"]), col.lightened(0.35), 150)
+		_label(pos + Vector3(0.0, 41.0, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
+
+
+## Handelsrouten zwischen den großen Knoten — gestampfte Pisten als flache Bänder auf dem
+## Sand. Gibt der leeren Weite Struktur und macht Landmark-Navigation lesbar (GDD §1.4):
+## man folgt einer Straße, statt blind über 5000 m zu peilen.
+const ROUTES: Array = [
+	["rustwater", "rattengestruepp"], ["rustwater", "schrott_minen"], ["rustwater", "zugdepot"],
+	["zugdepot", "rogues_landing"], ["rogues_landing", "fort_freedom"],
+	["rogues_landing", "sektor01"], ["rogues_landing", "alchemie_raffinerie"],
+	["fort_freedom", "goliath_testgelaende"], ["sektor01", "schmelzoefen_vulcan"],
+	["alchemie_raffinerie", "eisernes_herz"],
+]
+
+func _build_roads() -> void:
+	var road_col := Color(0.56, 0.46, 0.32)   # festgefahrener, hellerer Staub
+	for r in ROUTES:
+		var a: Vector3 = WorldManager.poi_scene_position(String(r[0]))
+		var b: Vector3 = WorldManager.poi_scene_position(String(r[1]))
+		var seg := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(9.0, 0.12, a.distance_to(b))
+		seg.mesh = bm
+		seg.material_override = _mat(road_col)
+		seg.position = (a + b) / 2.0 + Vector3(0.0, 0.06, 0.0)   # knapp über dem Boden
+		seg.look_at_from_position(seg.position, b, Vector3.UP)
+		add_child(seg)
+
+
+## Rustwater als begehbare Township (GDD §1.6/§2.3: Saloon, Schmiede, Destille, Labor +
+## Wohnhäuser + Palisade). Bewusst aus Primitives gebaut — so steht die Stadt schon jetzt,
+## und die Blender-Module können sie später Stück für Stück ersetzen (AssetRegistry-Prinzip).
+func _build_township() -> void:
+	var c: Vector3 = WorldManager.poi_scene_position("rustwater")
+	# Kernbauten: Name, Winkel um das Zentrum, Distanz, Grundfläche, Höhe, Farbe.
+	var core: Array = [
+		["🍺 Gatling-Saloon", 25.0, 34.0, Vector2(16.0, 11.0), 7.5, Color(0.45, 0.28, 0.16)],
+		["🔨 Schmiede", 110.0, 32.0, Vector2(12.0, 10.0), 6.0, Color(0.36, 0.30, 0.27)],
+		["🥃 Destille", 195.0, 33.0, Vector2(11.0, 9.0), 6.5, Color(0.40, 0.34, 0.20)],
+		["⚗ Alchemie-Labor", 285.0, 34.0, Vector2(12.0, 10.0), 6.0, Color(0.30, 0.36, 0.31)],
+	]
+	for b in core:
+		var ang: float = deg_to_rad(float(b[1]))
+		var d: float = float(b[2])
+		var fp: Vector2 = b[3]
+		var h: float = float(b[4])
+		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
+		_box(Vector3(fp.x, h, fp.y), pos + Vector3(0.0, h / 2.0, 0.0), b[5])
+		_box(Vector3(fp.x + 1.6, 0.6, fp.y + 1.6), pos + Vector3(0.0, h + 0.3, 0.0), Color(0.24, 0.19, 0.15))   # Dachkante
+		_label(pos + Vector3(0.0, h + 2.4, 0.0), String(b[0]), Color(0.98, 0.90, 0.72), 95, 150.0)
+	# Wohnhäuser: schlichter Ring aus kleinen Hütten, deterministisch gesetzt.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4711
+	for i in 10:
+		var ang: float = deg_to_rad(float(i) * 36.0 + 18.0)
+		var d: float = rng.randf_range(52.0, 68.0)
+		var w: float = rng.randf_range(5.0, 8.0)
+		var h: float = rng.randf_range(3.4, 4.8)
+		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
+		_box(Vector3(w, h, w * 0.85), pos + Vector3(0.0, h / 2.0, 0.0), Color(0.42, 0.33, 0.24))
+	# Wasserturm — die Silhouette, an der man Rustwater von weitem erkennt.
+	var tw: Vector3 = c + Vector3(-26.0, 0.0, -22.0)
+	for leg in [Vector3(-3.0, 0.0, -3.0), Vector3(3.0, 0.0, -3.0), Vector3(-3.0, 0.0, 3.0), Vector3(3.0, 0.0, 3.0)]:
+		_box(Vector3(0.8, 14.0, 0.8), tw + leg + Vector3(0.0, 7.0, 0.0), Color(0.33, 0.27, 0.22))
+	_box(Vector3(9.0, 6.0, 9.0), tw + Vector3(0.0, 17.0, 0.0), Color(0.48, 0.38, 0.26))
+	_label(tw + Vector3(0.0, 22.0, 0.0), "RUSTWATER", Color(0.95, 0.82, 0.55), 120, 350.0)
+	# Palisade: unterbrochener Ring aus Pfosten (Durchlässe bleiben begehbar).
+	for i in 48:
+		if i % 6 == 0:
+			continue   # Torlücken
+		var ang: float = deg_to_rad(float(i) * 7.5)
+		var pos: Vector3 = c + Vector3(cos(ang) * 84.0, 0.0, sin(ang) * 84.0)
+		_box(Vector3(1.0, 3.2, 1.0), pos + Vector3(0.0, 1.6, 0.0), Color(0.34, 0.26, 0.19))
 
 
 func _scatter_decor() -> void:
@@ -270,11 +365,14 @@ func _scatter_decor() -> void:
 		if rock == null:
 			continue
 		var ang: float = rng.randf() * TAU
-		var dist: float = rng.randf_range(60.0, 700.0)
+		var dist: float = rng.randf_range(TOWN_SAFE_M + 15.0, 700.0)   # außerhalb der Stadt
 		var pos: Vector3 = origin + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
 		# Nicht in die Smog-Zone streuen und im Kraterbecken bleiben.
 		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
 		pos.z = clampf(pos.z, -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT), -20.0)
+		if _in_town(pos):
+			rock.queue_free()
+			continue
 		rock.position = pos
 		rock.rotation.y = rng.randf() * TAU
 		add_child(rock)
@@ -322,6 +420,11 @@ func _build_hud() -> void:
 	_toast.add_theme_font_size_override("font_size", 16)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer.add_child(_toast)
+	# Minikarte oben rechts — Orientierung im 5000-m-Becken.
+	_minimap = Minimap.new()
+	_minimap.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_minimap.position = Vector2(-Minimap.MAP_PX - 14.0, 12.0)
+	layer.add_child(_minimap)
 
 
 ## Baut einen Gegner-Node (Modell oder Primitive + Lebensleiste), fügt ihn NICHT in die Szene
@@ -385,6 +488,8 @@ func _process_spawns(delta: float) -> void:
 	var pos: Vector3 = _player.position + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
 	pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
 	pos.z = clampf(pos.z, -(WorldManager.WORLD_METERS - 20.0), -20.0)
+	if _in_town(pos):
+		return   # Rustwater ist befriedet
 	var rel: Vector2 = WorldManager.scene_to_world(pos)
 	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)):
 		return   # jenseits eines noch geschlossenen Tors — hier siedelt sich (noch) nichts an
@@ -414,7 +519,7 @@ func _spawn_chest_near(pos: Vector3) -> void:
 		node.add_child(body)
 	node.position = pos
 	add_child(node)
-	var label: Label3D = _label(pos + Vector3(0.0, 1.3, 0.0), "📦 Truhe", Color(1.0, 0.85, 0.4), 110)
+	var label: Label3D = _label(pos + Vector3(0.0, 1.3, 0.0), "📦 Truhe", Color(1.0, 0.85, 0.4), 90, 120.0)
 	_chests.append({ "node": node, "label": label, "pos": pos })
 
 
@@ -493,8 +598,26 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag and event.index == _touch_id:
 		var v: Vector2 = event.position - _touch_start
 		_touch_vec = Vector2.ZERO if v.length() < 12.0 else (v / 100.0).limit_length(1.0)
-	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
-		_cycle_weapon()
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_TAB:
+			_cycle_weapon()
+		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
+			_fast_travel(event.keycode - KEY_1)
+
+
+## Schnellreise zu den großen Knoten (GDD §1.4: Bahnhöfe nur an echten Hubs). Gesperrte
+## Sektoren bleiben gesperrt — dasselbe Gating wie Bewegung und Spawns, aus WorldManager.
+func _fast_travel(idx: int) -> void:
+	if idx < 0 or idx >= FAST_TRAVEL.size():
+		return
+	var poi_id: String = String(FAST_TRAVEL[idx])
+	var p: Dictionary = WorldManager.POIS[poi_id]
+	var sec: int = int(p["sector"])
+	if not WorldManager.can_enter_sector(sec):
+		_say("🚫 %s liegt hinter einem verschlossenen Tor (Sektor %d)." % [String(p["name"]), sec], 2.5)
+		return
+	_player.position = WorldManager.poi_scene_position(poi_id) + Vector3(0.0, 0.0, 25.0)
+	_say("🚂 Schnellreise: %s" % String(p["name"]), 2.5)
 
 
 func _cycle_weapon() -> void:
@@ -642,5 +765,14 @@ func _update_hud() -> void:
 		WEAPON_ICON[_weapon_id], String(CombatData.WEAPONS[_weapon_id]["name"]),
 		String(WorldManager.POIS[poi_id]["name"]), poi_d,
 		WorldManager.sector_of_pos(rel), String(biome["name"])]
+	_hud.text += "   [1-5] Schnellreise"
+	if _minimap != null:
+		_minimap.player_pos = _player.position
+		_minimap.player_dir = _player.rotation.y
+		var ep: Array = []
+		for e in _enemies:
+			ep.append((e["node"] as Node3D).position)
+		_minimap.enemy_positions = ep
+		_minimap.queue_redraw()
 	if Time.get_ticks_msec() / 1000.0 > _toast_until:
 		_toast.text = ""
