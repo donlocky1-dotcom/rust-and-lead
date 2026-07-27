@@ -13,8 +13,14 @@ Auto-Rigging und Animations-Paket.
 | :-- | :-- | :-- | :-- |
 | `player.glb` | Spieler-Chassis, gerigged (24 Joints), 20 Animationen, 18,9 k Dreiecke, 2k-Textur | Overworld-Spielfigur | Meshy (eigene Generierung) |
 
-Aufbereitet mit `tools/prepare_meshy_glb.py` (4k→2k-Textur, Selbstleuchten/BLEND/doubleSided
-entfernt): 40,7 MB → 2,3 MB. Clip-Zuordnung: `AssetRegistry.CLIP_OVERRIDES["player"]`.
+## Gegner (`models/enemies/`)
+| Datei | Beschreibung | Einsatz | Herkunft |
+| :-- | :-- | :-- | :-- |
+| `konstrukt.glb` | Kleiner Panzer, statisch (kein Rig), 15 k Dreiecke (von 1,41 Mio. reduziert), PBR mit Normal- und Metallic-Roughness-Map | Konzern-Konstrukt (Maschine, §8.4) | Meshy (eigene Generierung) |
+
+Alles aufbereitet mit `tools/prepare_meshy_glb.py` (Dreiecks-Budget, 4k→2k-Texturen,
+Selbstleuchten/BLEND/doubleSided/metallicFactor bereinigt): Spieler 40,7 → 2,3 MB,
+Panzer 51,8 → 3,9 MB. Clip-Zuordnung: `AssetRegistry.CLIP_OVERRIDES`.
 
 ## Umgebung / Boden & Felsen (`models/environment/`)
 | Ordner | Beschreibung | Einsatz | Lizenz |

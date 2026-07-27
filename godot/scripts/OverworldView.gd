@@ -74,6 +74,16 @@ const CAM_DIST: float = 9.5
 const CAM_PITCH: float = 52.0   # Neigung nach unten (etwas flacher -> mehr von der Figur)
 const CAM_YAW: float = 20.0     # leichte Gierung -> isometrischer Eindruck statt Frontalsicht
 
+## Fester Versatz Kamera→Spieler. Die Kamera behält ihre Ausrichtung IMMER — sie folgt nur der
+## Position. Blickrichtung, Neigung und Gierung sind Weltkonstanten, kein Zustand der Figur.
+const CAM_OFFSET: Vector3 = Vector3(
+	sin(deg_to_rad(CAM_YAW)) * CAM_DIST * cos(deg_to_rad(CAM_PITCH)),
+	CAM_DIST * sin(deg_to_rad(CAM_PITCH)),
+	cos(deg_to_rad(CAM_YAW)) * CAM_DIST * cos(deg_to_rad(CAM_PITCH)))
+## Wie schnell die Kamera nachzieht (1/s). Hart gekoppelt wirkt jeder Richtungswechsel wie ein
+## Ruck; zu weich schwimmt das Bild. 10 ist der Punkt, an dem beides verschwindet.
+const CAM_FOLLOW: float = 10.0
+
 # ── Virtueller Joystick (Finger und Maus, GDD §1.5) ───────────────────────────
 const STICK_RADIUS: float = 96.0     # Pixel bis Vollausschlag
 const STICK_DEADZONE: float = 10.0   # darunter passiert nichts (Zittern/Klick)
@@ -644,7 +654,7 @@ func _rustwater_spawn() -> Vector3:
 func _build_player() -> void:
 	_player = Node3D.new()
 	# Modell, sobald eines unter assets/models/characters/player.glb liegt — sonst Kapsel.
-	var model: Node3D = AssetRegistry.instantiate("player", 1.8)
+	var model: Node3D = AssetRegistry.instantiate("player", AssetRegistry.height_of("player"))
 	if model != null:
 		_player.add_child(model)
 		_player_model = model   # trägt den AnimationPlayer, sobald das Modell animiert ist
@@ -661,19 +671,19 @@ func _build_player() -> void:
 	add_child(_player)
 	_attach_coat()
 	_cam = Camera3D.new()
-	# Kamera nach Diablo-Immortal-Referenz eingemessen: die Figur soll rund 14 % der Bildhöhe
-	# füllen. Entscheidend ist das ENGE Sichtfeld — Godots Standard-75° zieht die Welt
-	# auseinander und lässt die Figur winzig wirken (nur ~7 %). Mit 50° FOV und 14 m Abstand
-	# stimmt die Füllung; die leichte Gierung bricht die achsenparallele Sicht auf und erzeugt
-	# den isometrischen Eindruck der Vorlage.
+	# Kamera nach Diablo-Immortal-Referenz eingemessen: enges Sichtfeld (Godots Standard-75°
+	# zieht die Welt auseinander und lässt die Figur winzig wirken), feste Neigung, feste
+	# Gierung für den isometrischen Eindruck.
+	#
+	# WICHTIG — die Kamera hängt NICHT am Spieler-Node: sie würde sonst dessen Drehung erben und
+	# sich beim Laufen mitdrehen. Genau das macht Diablo nicht: dort ist die Blickrichtung fix,
+	# die Welt behält ihre Orientierung, und nur die Figur dreht sich. Deshalb steht die Kamera
+	# in der Szene und folgt dem Spieler in `_process_camera` **nur in der Position**.
 	_cam.fov = CAM_FOV
-	_cam.position = Vector3(
-		sin(deg_to_rad(CAM_YAW)) * CAM_DIST * cos(deg_to_rad(CAM_PITCH)),
-		CAM_DIST * sin(deg_to_rad(CAM_PITCH)),
-		cos(deg_to_rad(CAM_YAW)) * CAM_DIST * cos(deg_to_rad(CAM_PITCH)))
 	_cam.rotation_degrees = Vector3(-CAM_PITCH, CAM_YAW, 0.0)
 	_cam.far = 8000.0   # Kraterrand & Herz bleiben trotzdem am Horizont sichtbar (Landmark-Navigation)
-	_player.add_child(_cam)
+	add_child(_cam)
+	_cam.position = _player.position + CAM_OFFSET
 
 
 ## Hängt den Mantel (falls vorhanden) an den Brustknochen der Figur und ersetzt sein Material
@@ -782,7 +792,8 @@ func _make_enemy(type_id: String) -> Dictionary:
 	var target: CombatTarget = CombatTarget.from_type(type_id)
 	var node := Node3D.new()
 	# Modell, sobald eines unter assets/models/enemies/<typ>.glb liegt — sonst Primitive.
-	var model: Node3D = AssetRegistry.instantiate(AssetRegistry.enemy_asset(type_id), 1.6)
+	var asset: String = AssetRegistry.enemy_asset(type_id)
+	var model: Node3D = AssetRegistry.instantiate(asset, AssetRegistry.height_of(asset))
 	if model != null:
 		node.add_child(model)
 		AssetRegistry.play_clip(model, "idle")
@@ -807,7 +818,9 @@ func _make_enemy(type_id: String) -> Dictionary:
 	bar_mesh.size = Vector3(1.4, 0.12, 0.12)
 	bar.mesh = bar_mesh
 	bar.material_override = _mat(Color(0.52, 0.80, 0.09), true)
-	bar.position = Vector3(0.0, 2.1, 0.0)
+	# Leiste über den Kopf des jeweiligen Gegners — bei einem 4-m-Goliath steckte eine feste
+	# Höhe sonst mitten im Modell.
+	bar.position = Vector3(0.0, AssetRegistry.height_of(asset) + 0.35, 0.0)
 	node.add_child(bar)
 	return { "node": node, "target": target, "bar": bar, "model": model }
 
@@ -861,7 +874,7 @@ func _process_spawns(delta: float) -> void:
 ## Baut eine Truhe an `pos` (Modell + schwebende Beschriftung zur Fernsicht) und trägt sie ein.
 func _spawn_chest_near(pos: Vector3) -> void:
 	var node := Node3D.new()
-	var model: Node3D = AssetRegistry.instantiate("chest", 0.7)
+	var model: Node3D = AssetRegistry.instantiate("chest", AssetRegistry.height_of("chest"))
 	if model != null:
 		node.add_child(model)
 	else:
@@ -1042,8 +1055,19 @@ func _move_vector() -> Vector2:
 
 # ── Spielschleife ─────────────────────────────────────────────────────────────
 
+## Kamera folgt der Position des Spielers, NIE seiner Drehung (Diablo-Prinzip: die Welt behält
+## ihre Orientierung, nur die Figur dreht sich). Weich nachgezogen, damit Richtungswechsel nicht
+## ruckeln.
+func _process_camera(delta: float) -> void:
+	if _cam == null:
+		return
+	var want: Vector3 = _player.position + CAM_OFFSET
+	_cam.position = _cam.position.lerp(want, clampf(delta * CAM_FOLLOW, 0.0, 1.0))
+
+
 func _process(delta: float) -> void:
 	_process_movement(delta)
+	_process_camera(delta)
 	_process_combat(delta)
 	_process_enemies(delta)
 	_process_hazards(delta)

@@ -115,13 +115,57 @@ def shrink_image(raw: bytes, max_px: int, keep_png: bool) -> tuple[bytes, str, s
     return out.getvalue(), mime, note
 
 
-def clean_materials(gltf: dict, log: list[str]) -> None:
+def _gray(gltf: dict, binary: bytes, tex_index: int, size: int = 128) -> Image.Image | None:
+    """Graustufen-Miniatur der Textur hinter einem Textur-Index (None, wenn nicht lesbar)."""
+    try:
+        src = gltf["textures"][tex_index]["source"]
+        raw = view_bytes(gltf, binary, gltf["images"][src]["bufferView"])
+        return Image.open(io.BytesIO(raw)).convert("L").resize((size, size))
+    except Exception:
+        return None
+
+
+def emissive_verdict(gltf: dict, binary: bytes, mat: dict) -> tuple[bool, str]:
+    """Soll die Emissive-Textur raus? (entfernen?, Begruendung)
+
+    Drei Faelle, drei verschiedene Gruende — deshalb keine pauschale Regel:
+      • **identisch zur Farbtextur** -> Meshys Selbstleucht-Trick. Das Modell leuchtet dann
+        unabhaengig vom Licht und sieht in einer Welt mit Sonne und Schatten flach aus.
+      • **praktisch schwarz** -> tote Daten: kostet eine Texture-Einheit und Speicher, zeigt nichts.
+      • **sonst** -> echte Glow-Map (Ofenglut, Lampen, Leuchtstreifen). Die BLEIBT: genau davon
+        lebt der Steampunk-Look.
+    """
+    emissive = mat.get("emissiveTexture")
+    if emissive is None:
+        return (any(v > 0.0 for v in mat.get("emissiveFactor", [])), "emissiveFactor ohne Textur")
+    em = _gray(gltf, binary, emissive["index"])
+    if em is None:
+        return (False, "")
+    px = list(em.getdata())
+    mean = sum(px) / len(px) / 255.0
+    if mean < 0.02:
+        return (True, "Emissive-Textur ist schwarz (tote Daten)")
+    base = mat.get("pbrMetallicRoughness", {}).get("baseColorTexture")
+    if base is not None:
+        bs = _gray(gltf, binary, base["index"])
+        if bs is not None:
+            bp = list(bs.getdata())
+            diff = sum(abs(px[i] - bp[i]) for i in range(len(px))) / len(px)
+            if diff < 2.0:
+                return (True, "Emissive = Farbtextur (Selbstleucht-Trick)")
+    return (False, "")
+
+
+def clean_materials(gltf: dict, binary: bytes, log: list[str]) -> None:
     for mat in gltf.get("materials", []):
         name = mat.get("name", "?")
-        if "emissiveTexture" in mat or any(v > 0.0 for v in mat.get("emissiveFactor", [])):
+        drop, why = emissive_verdict(gltf, binary, mat)
+        if drop:
             mat.pop("emissiveTexture", None)
             mat.pop("emissiveFactor", None)
-            log.append(f"  · {name}: Selbstleuchten entfernt (reagiert jetzt auf Licht)")
+            log.append(f"  · {name}: Selbstleuchten entfernt — {why}")
+        elif "emissiveTexture" in mat:
+            log.append(f"  · {name}: echte Glow-Map erkannt und BEHALTEN")
         spec = mat.get("extensions", {}).get("KHR_materials_specular")
         if spec and any(v > 1.0 for v in spec.get("specularColorFactor", [])):
             mat["extensions"].pop("KHR_materials_specular")
@@ -190,6 +234,217 @@ def drop_unused(gltf: dict, log: list[str]) -> None:
     gltf["images"] = [gltf["images"][i] for i in keep_img]
 
 
+COMPONENT_FLOAT = 5126
+COMPONENT_UINT = 5125
+
+
+def read_accessor(gltf: dict, binary: bytes, index: int):
+    """Accessor als Liste von Tupeln (nur die Typen, die glTF-Meshes tatsaechlich benutzen)."""
+    import numpy as np
+
+    acc = gltf["accessors"][index]
+    ncomp = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[acc["type"]]
+    dtype = {5126: np.float32, 5125: np.uint32, 5123: np.uint16, 5121: np.uint8}[acc["componentType"]]
+    bv = gltf["bufferViews"][acc["bufferView"]]
+    stride = bv.get("byteStride", 0)
+    start = bv.get("byteOffset", 0) + acc.get("byteOffset", 0)
+    if stride and stride != ncomp * np.dtype(dtype).itemsize:
+        out = np.empty((acc["count"], ncomp), dtype=dtype)
+        for i in range(acc["count"]):
+            out[i] = np.frombuffer(binary, dtype=dtype, count=ncomp, offset=start + i * stride)
+        return out
+    return np.frombuffer(binary, dtype=dtype, count=acc["count"] * ncomp, offset=start).reshape(-1, ncomp)
+
+
+def decimate(gltf: dict, binary: bytes, max_tris: int, log: list[str]) -> tuple[bytes, dict]:
+    """Reduziert zu feine Meshes auf ein Budget und liefert (Binaerchunk, neue Views).
+
+    Generatoren liefern gern 1–2 Millionen Dreiecke — das ist Scan-Aufloesung, keine
+    Spielaufloesung: auf dem Handy kostet ein einziges solches Modell mehr als die gesamte
+    restliche Szene. Reduziert wird mit Quadric Edge Collapse **mit Texturkoordinaten**, damit
+    die Bemalung an Ort und Stelle bleibt; die Naehte werden danach wieder aufgetrennt, weil
+    glTF eine UV pro Eckpunkt speichert.
+
+    Gehaeutete Meshes bleiben unangetastet — dort haengen Knochengewichte an jedem Eckpunkt,
+    die eine Reduktion mitziehen muesste.
+    """
+    import numpy as np
+    import pymeshlab
+
+    extra: dict[int, bytes] = {}
+    for mesh in gltf.get("meshes", []):
+        for prim in mesh["primitives"]:
+            attrs = prim["attributes"]
+            if "JOINTS_0" in attrs or "indices" not in prim:
+                continue
+            faces = read_accessor(gltf, binary, prim["indices"]).reshape(-1, 3).astype(np.int32)
+            if faces.shape[0] <= max_tris:
+                continue
+            verts = read_accessor(gltf, binary, attrs["POSITION"]).astype(np.float64)
+            uvs = (read_accessor(gltf, binary, attrs["TEXCOORD_0"]).astype(np.float64)
+                   if "TEXCOORD_0" in attrs else None)
+            before = faces.shape[0]
+            last_pass = before
+
+            ms = pymeshlab.MeshSet()
+            ms.add_mesh(pymeshlab.Mesh(vertex_matrix=verts, face_matrix=faces,
+                                       v_tex_coords_matrix=uvs) if uvs is not None
+                        else pymeshlab.Mesh(vertex_matrix=verts, face_matrix=faces))
+            if uvs is not None:
+                ms.compute_texcoord_transfer_vertex_to_wedge()
+            # Mehrere Durchgaenge: ein einzelner Aufruf bleibt bei stark zerkluefteten Meshes
+            # weit ueber dem Ziel stehen (gemessen: 1,4 Mio -> 106 k statt 15 k). `preserveboundary`
+            # muss dabei AUS bleiben — generierte Meshes bestehen aus vielen offenen Schalen,
+            # deren Raender sonst jede Reduktion blockieren.
+            for _ in range(8):
+                if uvs is not None:
+                    ms.meshing_decimation_quadric_edge_collapse_with_texture(
+                        targetfacenum=max_tris, preserveboundary=False, preservenormal=False)
+                else:
+                    ms.meshing_decimation_quadric_edge_collapse(
+                        targetfacenum=max_tris, preserveboundary=False, preservenormal=False)
+                now = ms.current_mesh().face_number()
+                if now <= max_tris or now > last_pass * 0.97:
+                    break
+                last_pass = now
+            out = ms.current_mesh()
+            new_v = np.asarray(out.vertex_matrix(), dtype=np.float64)
+            new_f = np.asarray(out.face_matrix(), dtype=np.int64)
+            new_n = _smooth_normals(new_v, new_f)
+            if uvs is not None:
+                wedge = np.asarray(out.wedge_tex_coord_matrix(), dtype=np.float64).reshape(-1, 3, 2)
+                new_v, new_n, new_uv, new_f = _split_uv_seams(new_v, new_n, wedge, new_f)
+            else:
+                new_uv = None
+
+            _write_primitive(gltf, prim, extra, new_v, new_n, new_uv, new_f)
+            log.append(f"  · Mesh '{mesh.get('name', '?')}': {before:,} -> {new_f.shape[0]:,} Dreiecke"
+                       .replace(",", "."))
+    return binary, extra
+
+
+def _smooth_normals(verts, faces):
+    """Flaechengewichtete Eckpunkt-Normalen (MeshLab liefert nach der Reduktion keine mit)."""
+    import numpy as np
+
+    normals = np.zeros_like(verts)
+    tri = verts[faces]
+    face_n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    for k in range(3):
+        np.add.at(normals, faces[:, k], face_n)
+    length = np.linalg.norm(normals, axis=1, keepdims=True)
+    return normals / np.where(length < 1e-12, 1.0, length)
+
+
+def _split_uv_seams(verts, normals, wedge, faces):
+    """glTF speichert eine UV pro Eckpunkt — an Texturnaehten muss der Eckpunkt doppelt sein."""
+    import numpy as np
+
+    mapping: dict[tuple, int] = {}
+    pos, nor, uv = [], [], []
+    new_faces = np.empty_like(faces)
+    for f in range(faces.shape[0]):
+        for k in range(3):
+            vi = int(faces[f, k])
+            key = (vi, round(float(wedge[f, k, 0]), 6), round(float(wedge[f, k, 1]), 6))
+            idx = mapping.get(key)
+            if idx is None:
+                idx = len(pos)
+                mapping[key] = idx
+                pos.append(verts[vi])
+                nor.append(normals[vi])
+                uv.append(wedge[f, k])
+            new_faces[f, k] = idx
+    return np.array(pos), np.array(nor), np.array(uv), new_faces
+
+
+def _write_primitive(gltf: dict, prim: dict, extra: dict[int, bytes], verts, normals, uvs, faces) -> None:
+    """Legt neue BufferViews/Accessoren fuer das reduzierte Mesh an und haengt das Primitive um.
+    Die alten Views bleiben zurueck und werden von `rebuild_buffer` verworfen."""
+    import numpy as np
+
+    def add(data: bytes, target: int | None = None) -> int:
+        idx = len(gltf["bufferViews"])
+        view = {"buffer": 0, "byteOffset": 0, "byteLength": len(data)}
+        if target is not None:
+            view["target"] = target
+        gltf["bufferViews"].append(view)
+        extra[idx] = data
+        return idx
+
+    def add_accessor(view: int, count: int, kind: str, ctype: int, minmax=None) -> int:
+        acc = {"bufferView": view, "componentType": ctype, "count": count, "type": kind}
+        if minmax is not None:
+            acc["min"], acc["max"] = minmax
+        gltf["accessors"].append(acc)
+        return len(gltf["accessors"]) - 1
+
+    v32 = verts.astype(np.float32)
+    prim["attributes"]["POSITION"] = add_accessor(
+        add(v32.tobytes(), 34962), v32.shape[0], "VEC3", COMPONENT_FLOAT,
+        (v32.min(axis=0).tolist(), v32.max(axis=0).tolist()))
+    n32 = normals.astype(np.float32)
+    prim["attributes"]["NORMAL"] = add_accessor(add(n32.tobytes(), 34962), n32.shape[0], "VEC3", COMPONENT_FLOAT)
+    if uvs is not None:
+        t32 = uvs.astype(np.float32)
+        prim["attributes"]["TEXCOORD_0"] = add_accessor(add(t32.tobytes(), 34962), t32.shape[0], "VEC2", COMPONENT_FLOAT)
+    for unused in ("TANGENT", "COLOR_0", "TEXCOORD_1"):
+        prim["attributes"].pop(unused, None)
+    idx32 = faces.astype(np.uint32).reshape(-1)
+    prim["indices"] = add_accessor(add(idx32.tobytes(), 34963), idx32.shape[0], "SCALAR", COMPONENT_UINT)
+
+
+def drop_unused_accessors(gltf: dict) -> None:
+    """Entfernt Accessoren, auf die nichts mehr zeigt — sonst haelt das reduzierte Mesh die
+    Daten des alten weiter fest (die alten Accessoren blieben stehen, ihre BufferViews galten
+    als benutzt, und die Datei schrumpfte trotz Reduktion kaum)."""
+    used: list[int] = []
+    seen: set[int] = set()
+
+    def use(i: int) -> None:
+        if i not in seen:
+            seen.add(i)
+            used.append(i)
+
+    for mesh in gltf.get("meshes", []):
+        for prim in mesh["primitives"]:
+            for acc in prim.get("attributes", {}).values():
+                use(acc)
+            if "indices" in prim:
+                use(prim["indices"])
+            for tgt in prim.get("targets", []):
+                for acc in tgt.values():
+                    use(acc)
+    for skin in gltf.get("skins", []):
+        if "inverseBindMatrices" in skin:
+            use(skin["inverseBindMatrices"])
+    for anim in gltf.get("animations", []):
+        for s in anim["samplers"]:
+            use(s["input"])
+            use(s["output"])
+    keep = sorted(seen)
+    if len(keep) == len(gltf.get("accessors", [])):
+        return
+    remap = {old: new for new, old in enumerate(keep)}
+    gltf["accessors"] = [gltf["accessors"][i] for i in keep]
+    for mesh in gltf.get("meshes", []):
+        for prim in mesh["primitives"]:
+            prim["attributes"] = {k: remap[v] for k, v in prim.get("attributes", {}).items()}
+            if "indices" in prim:
+                prim["indices"] = remap[prim["indices"]]
+            prim["targets"] = [{k: remap[v] for k, v in t.items()} for t in prim.get("targets", [])] \
+                if "targets" in prim else prim.get("targets", [])
+            if not prim.get("targets"):
+                prim.pop("targets", None)
+    for skin in gltf.get("skins", []):
+        if "inverseBindMatrices" in skin:
+            skin["inverseBindMatrices"] = remap[skin["inverseBindMatrices"]]
+    for anim in gltf.get("animations", []):
+        for s in anim["samplers"]:
+            s["input"] = remap[s["input"]]
+            s["output"] = remap[s["output"]]
+
+
 def rebuild_buffer(gltf: dict, binary: bytes, replaced: dict[int, bytes]) -> bytes:
     """Baut den Binaerchunk neu auf; nur noch referenzierte BufferViews wandern mit."""
     used: set[int] = set()
@@ -210,7 +465,9 @@ def rebuild_buffer(gltf: dict, binary: bytes, replaced: dict[int, bytes]) -> byt
     new_views = []
     for old in keep:
         bv = dict(gltf["bufferViews"][old])
-        data = replaced.get(old, view_bytes(gltf, binary, old))
+        # `replaced` deckt sowohl ersetzte (verkleinerte Texturen) als auch NEUE Views ab
+        # (reduziertes Mesh) — Letztere haben im alten Binaerchunk gar keine Daten.
+        data = replaced[old] if old in replaced else view_bytes(gltf, binary, old)
         out += b"\x00" * (-len(out) % 4)
         bv["byteOffset"] = len(out)
         bv["byteLength"] = len(data)
@@ -239,15 +496,20 @@ def main() -> int:
     ap.add_argument("source", type=Path)
     ap.add_argument("target", type=Path)
     ap.add_argument("--max-texture", type=int, default=2048, help="laengste Kante in Pixeln (Standard 2048)")
+    ap.add_argument("--max-tris", type=int, default=20000,
+                    help="Dreiecks-Budget je Mesh (Standard 20000, 0 = nicht reduzieren)")
     ap.add_argument("--keep-png", action="store_true", help="nicht nach JPEG wandeln")
     args = ap.parse_args()
 
     gltf, binary = read_glb(args.source)
     log: list[str] = []
-    clean_materials(gltf, log)
+    clean_materials(gltf, binary, log)
     drop_unused(gltf, log)
 
     replaced: dict[int, bytes] = {}
+    if args.max_tris > 0:
+        binary, extra = decimate(gltf, binary, args.max_tris, log)
+        replaced.update(extra)
     for img in gltf.get("images", []):
         if "bufferView" not in img:
             continue
@@ -258,6 +520,7 @@ def main() -> int:
         log.append(f"  · Textur {img.get('name', '?')}: {note}"
                    f" ({len(raw) / 1e6:.1f} -> {len(data) / 1e6:.1f} MB)")
 
+    drop_unused_accessors(gltf)
     binary = rebuild_buffer(gltf, binary, replaced)
     args.target.parent.mkdir(parents=True, exist_ok=True)
     write_glb(args.target, gltf, binary)

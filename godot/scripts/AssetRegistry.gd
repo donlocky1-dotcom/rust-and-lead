@@ -38,6 +38,27 @@ const PATHS: Dictionary = {
 	"chemistry_set":   ["res://assets/models/props/chemistry_set_1k/chemistry_set_1k.gltf"],
 }
 
+## Zielhöhe je Asset in Metern — die EINE Stelle, an der die Größenverhältnisse der Welt
+## stehen. Vorher trug die Szene eine feste 1,6 für jeden Gegner, was spätestens beim ersten
+## Fahrzeug falsch wird: ein Panzer ist kein 1,6-m-Mensch. `height_of()` liefert den Wert,
+## die Szene fragt nur noch nach dem Namen.
+const TARGET_HEIGHT: Dictionary = {
+	"player": 1.8,
+	"companion_dog": 0.7,        # Bolzen, der Blechhund
+	"enemy_outlaw": 1.6,         # Grenzgänger (organisch)
+	"enemy_revolver": 1.6,       # Revolverheld
+	"enemy_fauna": 0.6,          # Ölfresser-Ratte (Schwarm)
+	"enemy_klaeffer": 0.8,       # Kessel-Kläffer (Maschine, Schwarm)
+	"enemy_konstrukt": 2.0,      # Konzern-Konstrukt / kleiner Panzer — überragt den Spieler
+	"enemy_goliath": 4.0,        # Schwerer Ernter (Boss)
+	"chest": 0.7,
+}
+const TARGET_HEIGHT_DEFAULT: float = 1.6
+
+## Zielhöhe eines Assets in Metern (Rückfall: menschengroß).
+static func height_of(name: String) -> float:
+	return float(TARGET_HEIGHT.get(name, TARGET_HEIGHT_DEFAULT))
+
 ## Blickrichtungs-Korrektur je Asset (Grad um Y). Godot-Konvention ist „vorne = −Z"; viele
 ## Generatoren (Meshy, Sketchfab-Rips, ältere FBX-Ketten) exportieren nach +Z oder +X. Statt
 ## jede Datei in Blender zu drehen, steht die Korrektur hier — eine Zahl pro Asset.

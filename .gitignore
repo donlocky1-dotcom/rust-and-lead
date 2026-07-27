@@ -14,3 +14,7 @@ npm-debug.log*
 # Build / Temp
 dist/
 *.log
+
+# Python-Cache der Asset-Werkzeuge
+__pycache__/
+*.pyc
