@@ -10,6 +10,10 @@ steuerbarem Spieler (4,7 m/s, Touch-Joystick + Tastatur) und erstem Kampf über 
 **den Unterordner `godot/` importieren** (dort liegt `project.godot`), Play drücken —
 die Overworld startet in Rustwater. Ziehen = laufen, Gegner in Reichweite werden
 automatisch beschossen. Erster Import dauert wegen der 3D-Assets etwas.
+**Am Rechner:** die **Maus verhält sich wie ein Finger** — linke Taste gedrückt halten und
+ziehen, der virtuelle Joystick erscheint am Aufsetzpunkt und die Figur dreht sich in die
+gezogene Richtung. Damit testet man dieselbe Steuerung, die auf dem Handy läuft, statt einer
+zweiten, abweichenden. Pfeiltasten gehen weiterhin.
 Tastatur: `[Tab]` wechselt die Waffe, `[1]`–`[5]` fahren mit der **Iron Rail** — aber nur,
 wenn man an einem Bahnsteig steht (GDD §1.4a).
 

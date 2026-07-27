@@ -128,6 +128,17 @@ def clean_materials(gltf: dict, log: list[str]) -> None:
             if not mat["extensions"]:
                 mat.pop("extensions")
             log.append(f"  · {name}: ueberzogener Specular-Faktor entfernt")
+        # glTF-Standard fuer metallicFactor ist 1.0 — also VOLLMETALLISCH, wenn der Exporter
+        # das Feld weglaesst. Ein metallisches Material hat keine diffuse Farbe: es zeigt nur
+        # Spiegelungen und wird ohne Reflexionsumgebung schwarz. Meshys Selbstleuchten
+        # verdeckt das in der Vorschau; im Spiel steht dann eine schwarze Silhouette da.
+        # Eine generierte Figur (Stoff, Leder, Haut) ist kein Spiegel.
+        pbr = mat.setdefault("pbrMetallicRoughness", {})
+        was = pbr.get("metallicFactor", 1.0)
+        if "metallicRoughnessTexture" not in pbr and was > 0.5:
+            pbr["metallicFactor"] = 0.0
+            log.append(f"  · {name}: metallicFactor {was} -> 0.0 "
+                       "(war vollmetallisch = schwarz ohne Spiegelung)")
         if mat.get("alphaMode") == "BLEND":
             mat["alphaMode"] = "OPAQUE"
             log.append(f"  · {name}: alphaMode BLEND -> OPAQUE")

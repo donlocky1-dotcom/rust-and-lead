@@ -66,9 +66,19 @@ const DROP_TABLE: Array = [["schrott", 0.65], ["zahnrad", 0.22], ["dampfkern", 0
 
 # ── Kamera (an Diablo-Immortal-Referenz eingemessen, GDD §1.5a) ───────────────
 const CAM_FOV: float = 50.0     # eng statt Godots 75° — sonst wirkt die Figur winzig
-const CAM_DIST: float = 14.0    # Abstand zur Figur; ergibt ~14 % Bildhöhe wie in der Vorlage
-const CAM_PITCH: float = 55.0   # Neigung nach unten
+## Abstand zur Figur. Sichtbare Höhe = 2·Abstand·tan(FOV/2) = 0,93·Abstand; bei 9,5 m sieht man
+## also ~8,9 m, die 1,8-m-Figur füllt damit rund 20 % der Bildhöhe. Der frühere Wert (14 m)
+## traf zwar die gemessenen 14 % der Vorlage, war am Bildschirm aber zu weit weg, um etwas
+## zu erkennen — Spielbarkeit schlägt Messwert.
+const CAM_DIST: float = 9.5
+const CAM_PITCH: float = 52.0   # Neigung nach unten (etwas flacher -> mehr von der Figur)
 const CAM_YAW: float = 20.0     # leichte Gierung -> isometrischer Eindruck statt Frontalsicht
+
+# ── Virtueller Joystick (Finger und Maus, GDD §1.5) ───────────────────────────
+const STICK_RADIUS: float = 96.0     # Pixel bis Vollausschlag
+const STICK_DEADZONE: float = 10.0   # darunter passiert nichts (Zittern/Klick)
+const MOUSE_STICK_ID: int = 9001     # eigene „Finger"-Id für die Maus (kollidiert mit keiner echten)
+const TURN_RATE: float = 12.0        # wie schnell die Figur in die neue Richtung eindreht
 
 # ── Bauliche Begrenzung (GDD §1.4a) ───────────────────────────────────────────
 ## Die Wüste ist offen, die Aktionszonen sind eng — und zwar durch ECHTE Bauten, nicht
@@ -101,6 +111,7 @@ var _npc_cd: float = 0.0             # Entprellung: nicht bei jedem Frame erneut
 var _chest_spawn_cd: float = 3.0      # erste Truhe erscheint schnell
 var _hud: Label
 var _minimap: Minimap
+var _stick: VirtualStick
 var _toast: Label
 var _toast_until: float = 0.0
 var _touch_id: int = -1
@@ -138,7 +149,7 @@ func _ready() -> void:
 		_say("💾 Spielstand geladen — Lv %d · %d 💰 · 🎽 %d/%d   [Tab] Waffe" % [
 			GameState.level, GameState.gold, EquipManager.worn().size(), EquipManager.GEAR_SLOTS.size()], 4.0)
 	else:
-		_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. [Tab] wechselt die Waffe.", 5.0)
+		_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. Ziehen (Maus/Finger) = laufen, [Tab] wechselt die Waffe.", 5.0)
 
 
 ## Lädt den laufenden Spielstand (falls vorhanden), BEVOR irgendetwas anderes GameState liest
@@ -759,6 +770,10 @@ func _build_hud() -> void:
 	_minimap.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_minimap.position = Vector2(-Minimap.MAP_PX - 14.0, 12.0)
 	layer.add_child(_minimap)
+	# Joystick-Anzeige ganz oben drüber (zeichnet nur, wenn gezogen wird).
+	_stick = VirtualStick.new()
+	_stick.radius = STICK_RADIUS
+	layer.add_child(_stick)
 
 
 ## Baut einen Gegner-Node (Modell oder Primitive + Lebensleiste), fügt ihn NICHT in die Szene
@@ -931,20 +946,55 @@ func sfx_equip() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed and _touch_id == -1:
-			_touch_id = event.index
-			_touch_start = event.position
-			_touch_vec = Vector2.ZERO
+			_begin_stick(event.position, event.index)
 		elif not event.pressed and event.index == _touch_id:
-			_touch_id = -1
-			_touch_vec = Vector2.ZERO
+			_end_stick()
 	elif event is InputEventScreenDrag and event.index == _touch_id:
-		var v: Vector2 = event.position - _touch_start
-		_touch_vec = Vector2.ZERO if v.length() < 12.0 else (v / 100.0).limit_length(1.0)
+		_drag_stick(event.position)
+	# Maus verhält sich exakt wie ein Finger — derselbe Joystick, damit man am Rechner das
+	# testet, was auf dem Handy auch passiert (statt einer zweiten, abweichenden Steuerung).
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and _touch_id == -1:
+			_begin_stick(event.position, MOUSE_STICK_ID)
+		elif not event.pressed and _touch_id == MOUSE_STICK_ID:
+			_end_stick()
+	elif event is InputEventMouseMotion and _touch_id == MOUSE_STICK_ID:
+		_drag_stick(event.position)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
 			_cycle_weapon()
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
 			_fast_travel(event.keycode - KEY_1)
+
+
+## Der Joystick erscheint dort, wo man aufsetzt (dynamischer Stick, GDD §1.5) — er hat keine
+## feste Ecke, weil man auf dem Handy nicht hinschaut, bevor man den Daumen aufsetzt.
+func _begin_stick(at: Vector2, id: int) -> void:
+	_touch_id = id
+	_touch_start = at
+	_touch_vec = Vector2.ZERO
+	if _stick != null:
+		_stick.origin = at
+		_stick.knob = at
+		_stick.active = true
+		_stick.queue_redraw()
+
+
+func _drag_stick(at: Vector2) -> void:
+	var v: Vector2 = at - _touch_start
+	# Unter der Totzone passiert nichts (Zittern), darüber wächst es linear bis STICK_RADIUS.
+	_touch_vec = Vector2.ZERO if v.length() < STICK_DEADZONE else (v / STICK_RADIUS).limit_length(1.0)
+	if _stick != null:
+		_stick.knob = _touch_start + v.limit_length(STICK_RADIUS)
+		_stick.queue_redraw()
+
+
+func _end_stick() -> void:
+	_touch_id = -1
+	_touch_vec = Vector2.ZERO
+	if _stick != null:
+		_stick.active = false
+		_stick.queue_redraw()
 
 
 ## Bahnhof, an dem der Spieler gerade steht ("" = keiner in Reichweite).
@@ -1044,8 +1094,11 @@ func _process_movement(delta: float) -> void:
 			return   # in eine Ecke gelaufen — Position halten
 		step = next - _player.position
 	_player.position = next
+	# Drehung weich nachziehen statt hart umzuschnappen: bei einem Joystick wechselt die
+	# Richtung stufenlos, und eine Figur, die pro Frame springt, wirkt wie ein Blechspielzeug.
 	if Vector2(step.x, step.z).length() > 0.001:
-		_player.rotation.y = atan2(-step.x, -step.z)
+		var want: float = atan2(-step.x, -step.z)
+		_player.rotation.y = lerp_angle(_player.rotation.y, want, clampf(delta * TURN_RATE, 0.0, 1.0))
 
 
 func _nearest_enemy(max_dist: float) -> Dictionary:
