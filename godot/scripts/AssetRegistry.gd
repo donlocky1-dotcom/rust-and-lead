@@ -39,7 +39,11 @@ const PATHS: Dictionary = {
 ## Blickrichtungs-Korrektur je Asset (Grad um Y). Godot-Konvention ist „vorne = −Z"; viele
 ## Generatoren (Meshy, Sketchfab-Rips, ältere FBX-Ketten) exportieren nach +Z oder +X. Statt
 ## jede Datei in Blender zu drehen, steht die Korrektur hier — eine Zahl pro Asset.
-const YAW_DEG: Dictionary = {}
+const YAW_DEG: Dictionary = {
+	# Gemessen an der Geometrie: Zehen und Gesicht des Spieler-Modells zeigen nach +Z,
+	# Godot läuft nach −Z. Ohne die Drehung würde die Figur rückwärts durch die Wüste laufen.
+	"player": 180.0,
+}
 
 ## Gegner-Typ (CombatData.ENEMY_TYPES) → logischer Asset-Name.
 static func enemy_asset(type_id: String) -> String:
@@ -85,9 +89,11 @@ static func instantiate(name: String, scale_to_height: float = 0.0, snap_to_floo
 	if not is_zero_approx(yaw):
 		n3.rotation.y = deg_to_rad(yaw)
 	if not snap_to_floor or bounds.size.y <= 0.001:
+		n3.set_meta("asset_name", name)
 		return n3
 	var holder := Node3D.new()
 	holder.name = "asset_" + name
+	holder.set_meta("asset_name", name)   # `play_clip` findet darüber die feste Clip-Zuordnung
 	holder.add_child(n3)
 	n3.position.y = -bounds.position.y * factor   # tiefster Punkt exakt auf Y = 0
 	return holder
@@ -142,6 +148,17 @@ const CLIP_ALIASES: Dictionary = {
 	"death":  ["death", "die", "dead", "sterb", "tod"],
 }
 
+## Feste Clip-Zuordnung je Asset, wo die Namenssuche raten müsste. Ein Animations-Paket
+## enthält oft zwanzig Varianten („Rifle_Aim_Turn_Right", „Run_and_Shoot", „Knock_Down_1");
+## welche davon *die* Angriffs- oder Treffer-Animation ist, steht in keinem Namen. Also hier —
+## an einer Stelle, nachlesbar, ohne dass jemand Dateien umbenennt.
+const CLIP_OVERRIDES: Dictionary = {
+	"player": {
+		"idle": "Idle_11", "walk": "Walking", "run": "Running",
+		"attack": "Run_and_Shoot", "hit": "Shot_and_Blown_Back", "death": "Dead",
+	},
+}
+
 ## Erster AnimationPlayer unter `root` (glTF legt ihn beim Import automatisch an), sonst `null`.
 static func animation_player(root: Node) -> AnimationPlayer:
 	if root == null:
@@ -155,28 +172,40 @@ static func animation_player(root: Node) -> AnimationPlayer:
 	return null
 
 ## Tatsächlicher Clip-Name für eine logische Rolle ("" = dieses Modell hat sie nicht).
-## Exakte Treffer gewinnen vor Teiltreffern, damit „walk" nicht versehentlich „walk_backwards" zieht.
+## Exakter Treffer schlägt Teiltreffer; unter mehreren Teiltreffern gewinnt der **kürzeste** Name.
+## Das ist die entscheidende Regel bei Animations-Paketen: neben „Walking" liegen dort
+## „Slow_Walk_Reload" und „Walk_Turn_Left_with_Weapon" — gemeint ist immer der schlichte Clip.
 static func find_clip(ap: AnimationPlayer, kind: String) -> String:
 	if ap == null:
 		return ""
 	var parts: Array = CLIP_ALIASES.get(kind, [kind])
-	var partial: String = ""
+	var best: String = ""
+	var best_len: int = 0
 	for raw in ap.get_animation_list():
 		var name: String = String(raw)
 		var tail: String = name.get_slice("|", name.get_slice_count("|") - 1).to_lower()
 		for p in parts:
 			if tail == String(p):
 				return name
-			if partial == "" and tail.contains(String(p)):
-				partial = name
-	return partial
+			if tail.contains(String(p)) and (best == "" or tail.length() < best_len):
+				best = name
+				best_len = tail.length()
+	return best
 
 ## Spielt die Rolle (`"walk"`, `"idle"`, …) auf dem Modell ab. Läuft der Clip schon, passiert
 ## nichts — der Aufruf darf also gefahrlos jeden Frame kommen. `false`, wenn das Modell die
 ## Rolle nicht kennt (dann bleibt es einfach unanimiert stehen; nichts bricht).
 static func play_clip(root: Node, kind: String, loop: bool = true) -> bool:
 	var ap: AnimationPlayer = animation_player(root)
-	var clip: String = find_clip(ap, kind)
+	if ap == null:
+		return false
+	var clip: String = ""
+	if root.has_meta("asset_name"):
+		clip = String(CLIP_OVERRIDES.get(String(root.get_meta("asset_name")), {}).get(kind, ""))
+		if clip != "" and not ap.has_animation(clip):
+			clip = ""   # Asset ausgetauscht und der Clip heißt jetzt anders — dann eben suchen
+	if clip == "":
+		clip = find_clip(ap, kind)
 	if clip == "":
 		return false
 	if ap.current_animation == clip and ap.is_playing():

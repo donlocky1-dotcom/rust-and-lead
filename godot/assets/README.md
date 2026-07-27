@@ -44,6 +44,24 @@ Godot legt beim Import automatisch einen `AnimationPlayer` an.
   ist auf Zweibeiner ausgelegt. Wenn Bolzen zerknautscht aussieht: lieber unanimiert liefern,
   die Bewegung kann die Szene übernehmen (Trab-Wippen per Code kostet uns fünf Zeilen).
 
+### Nach dem Download: einmal durchs Aufbereitungs-Skript
+
+```bash
+python3 tools/prepare_meshy_glb.py ~/Downloads/Meshy_Merged_Animations.glb \
+        assets/models/characters/player.glb
+```
+
+Das räumt genau die Voreinstellungen auf, die für eine Browser-Vorschau gedacht sind und im
+Spiel schaden — beim Spieler-Chassis waren das **40,7 MB → 2,3 MB**:
+
+* **4k-Texturen → 2k** (und JPEG statt PNG, wenn kein echtes Alpha drin ist).
+* **Selbstleuchten raus.** Meshy hängt die Farbtextur zusätzlich als *emissive* an. Damit
+  leuchtet die Figur unabhängig vom Licht — in einer Welt mit Sonne und Schatten sieht das
+  flach und falsch aus.
+* **alphaMode BLEND → OPAQUE** und **doubleSided aus**: eine undurchsichtige Figur als
+  transparent zu rendern kostet Sortierung und Füllrate, ohne dass man etwas davon hätte.
+* Animationen bleiben unangetastet.
+
 **Was du NICHT selbst richten musst** — das macht die `AssetRegistry` beim Instanziieren:
 * **Größe:** wird auf die Zielhöhe unten in der Tabelle skaliert, egal wie groß Meshy exportiert.
 * **Pivot/Höhe:** die Unterkante wird auf Y = 0 gelegt. Generatoren setzen den Pivot fast immer
@@ -77,7 +95,7 @@ Priorität von oben nach unten — das Erste bringt den größten sichtbaren Spr
 
 | Was | Datei ablegen unter | Zielhöhe |
 | :-- | :-- | :-- |
-| **Spieler-Chassis** | `models/characters/player.glb` | 1,8 m |
+| ~~Spieler-Chassis~~ ✅ **fertig** | `models/characters/player.glb` | 1,8 m |
 | Grenzgänger (organisch) | `models/enemies/outlaw.glb` | 1,6 m |
 | Ölfresser-Ratte (organisch, Schwarm) | `models/enemies/fauna.glb` | ~0,6 m |
 | Revolverheld (organisch, Fernkampf) | `models/enemies/revolver.glb` | 1,6 m |

@@ -10,6 +10,7 @@ extends Node
 
 var _passed: int = 0
 var _failed: int = 0
+var _scratch: Array = []   # Wegwerf-Objekte der Tests; am Ende gesammelt freigegeben
 
 
 func _ready() -> void:
@@ -33,6 +34,10 @@ func _ready() -> void:
 	_test_save_manager()
 	_test_equip_manager()
 	_test_player_stats()
+	for obj in _scratch:
+		if is_instance_valid(obj):
+			obj.free()
+	_scratch.clear()
 	print("──────────────────────────────────────────────")
 	print("  Ergebnis: %d bestanden, %d fehlgeschlagen" % [_passed, _failed])
 	print("──────────────────────────────────────────────")
@@ -853,7 +858,25 @@ func _test_asset_registry() -> void:
 	_check("Ohne AnimationPlayer liefert die Suche ''", AssetRegistry.find_clip(null, "walk") == "")
 	_check("play_clip auf einem Modell ohne Animation ist folgenlos",
 		AssetRegistry.play_clip(null, "walk") == false)
+	_check("Kuerzester Teiltreffer gewinnt (Walking schlaegt Slow_Walk_Reload)",
+		AssetRegistry.find_clip(_clip_player(["Slow_Walk_Reload", "Walking", "Walk_Turn_Left"]), "walk") == "Walking")
 	ap.free()
+	# Das echte Spieler-Modell (nur wenn es im Repo liegt): Maßstab, Bodenkontakt und die
+	# Rollen, die die Overworld tatsaechlich abspielt. Faengt einen kaputten Re-Export sofort.
+	if AssetRegistry.has_model("player"):
+		var p: Node3D = AssetRegistry.instantiate("player", 1.8)
+		var pb: AABB = AssetRegistry.local_bounds(p)
+		_check("Spieler-Modell: auf 1,80 m skaliert", is_equal_approx(pb.size.y, 1.8),
+			"gemessen: %.3f" % pb.size.y)
+		_check("Spieler-Modell: steht auf Y = 0", absf(pb.position.y) < 0.001)
+		var pap: AnimationPlayer = AssetRegistry.animation_player(p)
+		_check("Spieler-Modell bringt einen AnimationPlayer mit", pap != null)
+		if pap != null:
+			for role in ["idle", "walk", "run", "attack", "hit", "death"]:
+				var clip: String = String(AssetRegistry.CLIP_OVERRIDES["player"].get(role, ""))
+				_check("Spieler-Clip '%s' existiert im Modell (%s)" % [role, clip],
+					clip != "" and pap.has_animation(clip))
+		p.free()
 	_check("Bodentextur ist in der Registry vorgesehen", AssetRegistry.PATHS.has("ground_sand"))
 	_check("Unbekanntes Material liefert null (→ Einheitsfarbe)",
 		AssetRegistry.material_from_model("gibts_nicht") == null)
@@ -985,6 +1008,17 @@ func _test_walkable_zones() -> void:
 	# 5. Rueckfall: ein Punkt ausserhalb des Kraters wird hineingezogen.
 	var rescued: Vector2 = WorldManager.nearest_walkable(Vector2(-40, 2400))
 	_check("nearest_walkable liefert eine begehbare Position", WorldManager.is_walkable(rescued))
+
+
+## Wegwerf-AnimationPlayer mit den angegebenen Clip-Namen (fuer die Namenssuche-Tests).
+func _clip_player(names: Array) -> AnimationPlayer:
+	var ap := AnimationPlayer.new()
+	var lib := AnimationLibrary.new()
+	for n in names:
+		lib.add_animation(String(n), Animation.new())
+	ap.add_animation_library("", lib)
+	_scratch.append(ap)
+	return ap
 
 
 ## Keine zwei Aktionszonen duerfen sich beruehren — sonst waere `zone_at` von der

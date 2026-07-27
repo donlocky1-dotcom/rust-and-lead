@@ -1,9 +1,20 @@
 # Asset-Credits & Lizenzen
 
-Alle 3D-Assets in `assets/` stammen von **[Poly Haven](https://polyhaven.com)** und sind
+Umgebungs- und Prop-Assets stammen von **[Poly Haven](https://polyhaven.com)** und sind
 **CC0 (Public Domain)**. CC0 erfordert keine Namensnennung — dieser Nachweis dient der
 Herkunft und Nachvollziehbarkeit. Jedes Paket: glTF + `.bin` + PBR-Texturen
 (diff = Albedo, nor_gl = Normal (OpenGL), arm = AO/Roughness/Metallic gepackt), 1k = 1024px.
+
+Charaktere entstehen in **[Meshy](https://www.meshy.ai)** — eigene Generierung inklusive
+Auto-Rigging und Animations-Paket.
+
+## Charaktere (`models/characters/`)
+| Datei | Beschreibung | Einsatz | Herkunft |
+| :-- | :-- | :-- | :-- |
+| `player.glb` | Spieler-Chassis, gerigged (24 Joints), 20 Animationen, 18,9 k Dreiecke, 2k-Textur | Overworld-Spielfigur | Meshy (eigene Generierung) |
+
+Aufbereitet mit `tools/prepare_meshy_glb.py` (4k→2k-Textur, Selbstleuchten/BLEND/doubleSided
+entfernt): 40,7 MB → 2,3 MB. Clip-Zuordnung: `AssetRegistry.CLIP_OVERRIDES["player"]`.
 
 ## Umgebung / Boden & Felsen (`models/environment/`)
 | Ordner | Beschreibung | Einsatz | Lizenz |
