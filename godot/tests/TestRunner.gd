@@ -865,10 +865,23 @@ func _test_asset_registry() -> void:
 	# Rollen, die die Overworld tatsaechlich abspielt. Faengt einen kaputten Re-Export sofort.
 	if AssetRegistry.has_model("player"):
 		var p: Node3D = AssetRegistry.instantiate("player", 1.8)
+		add_child(p)   # `global_transform` gilt nur im Szenenbaum (Gegenprobe unten)
 		var pb: AABB = AssetRegistry.local_bounds(p)
 		_check("Spieler-Modell: auf 1,80 m skaliert", is_equal_approx(pb.size.y, 1.8),
 			"gemessen: %.3f" % pb.size.y)
 		_check("Spieler-Modell: steht auf Y = 0", absf(pb.position.y) < 0.001)
+		# UNABHAENGIGE Gegenprobe ueber das Skelett: die Bounds-Messung allein kann sich nicht
+		# selbst pruefen — wenn sie falsch misst, skaliert sie passend zum eigenen Fehler und
+		# der Test bleibt gruen (genau so ist ein 100-facher Massstabsfehler durchgerutscht:
+		# gehaeutete Meshes liegen NICHT dort, wo ihre Knotenkette sagt, sondern wo das Skelett
+		# sie hinsetzt). Knochenhoehen kommen aus dem Rig, nicht aus `local_bounds`.
+		var sk: Skeleton3D = AssetRegistry.skeleton(p)
+		if sk != null:
+			var head_y: float = (sk.global_transform * sk.get_bone_global_rest(sk.find_bone("Head"))).origin.y
+			var toe_y: float = (sk.global_transform * sk.get_bone_global_rest(sk.find_bone("LeftToeBase"))).origin.y
+			_check("Kopfknochen sitzt auf Menschenhoehe (1,3…1,8 m)",
+				head_y > 1.3 and head_y < 1.8, "gemessen: %.2f m" % head_y)
+			_check("Zehenknochen liegt am Boden (< 0,2 m)", toe_y < 0.2, "gemessen: %.2f m" % toe_y)
 		var pap: AnimationPlayer = AssetRegistry.animation_player(p)
 		_check("Spieler-Modell bringt einen AnimationPlayer mit", pap != null)
 		if pap != null:
@@ -876,7 +889,26 @@ func _test_asset_registry() -> void:
 				var clip: String = String(AssetRegistry.CLIP_OVERRIDES["player"].get(role, ""))
 				_check("Spieler-Clip '%s' existiert im Modell (%s)" % [role, clip],
 					clip != "" and pap.has_animation(clip))
+		# Anbauteile (Mantel & Co.) haengen an einem Knochen — der muss im Rig existieren.
+		_check("Spieler-Modell bringt ein Skelett mit", sk != null)
+		if sk != null:
+			var skel: Skeleton3D = sk
+			var bone: String = AssetRegistry.best_bone(skel, AssetRegistry.COAT_BONES)
+			_check("Mantel-Knochen im Rig gefunden (%s)" % bone, bone != "")
+			# Er muss OBERHALB der Huefte liegen, sonst haengt der Mantel am Becken statt an
+			# den Schultern — genau die Verwechslung, die Rigs mit Spine/Spine01/Spine02 nahelegen.
+			var bi: int = skel.find_bone(bone)
+			var hip: int = skel.find_bone("Hips")
+			if bi >= 0 and hip >= 0:
+				_check("Mantel-Knochen sitzt ueber der Huefte",
+					skel.get_bone_global_rest(bi).origin.y > skel.get_bone_global_rest(hip).origin.y)
+		remove_child(p)
 		p.free()
+	_check("Anbauteil-Kandidaten sind gelistet", not AssetRegistry.COAT_BONES.is_empty())
+	_check("Mantel ist in der Registry vorgesehen", AssetRegistry.PATHS.has("player_coat"))
+	_check("Ohne Skelett liefert die Knochensuche ''", AssetRegistry.best_bone(null, ["Spine"]) == "")
+	_check("Schwung-Shader ist vorhanden",
+		load("res://shaders/coat_sway.gdshader") is Shader)
 	_check("Bodentextur ist in der Registry vorgesehen", AssetRegistry.PATHS.has("ground_sand"))
 	_check("Unbekanntes Material liefert null (→ Einheitsfarbe)",
 		AssetRegistry.material_from_model("gibts_nicht") == null)

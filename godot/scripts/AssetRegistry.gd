@@ -14,6 +14,8 @@ class_name AssetRegistry extends RefCounted
 const PATHS: Dictionary = {
 	# ── Charaktere (deine kommenden Assets) ──
 	"player":          ["res://assets/models/characters/player.glb", "res://assets/models/characters/player.gltf"],
+	## Separates Kleidungsstück, das an einen Knochen der Figur gehängt wird (siehe `best_bone`).
+	"player_coat":     ["res://assets/models/characters/player_coat.glb", "res://assets/models/characters/player_coat.gltf"],
 	# ── Gegner (Fallback: Primitive nach Klasse) ──
 	"enemy_outlaw":    ["res://assets/models/enemies/outlaw.glb", "res://assets/models/enemies/outlaw.gltf"],
 	"enemy_fauna":     ["res://assets/models/enemies/fauna.glb", "res://assets/models/enemies/fauna.gltf"],
@@ -117,10 +119,37 @@ static func local_bounds(root: Node3D) -> AABB:
 	var box: AABB = AABB()
 	var found: bool = false
 	for entry in _meshes_with_transform(root, Transform3D.IDENTITY, true):
-		var a: AABB = (entry[1] as Transform3D) * ((entry[0] as MeshInstance3D).get_aabb())
+		var mi: MeshInstance3D = entry[0]
+		var xform: Transform3D = (entry[1] as Transform3D) * _skin_transform(mi)
+		var a: AABB = xform * mi.get_aabb()
 		box = a if not found else box.merge(a)
 		found = true
 	return box if found else AABB()
+
+
+## Zusatz-Transform für **gehäutete** Meshes (Identität bei allem anderen).
+##
+## Bei einem gehäuteten Mesh bestimmt nicht die Knotenkette die Lage — glTF ignoriert die
+## Transform eines solchen Knotens ausdrücklich; platziert wird über das Skelett. Rigs aus
+## Generatoren stehen dabei oft in **Zentimetern** an einem Armature-Knoten mit Skalierung 0,01;
+## die Bindepose rechnet den Faktor 100 wieder heraus. Wer nur die Knotenkette misst, sieht
+## deshalb ein 100-fach zu kleines Modell — und skaliert es beim Einbau 100-fach zu groß.
+##
+## `Knochen-Ruhelage × Bindepose` bildet exakt vom Mesh-Raum in den Skelettraum ab; das ist
+## die Definition der Bindepose und gilt für jeden Knochen gleichermaßen.
+static func _skin_transform(mi: MeshInstance3D) -> Transform3D:
+	if mi.skin == null or mi.skin.get_bind_count() == 0:
+		return Transform3D.IDENTITY
+	var skel: Skeleton3D = mi.get_node_or_null(mi.skeleton) as Skeleton3D
+	if skel == null:
+		return Transform3D.IDENTITY
+	var idx: int = mi.skin.get_bind_bone(0)
+	var bind_name: String = mi.skin.get_bind_name(0)
+	if bind_name != "":
+		idx = skel.find_bone(bind_name)
+	if idx < 0 or idx >= skel.get_bone_count():
+		return Transform3D.IDENTITY
+	return skel.get_bone_global_rest(idx) * mi.skin.get_bind_pose(0)
 
 ## Alle MeshInstance3D unter `node` samt ihrer Transform relativ zur Startwurzel.
 static func _meshes_with_transform(node: Node, parent_xform: Transform3D, is_root: bool) -> Array:
@@ -133,6 +162,39 @@ static func _meshes_with_transform(node: Node, parent_xform: Transform3D, is_roo
 	for c in node.get_children():
 		out.append_array(_meshes_with_transform(c, xform, false))
 	return out
+
+# ── Skelett & Anbauteile ──────────────────────────────────────────────────────
+
+## Erstes Skelett unter `root` (glTF-Import legt es als `Skeleton3D` an), sonst `null`.
+static func skeleton(root: Node) -> Skeleton3D:
+	if root == null:
+		return null
+	if root is Skeleton3D:
+		return root as Skeleton3D
+	for c in root.get_children():
+		var found: Skeleton3D = skeleton(c)
+		if found != null:
+			return found
+	return null
+
+## Knochennamen, an denen ein Umhang/Mantel hängt — vom besten zum notdürftigsten.
+## Rigs benennen die Brustwirbel unterschiedlich (Mixamo: `Spine2`, Meshy: `Spine`,
+## Blender-Rigify: `spine_03`), deshalb eine Liste statt eines festen Namens.
+const COAT_BONES: Array = ["Spine2", "UpperChest", "Chest", "Spine", "spine_03", "Spine01", "Spine1"]
+
+## Erster vorhandener Knochen aus `candidates` ("" = keiner passt). Gross-/Kleinschreibung egal.
+static func best_bone(skel: Skeleton3D, candidates: Array) -> String:
+	if skel == null:
+		return ""
+	var lower: Dictionary = {}
+	for i in skel.get_bone_count():
+		lower[skel.get_bone_name(i).to_lower()] = skel.get_bone_name(i)
+	for c in candidates:
+		var key: String = String(c).to_lower()
+		if lower.has(key):
+			return String(lower[key])
+	return ""
+
 
 # ── Animationen ───────────────────────────────────────────────────────────────
 ## Clip-Namen kommen aus jedem Werkzeug anders („Walking", „Armature|walk", „CharacterArmature|Walk",
@@ -230,7 +292,7 @@ static func material_from_model(name: String) -> BaseMaterial3D:
 		return null
 	var node: Node = (packed as PackedScene).instantiate()
 	var mat: BaseMaterial3D = null
-	for mi in _all_mesh_instances(node):
+	for mi in mesh_instances(node):
 		var m: Material = mi.get_active_material(0)
 		if m is BaseMaterial3D:
 			mat = (m as BaseMaterial3D).duplicate()   # eigene Kopie -> uv1_scale verändert nicht das Original
@@ -238,10 +300,11 @@ static func material_from_model(name: String) -> BaseMaterial3D:
 	node.queue_free()
 	return mat
 
-static func _all_mesh_instances(node: Node) -> Array:
+## Alle MeshInstance3D unter `node` (flach, ohne Transformationen) — für Material-Eingriffe.
+static func mesh_instances(node: Node) -> Array:
 	var out: Array = []
 	if node is MeshInstance3D:
 		out.append(node)
 	for c in node.get_children():
-		out.append_array(_all_mesh_instances(c))
+		out.append_array(mesh_instances(c))
 	return out

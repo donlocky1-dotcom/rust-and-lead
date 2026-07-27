@@ -62,6 +62,19 @@ Spiel schaden — beim Spieler-Chassis waren das **40,7 MB → 2,3 MB**:
   transparent zu rendern kostet Sortierung und Füllrate, ohne dass man etwas davon hätte.
 * Animationen bleiben unangetastet.
 
+### Kleidung & Anbauteile (Mantel, Hut, Rucksack)
+
+Ein Mantel kommt als **eigene Datei**, nicht in die Figur hineinmodelliert:
+`models/characters/player_coat.glb`. Grund: als separates Mesh kann er sich frei bewegen —
+in die Figur eingebacken würde ihn deren Rig mitverformen, und Auto-Rigging kennt keine
+Stoff-Knochen.
+
+**Wichtig beim Export:** derselbe Ursprung und derselbe Maßstab wie die Figur (also in der
+Pose exportieren, in der die Figur modelliert wurde — Meshy macht das von allein, wenn der
+Mantel aus derselben Figur stammt). Der Mantel wird dann am Brustknochen (`Spine`) aufgehängt
+und bekommt automatisch den Schwung-Shader: der Saum zieht beim Laufen nach, hebt sich mit dem
+Tempo und flattert im Wind. Kein Rigging nötig, keine Stoffsimulation.
+
 **Was du NICHT selbst richten musst** — das macht die `AssetRegistry` beim Instanziieren:
 * **Größe:** wird auf die Zielhöhe unten in der Tabelle skaliert, egal wie groß Meshy exportiert.
 * **Pivot/Höhe:** die Unterkante wird auf Y = 0 gelegt. Generatoren setzen den Pivot fast immer
