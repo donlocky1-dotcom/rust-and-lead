@@ -101,34 +101,86 @@ no lettering, no logos, no watermark. Photorealistic PBR game asset, high detail
 
 ---
 
-## 3. Wohnhütte — ~6 × 5 m, 4 m hoch (drei Varianten)
+## 3. Wohnhütten — drei eigenständige Bauten, 5–8 m breit, 3,4–4,8 m hoch
 
-Gebaut aus dem, was die Iron Rail übrig gelassen hat. Erkennungszeichen ist die **Schieflage**:
-Diese Hütten stehen nicht, sie halten sich aufrecht.
+In Rustwater stehen zehn Hütten im Ring um das Zentrum. Zehn Kopien desselben Hauses fallen
+sofort auf — also drei **verschiedene Bauweisen** statt drei Varianten einer Bauweise. Jede
+folgt einer eigenen Notlösung mit dem, was die Iron Rail übrig gelassen hat, und das ergibt
+drei klar unterscheidbare Umrisslinien:
+
+| | Bauweise | Silhouette | Farbe |
+| :-- | :-- | :-- | :-- |
+| **A** | Bahnschwellen gestapelt | **niedrig und breit**, massiv | teerschwarz |
+| **B** | halbierter Kessel | **gerundet**, Tonnendach | rostorange |
+| **C** | aufgeständert, mit Schlafboden | **hoch und schmal** | bleiches Holz + Segeltuch |
+
+Nebeneinander gestellt sieht man auf einen Blick drei Häuser, nicht dreimal eins.
+
+### A — Bahnschwellen-Kate (~7 × 5 m, 3,4 m hoch)
 
 ```
-A single small grim-dark steampunk western shack, standing alone as a 3D game asset concept,
+A single small grim-dark steampunk western cabin, standing alone as a 3D game asset concept,
 seen from a high three-quarter angle roughly 50 degrees above the horizon, so that the roof
 and two walls are clearly visible.
-An improvised dwelling built from salvaged railway sleepers and curved boiler plate, the whole
-structure leaning visibly out of true, one wall propped up by a diagonal timber brace driven
-into the ground. A narrow crooked door, one small window shuttered with scrap metal, a short
-stove pipe with a rain cap.
-The roof carries the eye: a lopsided corrugated iron sheet weighed down with rocks and a
-salvaged wheel rim, one corner patched with tar paper, a coil of wire and a bucket left on it.
-Roughly 6 metres wide, 5 metres deep, 4 metres tall — clearly smaller and poorer than a
-two-storey building.
-Wind-scoured and patched, desert dust in every seam; grey weathered timber and rust brown
-metal, with one faded blue-painted plank reused in the wall as the only spot of colour.
+Built like a log cabin but from heavy salvaged railway sleepers stacked horizontally, their
+ends overlapping at the corners, still black with creosote tar and studded with the old rail
+spikes and fishplates. Low, squat and solid, sitting heavily on the ground; a small door of
+vertical planks and one deep-set window with an iron shutter.
+The roof carries the eye: a shallow single-pitch roof of overlapping tar paper strips held
+down by loose sleepers laid across it, sagging in the middle between two rafters, with a
+crooked stove pipe and a scattering of rocks along the lower edge.
+Roughly 7 metres wide, 5 metres deep, only 3.4 metres tall — long, low and heavy.
+Creosote black and dark brown timber, iron spikes bleeding orange rust stains down the walls,
+pale desert dust caked along the bottom course.
 Plain neutral mid-grey background, no ground plane, no cast shadows, even soft studio
 lighting. Entire structure visible and centered with margin on all sides. No people, no text,
 no lettering, no logos, no watermark. Photorealistic PBR game asset, high detail.
 ```
 
-> **Für die drei Varianten** denselben Prompt dreimal laufen lassen und je einen Satz ergänzen:
-> „*A lean-to woodshed with a sagging roof is attached to the right wall.*" /
-> „*The walls are clad entirely in overlapping rusted sheet metal instead of timber.*" /
-> „*A rickety external staircase leads to a second-floor sleeping loft added on top.*"
+### B — Kesselhütte (~5 × 6 m, 4 m hoch)
+
+```
+A single small grim-dark steampunk western dwelling, standing alone as a 3D game asset
+concept, seen from a high three-quarter angle roughly 50 degrees above the horizon, so that
+the curved roof and the front are clearly visible.
+Built inside a huge riveted iron boiler shell laid on its side and cut open: the walls and
+roof form one continuous barrel vault of curved rusted plate, closed off at the front by a
+flat wall of mismatched planks with a low door and a small round porthole window still framed
+in brass. Sandbags and rubble are heaped against the lower curve on one side.
+The curved roof carries the eye: hundreds of rivets along the overlapping plate seams, one
+large patch of newer corrugated iron wired over a hole, a short chimney pipe punched through
+the curve with a metal collar, and a rain-catching gutter of split pipe running along the edge
+into a barrel.
+Roughly 5 metres wide, 6 metres deep, 4 metres tall — unmistakably round-backed, never boxy.
+Deep orange-brown rust over dark iron, tar smeared along the seams, brass porthole ring as the
+only bright metal.
+Plain neutral mid-grey background, no ground plane, no cast shadows, even soft studio
+lighting. Entire structure visible and centered with margin on all sides. No people, no text,
+no lettering, no logos, no watermark. Photorealistic PBR game asset, high detail.
+```
+
+### C — Stelzenhütte mit Schlafboden (~5 × 5 m, 4,8 m hoch)
+
+```
+A single small grim-dark steampunk western stilt shack, standing alone as a 3D game asset
+concept, seen from a high three-quarter angle roughly 50 degrees above the horizon, so that
+the roof, the raised floor and two walls are clearly visible.
+Tall and narrow: a one-room hut raised about one metre off the ground on stacked stone piers
+and two salvaged rail bogies, to keep the drifting sand out. Walls of thin sun-bleached
+vertical planks with wide gaps stuffed with rags; a rickety external staircase of plank treads
+climbs the side wall to a small sleeping loft added on top, its walls made of stretched
+canvas tarpaulin over a timber frame. A narrow porch of two boards runs along the front.
+The roof carries the eye: two separate small roofs at different heights — corrugated iron over
+the loft and tar paper over the main room — a taut guy rope from the loft corner down to a
+ground anchor, a lantern hook, and a bundle of firewood stored under the raised floor.
+Roughly 5 metres wide, 5 metres deep, 4.8 metres tall — clearly the tallest and thinnest of
+the shacks.
+Pale sun-bleached silver-grey timber, dirty off-white canvas, rusted iron fittings; a strip of
+faded green paint on the loft frame as the only colour.
+Plain neutral mid-grey background, no ground plane, no cast shadows, even soft studio
+lighting. Entire structure visible and centered with margin on all sides. No people, no text,
+no lettering, no logos, no watermark. Photorealistic PBR game asset, high detail.
+```
 
 ---
 
