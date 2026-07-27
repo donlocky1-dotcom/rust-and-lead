@@ -902,6 +902,20 @@ func _test_asset_registry() -> void:
 			if bi >= 0 and hip >= 0:
 				_check("Mantel-Knochen sitzt ueber der Huefte",
 					skel.get_bone_global_rest(bi).origin.y > skel.get_bone_global_rest(hip).origin.y)
+			# Anbauteile werden im MESH-Raum der Figur modelliert; `mesh_to_skeleton` ist die
+			# Bruecke dorthin. Stimmt sie nicht, sitzt der Mantel im falschen Massstab (das Rig
+			# steht in Zentimetern) oder um die Knochenhoehe versetzt.
+			if AssetRegistry.has_model("player_coat"):
+				var coat: Node3D = AssetRegistry.instantiate("player_coat", 0.0, false)
+				var to_world: Transform3D = sk.global_transform * AssetRegistry.mesh_to_skeleton(p)
+				var cw: AABB = to_world * AssetRegistry.local_bounds(coat)
+				_check("Mantel ist so hoch wie die Figur (1,80 m)", absf(cw.size.y - 1.8) < 0.02,
+					"gemessen: %.3f m" % cw.size.y)
+				_check("Mantel steht auf dem Boden", absf(cw.position.y) < 0.02,
+					"gemessen: %.3f m" % cw.position.y)
+				_check("Mantel ist schmaler als die Figur (liegt an, statt sie zu umschliessen)",
+					cw.size.x < pb.size.x)
+				coat.free()
 		remove_child(p)
 		p.free()
 	_check("Anbauteil-Kandidaten sind gelistet", not AssetRegistry.COAT_BONES.is_empty())

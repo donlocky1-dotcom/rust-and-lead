@@ -10,18 +10,25 @@ class_name OverworldView extends Node3D
 ## Truhen rollen echte Ausrüstung über `ProgressionManager`/`EquipManager` aus — Kämpfen wirkt
 ## sich dadurch sofort auf den nächsten Schuss aus (PlayerStats liest live aus GameState.equip).
 
-const AGGRO_M: float = 45.0          # Gegner erwachen in dieser Distanz
-const SHOOT_RANGE_M: float = 32.0    # Auto-Ziel-Reichweite des Spielers
+# ── Kampf-Reichweiten: am SICHTBAREN Ausschnitt bemessen ─────────────────────
+# Die Kamera zeigt bei 9,5 m Abstand und 50° Sichtfeld rund 15 m Breite und 13 m Tiefe um die
+# Figur. Die alten Werte (32 m Schussweite, Spawn ab 140 m) stammen von einer viel weiter
+# entfernten Kamera: der Spieler hat Gegner erledigt, die nie im Bild waren. Alles hier liegt
+# jetzt INNERHALB des Ausschnitts — man sieht, worauf man schießt.
+const AGGRO_M: float = 16.0          # Gegner erwachen, sobald sie im Bild sind
+const SHOOT_RANGE_M: float = 11.0    # Auto-Ziel-Reichweite: gut sichtbar, nicht am Bildrand
 const CONTACT_RANGE_M: float = 2.2   # Nahkampf-Kontakt
 const ENEMY_SPEED_MS: float = 3.4    # Rudel etwas langsamer als der Spieler (4,7)
 ## Spawn liegt neben, nicht auf der Rustwater-Landmarken-Säule (die am exakten POI-Punkt steht).
 const RUSTWATER_SPAWN_OFFSET: Vector3 = Vector3(0.0, 0.0, 25.0)   # 25 m südlich der Säule
 
 # ── Kontinuierliches Spawning (echter Biom-Gegnermix aus WorldManager) ────────
-const ENEMY_MAX: int = 10
-const SPAWN_INTERVAL_SEC: float = 6.0
-const SPAWN_MIN_DIST: float = 140.0
-const SPAWN_MAX_DIST: float = 300.0
+const ENEMY_MAX: int = 12
+const SPAWN_INTERVAL_SEC: float = 4.0
+## Knapp außerhalb des Bildes bis kurze Laufdistanz — nah genug, dass Nachschub ankommt,
+## solange man noch da ist, und weit genug, dass niemand vor der Nase aus dem Nichts auftaucht.
+const SPAWN_MIN_DIST: float = 18.0
+const SPAWN_MAX_DIST: float = 45.0
 
 # ── Waffen (alle vier Schadensarten testbar — Kapitel-Gating folgt später über
 # das Quest-/Reveal-System; dieser Sandbox-Screen ist bewusst ungesperrt). ────
@@ -47,7 +54,10 @@ const AUTOSAVE_INTERVAL_SEC: float = 10.0
 
 ## Rustwater ist Schutzzone: innerhalb dieses Radius spawnt nichts Feindliches und es
 ## wird kein Dekor gestreut — die Stadt bleibt Stadt (GDD §1.6: befriedete Hubs).
-const TOWN_SAFE_M: float = 95.0
+const TOWN_SAFE_M: float = 90.0
+## Panzer-Rotte vor dem Tor beim Spielstart (der kontinuierliche Nachschub würfelt sie danach
+## aus dem Biom-Mix — in der Wüste rund jeder zehnte Gegner, WorldManager.ENEMY_POOLS).
+const STARTER_TANKS: int = 3
 
 ## Reiseziele (Tasten 1–5) sind exakt die Bahnhöfe — eine Liste, keine zweite Wahrheit.
 const FAST_TRAVEL: Array = WorldManager.RAIL_STATIONS
@@ -707,17 +717,22 @@ func _attach_coat() -> void:
 	if coat == null:
 		return
 	var bounds: AABB = AssetRegistry.local_bounds(coat)
+	var idx: int = skel.find_bone(bone)
+	if idx < 0:
+		coat.queue_free()
+		return
 	var att := BoneAttachment3D.new()
 	att.bone_name = bone
 	skel.add_child(att)
 	att.add_child(coat)
-	# Die Knochen-Aufhängung sitzt auf Brusthöhe; der Mantel ist aber in Figur-Koordinaten
-	# modelliert (Ursprung an den Füßen). Die inverse Ruhelage des Knochens rechnet genau
-	# diesen Versatz heraus — danach steht der Mantel in Ruhepose exakt am modellierten Platz
-	# und folgt trotzdem jeder Bewegung des Oberkörpers.
-	var idx: int = skel.find_bone(bone)
-	if idx >= 0:
-		coat.transform = skel.get_bone_global_rest(idx).affine_inverse()
+	# Der Mantel ist im MESH-Raum der Figur modelliert (Ursprung an den Füßen, 1,7 m hoch), die
+	# Aufhängung sitzt dagegen auf Brusthöhe im SKELETT-Raum — der bei generierten Rigs in
+	# Zentimetern steht. Die Bindepose ist genau die Brücke zwischen beiden Räumen; damit
+	# stimmen Versatz UND Maßstab (inklusive der Skalierung der Figur auf 1,80 m), ohne einen
+	# einzigen geratenen Faktor. Rein lokale Matrizen — funktioniert schon im ersten Frame,
+	# bevor `BoneAttachment3D` seine Weltlage überhaupt berechnet hat.
+	coat.transform = skel.get_bone_global_rest(idx).affine_inverse() \
+		* AssetRegistry.mesh_to_skeleton(_player_model)
 	_coat = coat
 	_apply_coat_shader(coat, bounds)
 
@@ -740,6 +755,15 @@ func _apply_coat_shader(coat: Node3D, bounds: AABB) -> void:
 			mat.set_shader_parameter("albedo_tex", src.albedo_texture)
 			mat.set_shader_parameter("roughness", src.roughness)
 			mat.set_shader_parameter("metallic", src.metallic)
+			# Normal- und ORM-Map mitnehmen, sonst verliert der Mantel beim Materialwechsel
+			# genau die Details (Nähte, Falten, Lederglanz), für die er modelliert wurde.
+			if src.normal_enabled and src.normal_texture != null:
+				mat.set_shader_parameter("normal_tex", src.normal_texture)
+				mat.set_shader_parameter("has_normal", true)
+			var orm: Texture2D = src.orm_texture if src is ORMMaterial3D else null
+			if orm != null:
+				mat.set_shader_parameter("orm_tex", orm)
+				mat.set_shader_parameter("has_orm", true)
 		mi.material_override = mat
 		_coat_mats.append(mat)
 
@@ -826,13 +850,21 @@ func _make_enemy(type_id: String) -> Dictionary:
 
 
 func _spawn_pack() -> void:
-	# Grenzgänger-Rudel + ein Kessel-Kläffer südöstlich von Rustwater (echter Biom-Leitmix) —
-	# der erste Kontakt beim Einstieg; danach übernimmt der kontinuierliche Spawner unten.
-	var base: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(40.0, 0.0, 55.0)
+	# Der erste Kontakt steht direkt VOR dem Südtor — Rustwater ist befriedet (TOWN_SAFE_M),
+	# drinnen spawnt nichts, also gehört das Empfangskomitee dorthin, wo man beim Verlassen
+	# der Stadt hinschaut. Danach übernimmt der kontinuierliche Spawner.
+	var gate: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(0.0, 0.0, TOWN_SAFE_M + 12.0)
 	for i in 4:
 		var type_id: String = "klaeffer" if i == 3 else "outlaw"
 		var e: Dictionary = _make_enemy(type_id)
-		(e["node"] as Node3D).position = base + Vector3(float(i) * 5.0 - 7.5, 0.0, float(i % 2) * 6.0)
+		(e["node"] as Node3D).position = gate + Vector3(float(i) * 5.0 - 7.5, 0.0, float(i % 2) * 6.0)
+		add_child(e["node"])
+		_enemies.append(e)
+	# Dahinter eine Panzer-Rotte: schwerer, langsamer, aus der Ferne als Silhouette erkennbar —
+	# und die zweite Welle, wenn das Rudel liegt.
+	for i in STARTER_TANKS:
+		var e: Dictionary = _make_enemy("konstrukt")
+		(e["node"] as Node3D).position = gate + Vector3(float(i) * 9.0 - 9.0, 0.0, 22.0 + float(i % 2) * 7.0)
 		add_child(e["node"])
 		_enemies.append(e)
 

@@ -148,6 +148,19 @@ static func local_bounds(root: Node3D) -> AABB:
 	return box if found else AABB()
 
 
+## Abbildung **Mesh-Raum → Skelettraum** des ersten gehäuteten Meshes unter `root`.
+##
+## Das ist der Raum, in dem ein Charakter-Mesh modelliert wurde — und damit auch der, in dem
+## Kleidung und Anbauteile aus demselben Generator modelliert sind. Wer ein solches Teil an
+## einen Knochen hängt, braucht genau diese Abbildung, sonst stimmt der Maßstab nicht (das Rig
+## steht in Zentimetern, das Mesh in Metern) und die Skalierung auf Zielhöhe fehlt.
+static func mesh_to_skeleton(root: Node) -> Transform3D:
+	for mi in mesh_instances(root):
+		if (mi as MeshInstance3D).skin != null:
+			return _skin_transform(mi)
+	return Transform3D.IDENTITY
+
+
 ## Zusatz-Transform für **gehäutete** Meshes (Identität bei allem anderen).
 ##
 ## Bei einem gehäuteten Mesh bestimmt nicht die Knotenkette die Lage — glTF ignoriert die
