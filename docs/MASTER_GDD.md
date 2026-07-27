@@ -1392,7 +1392,7 @@ Biom-Zonierung (§1.6.3) bereits nach `WorldManager` portiert ist.
 | **Overworld im Produktions-Maßstab** (5000 m, Biome, Tore, POIs, Kraterrand) | §1.4/§1.6 | `OverworldView` + `WorldManager`-Maßstabsschicht | ✅ erste sichtbare Szene (Primitives; finale Assets/Meshes folgen) |
 
 > **Stand:** Die **gesamte Spiel-Logik** ist ins Godot-Backend portiert und **headless verifiziert**
-> (Godot 4.3.stable, `godot --headless --path godot` → **333/333 Checks, Exit 0**), zusätzlich in
+> (Godot 4.3.stable, `godot --headless --path godot` → **335/335 Checks, Exit 0**), zusätzlich in
 > **CI** abgesichert (`.github/workflows/godot-backend.yml`). Offen bleibt allein die
 > **Präsentations-/Render-Schicht** (Kampf-Lesbarkeit §8.4, 3D-Szenen/Assets, Audio, UI) — kein
 > Logik-Port mehr, sondern View-Arbeit auf dem fertigen, getesteten Fundament.

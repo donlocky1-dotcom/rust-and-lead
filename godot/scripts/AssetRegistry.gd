@@ -89,12 +89,22 @@ const TARGET_HEIGHT: Dictionary = {
 }
 const TARGET_HEIGHT_DEFAULT: float = 1.6
 
-## Assets, die über ihre **längste** Kante skaliert werden statt über die Höhe. Ein Karabiner
-## ist 40 cm hoch und einen Meter lang — auf 1 m Höhe skaliert wäre er fast fünf Meter lang.
-## Alles Langgestreckte (Waffen, Balken, Rohre) gehört hierher.
+## Assets, die über ihre **längste** Kante skaliert werden statt über die Höhe — alles, was
+## flach oder langgestreckt ist. Über die Höhe skaliert wächst so etwas ins Absurde:
+##  • Ein Karabiner ist 40 cm hoch und einen Meter lang — auf 1 m Höhe skaliert wäre er 4,75 m.
+##  • „sand_rocks_small" ist kein einzelner Stein, sondern ein flaches Geröllfeld. Auf 1,2 m
+##    Höhe skaliert war es **10,4 × 8,7 m** groß und verdeckte die halbe Stadt.
+## Die Zahl ist die Ziel-Länge in Metern (Vorgabe, wenn der Aufrufer keine eigene angibt).
 const TARGET_LENGTH: Dictionary = {
 	"weapon_karabiner": 1.0,
+	"rock_small": 1.6,       # Geröllfeld, kein Findling
+	"rock_boulder": 2.4,
+	"cliff": 9.0,
 }
+
+## Ziel-Länge eines Assets (0.0 = wird über die Höhe skaliert).
+static func length_of(name: String) -> float:
+	return float(TARGET_LENGTH.get(name, 0.0))
 
 ## Zielhöhe eines Assets in Metern (Rückfall: menschengroß).
 static func height_of(name: String) -> float:
@@ -149,12 +159,13 @@ static func instantiate(name: String, scale_to_height: float = 0.0, snap_to_floo
 	var n3: Node3D = node as Node3D
 	var bounds: AABB = local_bounds(n3)
 	var factor: float = 1.0
-	var by_length: float = float(TARGET_LENGTH.get(name, 0.0))
-	if by_length > 0.0:
-		# Langgestrecktes misst sich an der längsten Kante, nicht an der Höhe.
+	if TARGET_LENGTH.has(name):
+		# Flaches und Langgestrecktes misst sich an der längsten Kante, nicht an der Höhe.
+		# `scale_to_height` ist dann die gewünschte LÄNGE (0 = Vorgabe aus der Tabelle).
+		var goal: float = scale_to_height if scale_to_height > 0.0 else float(TARGET_LENGTH[name])
 		var longest: float = maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
 		if longest > 0.001:
-			factor = by_length / longest
+			factor = goal / longest
 			n3.scale = Vector3.ONE * factor
 	elif scale_to_height > 0.0 and bounds.size.y > 0.001:
 		factor = scale_to_height / bounds.size.y

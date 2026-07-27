@@ -773,8 +773,11 @@ func _scatter_decor() -> void:
 	var origin: Vector3 = WorldManager.poi_scene_position("rustwater")
 	for i in 90:
 		var kind: String = available[rng.randi_range(0, available.size() - 1)]
-		var height: float = 1.2 if kind == "rock_small" else (3.5 if kind == "rock_boulder" else 9.0)
-		var rock: Node3D = AssetRegistry.instantiate(kind, height * rng.randf_range(0.7, 1.5))
+		# Zielgröße ist die LÄNGSTE Kante (AssetRegistry.TARGET_LENGTH), nicht die Höhe: die
+		# CC0-Steine sind flache Geröllfelder — über die Höhe skaliert wurden aus „kleinen
+		# Sandsteinen" zehn Meter breite Platten, die halb Rustwater verdeckt haben.
+		var rock: Node3D = AssetRegistry.instantiate(kind,
+			AssetRegistry.length_of(kind) * rng.randf_range(0.7, 1.5))
 		if rock == null:
 			continue
 		var ang: float = rng.randf() * TAU

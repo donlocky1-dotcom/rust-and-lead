@@ -833,13 +833,23 @@ func _test_asset_registry() -> void:
 	# Gegenprobe an einem echten Modell (nur wenn Assets vorhanden sind — das Projekt muss
 	# auch ohne sie testbar bleiben): Zielhöhe getroffen UND Unterkante auf dem Boden.
 	if AssetRegistry.has_model("rock_small"):
+		# `rock_small` ist ein flaches Geroellfeld und wird deshalb ueber die LAENGSTE Kante
+		# skaliert (TARGET_LENGTH) — die 2,00 sind hier also Laenge, nicht Hoehe.
 		var inst: Node3D = AssetRegistry.instantiate("rock_small", 2.0)
 		var ib: AABB = AssetRegistry.local_bounds(inst)
-		_check("Echtes Modell: auf 2,00 m skaliert", is_equal_approx(ib.size.y, 2.0),
-			"gemessen: %.3f" % ib.size.y)
-		_check("Echtes Modell: Unterkante steht auf Y = 0", absf(ib.position.y) < 0.001,
+		var longest: float = maxf(ib.size.x, maxf(ib.size.y, ib.size.z))
+		_check("Flaches Modell: laengste Kante auf 2,00 m skaliert", is_equal_approx(longest, 2.0),
+			"gemessen: %.3f" % longest)
+		_check("Flaches Modell: Unterkante steht auf Y = 0", absf(ib.position.y) < 0.001,
 			"gemessen: %.4f" % ib.position.y)
 		inst.free()
+	if AssetRegistry.has_model("player"):
+		# Gegenprobe fuer die Hoehen-Skalierung an einem Modell, das NICHT in TARGET_LENGTH steht.
+		var ph: Node3D = AssetRegistry.instantiate("player", 2.0)
+		_check("Hohes Modell: auf 2,00 m Hoehe skaliert",
+			is_equal_approx(AssetRegistry.local_bounds(ph).size.y, 2.0),
+			"gemessen: %.3f" % AssetRegistry.local_bounds(ph).size.y)
+		ph.free()
 	# Clip-Suche: Werkzeuge benennen Animationen unterschiedlich („Armature|Walk", „Idle",
 	# „walk_backwards"). Die Registry muss die Rolle treffen, ohne dass jemand umbenennt —
 	# und ein exakter Treffer muss einen Teiltreffer schlagen. Synthetisch, assetfrei.
@@ -892,6 +902,33 @@ func _test_asset_registry() -> void:
 		_check("Spieler-Modell bringt ein Skelett mit", sk != null)
 		remove_child(p)
 		p.free()
+	# MASSSTABS-WACHE ueber ALLE vorhandenen Assets. Ein flaches Modell (Geroellfeld, Waffe,
+	# Wandstueck) ueber die HOEHE zu skalieren blaest es ins Absurde: "sand_rocks_small" wurde
+	# so 10,4 x 8,7 m gross und hat halb Rustwater verdeckt. Kein Asset darf in irgendeiner
+	# Richtung mehr als das Vierfache seines Zielmasses messen — das laesst normalen
+	# Proportionen Luft und faengt genau diesen Fehler.
+	var scale_ok: bool = true
+	var worst: String = ""
+	var worst_ratio: float = 0.0
+	for name in AssetRegistry.PATHS.keys():
+		var id: String = String(name)
+		if not AssetRegistry.has_model(id):
+			continue
+		var by_length: float = AssetRegistry.length_of(id)
+		var target: float = by_length if by_length > 0.0 else AssetRegistry.height_of(id)
+		var m: Node3D = AssetRegistry.instantiate(id, target)
+		if m == null:
+			continue
+		var s: Vector3 = AssetRegistry.local_bounds(m).size
+		var ratio: float = maxf(s.x, maxf(s.y, s.z)) / maxf(target, 0.001)
+		if ratio > worst_ratio:
+			worst_ratio = ratio
+			worst = id
+		if ratio > 4.0:
+			scale_ok = false
+		m.free()
+	_check("Kein Asset ist unverhaeltnismaessig gross skaliert",
+		scale_ok, "schlimmster Fall: %s mit Faktor %.1f" % [worst, worst_ratio])
 	_check("Bodentextur ist in der Registry vorgesehen", AssetRegistry.PATHS.has("ground_sand"))
 	_check("Unbekanntes Material liefert null (→ Einheitsfarbe)",
 		AssetRegistry.material_from_model("gibts_nicht") == null)
