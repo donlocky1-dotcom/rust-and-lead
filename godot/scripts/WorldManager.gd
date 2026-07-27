@@ -32,6 +32,72 @@ static func scene_to_world(p: Vector3) -> Vector2:
 static func poi_scene_position(poi_id: String) -> Vector3:
 	return world_to_scene(poi_position(poi_id))
 
+
+# ── Begehbare Zonen (Master-GDD §1.4a) ────────────────────────────────────────
+## Die Welt ist bewusst KEINE frei begehbare Fläche mehr, sondern ein Netz aus Zonen
+## (POI-Bereiche) und Korridoren (Routen dazwischen) — die Struktur, die mobile
+## Action-RPGs wie Diablo Immortal benutzen. Das erhält die Weite und die Reisezeiten
+## des Kraters, macht die Navigation am Touchscreen aber führbar: man folgt einem Weg,
+## statt in einer 5000-m-Ebene die Orientierung zu verlieren.
+## Alle Werte in relativen Weltkoordinaten (0…2000); ×METERS_PER_UNIT ergibt Meter.
+
+## Radius der begehbaren Fläche um einen POI. Hubs sind großzügiger als Nebenpunkte.
+const ZONE_RADIUS_HUB: float = 46.0        # ≈ 115 m — Rustwater & Fraktionsbasen
+const ZONE_RADIUS_DEFAULT: float = 26.0    # ≈ 65 m  — Dungeons, Jagdgründe, Arenen
+## Halbe Breite der Verbindungswege.
+const CORRIDOR_HALF_W: float = 11.0        # ≈ 27 m breite Piste (beidseitig ~13 m)
+
+## Verbindungen zwischen den Orten — zugleich Straßen-Layout und begehbare Korridore.
+const ROUTES: Array = [
+	["rustwater", "rattengestruepp"], ["rustwater", "schrott_minen"], ["rustwater", "zugdepot"],
+	["zugdepot", "rogues_landing"], ["rogues_landing", "fort_freedom"],
+	["rogues_landing", "sektor01"], ["rogues_landing", "alchemie_raffinerie"],
+	["fort_freedom", "goliath_testgelaende"], ["sektor01", "schmelzoefen_vulcan"],
+	["alchemie_raffinerie", "eisernes_herz"],
+]
+
+## Begehbarer Radius eines POI (Hubs & Basen weiter, Rest enger).
+static func zone_radius(poi_id: String) -> float:
+	var t: String = String(poi(poi_id).get("type", ""))
+	return ZONE_RADIUS_HUB if (t == "hub" or t == "base") else ZONE_RADIUS_DEFAULT
+
+## Kürzester Abstand eines Punktes zur Strecke a→b (Standard-Punkt-Segment-Distanz).
+static func _dist_to_segment(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab: Vector2 = b - a
+	var len_sq: float = ab.length_squared()
+	if len_sq < 0.0001:
+		return p.distance_to(a)
+	var t: float = clampf((p - a).dot(ab) / len_sq, 0.0, 1.0)
+	return p.distance_to(a + ab * t)
+
+## Liegt die Position in einer Zone oder auf einem Korridor? (relative Weltkoordinaten)
+static func is_walkable(rel: Vector2) -> bool:
+	for id in POIS.keys():
+		if rel.distance_to(poi_position(String(id))) <= zone_radius(String(id)):
+			return true
+	for r in ROUTES:
+		var a: Vector2 = poi_position(String(r[0]))
+		var b: Vector2 = poi_position(String(r[1]))
+		if _dist_to_segment(rel, a, b) <= CORRIDOR_HALF_W:
+			return true
+	return false
+
+## Nächstgelegener begehbarer Punkt zu `rel` (Mittelpunkt der nächsten Zone/des nächsten
+## Korridors, auf dessen Rand gezogen). Dient als Rückfallposition, wenn jemand doch
+## außerhalb landet (Schnellreise, Rückstoß, geladener Spielstand aus einer alten Fassung).
+static func nearest_walkable(rel: Vector2) -> Vector2:
+	if is_walkable(rel):
+		return rel
+	var best: Vector2 = poi_position("rustwater")
+	var best_d: float = INF
+	for id in POIS.keys():
+		var c: Vector2 = poi_position(String(id))
+		var d: float = rel.distance_to(c) - zone_radius(String(id))
+		if d < best_d:
+			best_d = d
+			best = c + (rel - c).normalized() * (zone_radius(String(id)) - 1.0)
+	return best
+
 # ── Gating-Parameter ──────────────────────────────────────────────────────────
 const BLAST_GATE_CHAPTER: int = 5              # ab hier ist der Panzerzug durchgebrochen
 const REFINERY_BUILDING: String = "laboratory" # Raffinerie/Labor fürs Smog-Gate (§1.7.2)

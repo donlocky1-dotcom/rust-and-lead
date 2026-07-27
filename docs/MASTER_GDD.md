@@ -107,9 +107,32 @@ Welt eng:
   Rogue's Landing) und Dungeons (z. B. die Schrott-Minen) sind Bereiche desselben Kraterbeckens.
   Konkrete Weltkoordinaten & Sektoren: §1.6; Progressions-Tore: §1.7.
 
+## 1.4a Weltstruktur: Zonen & Korridore (revidiert — kein freies Open World)
+
+**Entscheidung.** Die Welt ist **kein frei begehbares Gelände** mehr, sondern ein **Netz aus
+Zonen und Korridoren** — die Struktur, die mobile Action-RPGs (Diablo Immortal) benutzen. Grund:
+Auf dem Touchscreen, mit Daumen-Joystick und fester Schulterkamera, ist eine offene 5000-m-Ebene
+nicht navigierbar — man verliert die Orientierung und läuft ins Nichts. Ein geführter Weg löst
+genau das, **ohne** die Weite aufzugeben: Reisezeiten, Biom-Takt und Landmark-Navigation aus §1.4
+bleiben unverändert, nur die *seitliche* Freiheit fällt weg.
+
+* **Zonen** = begehbare Flächen um jeden POI. Hubs und Fraktionsbasen großzügig (Radius ≈ 115 m),
+  Dungeons/Jagdgründe/Arenen enger (≈ 65 m).
+* **Korridore** = die Routen dazwischen, ≈ 27 m breite Pisten. Sie sind zugleich das sichtbare
+  Straßen-Layout — **was man sieht, ist auch begehbar** (eine Datenquelle, keine Doppelpflege).
+* **Jeder Ort hängt an mindestens einer Route** — kein unerreichbarer POI (per Test abgesichert).
+* **Kanten statt Wände:** An der Zonengrenze *gleitet* die Figur entlang, statt hart zu stoppen.
+  Diegetisch begrenzt wird durch Geländer, Felskanten, Abgründe und Ruinen — nicht durch
+  unsichtbare Wände (§1.7).
+* Gegner-Nachschub und Truhen erscheinen **nur in begehbaren Bereichen** — nichts lockt mehr
+  irgendwohin, wo man nicht hinkommt.
+
+Umsetzung: `WorldManager.ROUTES` / `zone_radius()` / `is_walkable()` / `nearest_walkable()`.
+
 ## 1.5 Steuerung (Mobile-First, auch Desktop)
 * **Linke Bildschirmhälfte:** dynamischer virtueller Touch-Joystick (erscheint bei
-  Berührung), flüssige Bewegung.
+  Berührung), flüssige Bewegung. **Kamerabezogen:** „nach oben ziehen" läuft immer
+  bildschirm-aufwärts, unabhängig von der Kamera-Gierung.
 * **Rechte Bildschirmhälfte:** großer Angriffs-Button (**Auto-Ziel** auf den nächsten
   Gegner — kein Zielen per Bewegung), Fähigkeiten-Buttons (Spezialschuss, Ausweich-Dash,
   Heiltrank, Säure-Granate, Elektrofeld-Granate) sowie ein Waffen-Umschalter (Schadensart).
@@ -117,6 +140,22 @@ Welt eng:
   den Charakter-Meshes.
 * **Input-Debouncing:** strikter Software-Debouncer gegen Doppeltipps — verhindert
   duplizierte Dialog-/UI-Instanzen und inkonsistente Zustände.
+
+## 1.5a Kamera (an Diablo-Immortal-Referenz eingemessen)
+
+Feste Verfolgerkamera, kein Spieler-gesteuerter Zoom. Die Werte stammen aus einer **Vermessung
+echter Referenz-Screenshots**, nicht aus Schätzung: dort füllt die Spielfigur rund **14 % der
+Bildhöhe**.
+
+| Parameter | Wert | Begründung |
+| :-- | :-- | :-- |
+| **Sichtfeld (FOV)** | **50°** | Der wichtigste Wert. Godots Standard-75° zieht die Welt auseinander und lässt die Figur winzig wirken (nur ~7 % Bildhöhe). Ein enges FOV flacht die Perspektive ab und erzeugt den quasi-isometrischen Look der Vorlage. |
+| **Abstand** | **14 m** | Ergibt zusammen mit 50° FOV exakt die ~14 % Figurenhöhe der Referenz. |
+| **Neigung** | **55°** nach unten | Steil genug für Überblick, flach genug, dass Gebäudefronten und Silhouetten lesbar bleiben. |
+| **Gierung** | **20°** | Bricht die achsenparallele Frontalsicht auf — dadurch der isometrische Eindruck. Die Steuerung wird entsprechend gegengedreht (§1.5). |
+
+> Rechnung: sichtbare Höhe = 2 · Abstand · tan(FOV/2). Bei 14 m und 50° sind das 13,1 m
+> Bildausschnitt — eine 1,8-m-Figur füllt davon 14 %.
 
 ## 1.6 Weltkoordinaten-System & POI-Layout
 
@@ -1344,7 +1383,7 @@ Biom-Zonierung (§1.6.3) bereits nach `WorldManager` portiert ist.
 | **Overworld im Produktions-Maßstab** (5000 m, Biome, Tore, POIs, Kraterrand) | §1.4/§1.6 | `OverworldView` + `WorldManager`-Maßstabsschicht | ✅ erste sichtbare Szene (Primitives; finale Assets/Meshes folgen) |
 
 > **Stand:** Die **gesamte Spiel-Logik** ist ins Godot-Backend portiert und **headless verifiziert**
-> (Godot 4.3.stable, `godot --headless --path godot` → **293/293 Checks, Exit 0**), zusätzlich in
+> (Godot 4.3.stable, `godot --headless --path godot` → **300/300 Checks, Exit 0**), zusätzlich in
 > **CI** abgesichert (`.github/workflows/godot-backend.yml`). Offen bleibt allein die
 > **Präsentations-/Render-Schicht** (Kampf-Lesbarkeit §8.4, 3D-Szenen/Assets, Audio, UI) — kein
 > Logik-Port mehr, sondern View-Arbeit auf dem fertigen, getesteten Fundament.

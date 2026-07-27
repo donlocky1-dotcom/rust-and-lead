@@ -64,6 +64,12 @@ const TOWN_NPCS: Array = [
 ## Material-Drops beim Kill — ohne sie ist die Sammel-Quest „Baumaterial: Schrott" unlösbar.
 const DROP_TABLE: Array = [["schrott", 0.65], ["zahnrad", 0.22], ["dampfkern", 0.05]]
 
+# ── Kamera (an Diablo-Immortal-Referenz eingemessen, GDD §1.5a) ───────────────
+const CAM_FOV: float = 50.0     # eng statt Godots 75° — sonst wirkt die Figur winzig
+const CAM_DIST: float = 14.0    # Abstand zur Figur; ergibt ~14 % Bildhöhe wie in der Vorlage
+const CAM_PITCH: float = 55.0   # Neigung nach unten
+const CAM_YAW: float = 20.0     # leichte Gierung -> isometrischer Eindruck statt Frontalsicht
+
 func _in_town(pos: Vector3) -> bool:
 	return pos.distance_to(WorldManager.poi_scene_position("rustwater")) < TOWN_SAFE_M
 
@@ -287,25 +293,16 @@ func _build_pois() -> void:
 		_label(pos + Vector3(0.0, 41.0, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
 
 
-## Handelsrouten zwischen den großen Knoten — gestampfte Pisten als flache Bänder auf dem
-## Sand. Gibt der leeren Weite Struktur und macht Landmark-Navigation lesbar (GDD §1.4):
-## man folgt einer Straße, statt blind über 5000 m zu peilen.
-const ROUTES: Array = [
-	["rustwater", "rattengestruepp"], ["rustwater", "schrott_minen"], ["rustwater", "zugdepot"],
-	["zugdepot", "rogues_landing"], ["rogues_landing", "fort_freedom"],
-	["rogues_landing", "sektor01"], ["rogues_landing", "alchemie_raffinerie"],
-	["fort_freedom", "goliath_testgelaende"], ["sektor01", "schmelzoefen_vulcan"],
-	["alchemie_raffinerie", "eisernes_herz"],
-]
-
+## Zeichnet die Korridore aus `WorldManager.ROUTES` als gestampfte Pisten. Straßen-Optik und
+## begehbarer Bereich stammen damit aus DERSELBEN Quelle — was man sieht, ist auch begehbar.
 func _build_roads() -> void:
 	var road_col := Color(0.56, 0.46, 0.32)   # festgefahrener, hellerer Staub
-	for r in ROUTES:
+	for r in WorldManager.ROUTES:
 		var a: Vector3 = WorldManager.poi_scene_position(String(r[0]))
 		var b: Vector3 = WorldManager.poi_scene_position(String(r[1]))
 		var seg := MeshInstance3D.new()
 		var bm := BoxMesh.new()
-		bm.size = Vector3(9.0, 0.12, a.distance_to(b))
+		bm.size = Vector3(WorldManager.CORRIDOR_HALF_W * 2.0 * WorldManager.METERS_PER_UNIT, 0.12, a.distance_to(b))
 		seg.mesh = bm
 		seg.material_override = _mat(road_col)
 		seg.position = (a + b) / 2.0 + Vector3(0.0, 0.06, 0.0)   # knapp über dem Boden
@@ -501,9 +498,17 @@ func _build_player() -> void:
 	_player.position = _rustwater_spawn()
 	add_child(_player)
 	_cam = Camera3D.new()
-	# Nahe Diablo-Immortal-Kamera statt Strategie-Übersicht: Figur füllt sichtbar den Rahmen.
-	_cam.position = Vector3(0.0, 13.0, 10.0)
-	_cam.rotation_degrees = Vector3(-50.0, 0.0, 0.0)
+	# Kamera nach Diablo-Immortal-Referenz eingemessen: die Figur soll rund 14 % der Bildhöhe
+	# füllen. Entscheidend ist das ENGE Sichtfeld — Godots Standard-75° zieht die Welt
+	# auseinander und lässt die Figur winzig wirken (nur ~7 %). Mit 50° FOV und 14 m Abstand
+	# stimmt die Füllung; die leichte Gierung bricht die achsenparallele Sicht auf und erzeugt
+	# den isometrischen Eindruck der Vorlage.
+	_cam.fov = CAM_FOV
+	_cam.position = Vector3(
+		sin(deg_to_rad(CAM_YAW)) * CAM_DIST * cos(deg_to_rad(CAM_PITCH)),
+		CAM_DIST * sin(deg_to_rad(CAM_PITCH)),
+		cos(deg_to_rad(CAM_YAW)) * CAM_DIST * cos(deg_to_rad(CAM_PITCH)))
+	_cam.rotation_degrees = Vector3(-CAM_PITCH, CAM_YAW, 0.0)
 	_cam.far = 8000.0   # Kraterrand & Herz bleiben trotzdem am Horizont sichtbar (Landmark-Navigation)
 	_player.add_child(_cam)
 
@@ -592,6 +597,8 @@ func _process_spawns(delta: float) -> void:
 	if _in_town(pos):
 		return   # Rustwater ist befriedet
 	var rel: Vector2 = WorldManager.scene_to_world(pos)
+	if not WorldManager.is_walkable(rel):
+		return   # nur dort, wo der Spieler auch hinkommt
 	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)):
 		return   # jenseits eines noch geschlossenen Tors — hier siedelt sich (noch) nichts an
 	var biome_id: String = WorldManager.biome_at(rel)
@@ -636,7 +643,7 @@ func _process_chest_spawns(delta: float) -> void:
 	pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
 	pos.z = clampf(pos.z, -(WorldManager.WORLD_METERS - 20.0), -20.0)
 	var rel: Vector2 = WorldManager.scene_to_world(pos)
-	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)):
+	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)) or not WorldManager.is_walkable(rel):
 		return
 	_spawn_chest_near(pos)
 
@@ -751,7 +758,10 @@ func _process_movement(delta: float) -> void:
 	var mv: Vector2 = _move_vector()
 	if mv.length() < 0.05:
 		return
-	var step: Vector3 = Vector3(mv.x, 0.0, mv.y) * WorldManager.PLAYER_SPEED_MS * delta
+	# Eingabe ist bildschirmbezogen: um die Kamera-Gierung zurückdrehen, damit „nach oben
+	# ziehen" auch bei gedrehter Kamera nach oben läuft (sonst zieht es schräg).
+	var dir: Vector2 = mv.rotated(-deg_to_rad(CAM_YAW))
+	var step: Vector3 = Vector3(dir.x, 0.0, dir.y) * WorldManager.PLAYER_SPEED_MS * delta
 	var next: Vector3 = _player.position + step
 	# Weltgrenzen (Kraterrand).
 	next.x = clampf(next.x, 2.0, WorldManager.WORLD_METERS - 2.0)
@@ -762,6 +772,20 @@ func _process_movement(delta: float) -> void:
 	if not WorldManager.can_cross_blast_line(from_rel.y, to_rel.y):
 		next.z = maxf(next.z, -(float(WorldManager.BORDER_S1_S2_Y) * WorldManager.METERS_PER_UNIT - 1.5))
 		_say("⛔ Die Sprengtore sind zu. Erst der Panzerzug (Kapitel 4) bricht sie auf.", 2.5)
+		to_rel = WorldManager.scene_to_world(next)
+	# Begehbare Zonen (GDD §1.4a): die Welt ist ein Netz aus Orten und Korridoren, keine
+	# offene Ebene. Achsenweise nachgeben, damit man an einer Kante entlanggleitet statt
+	# hängenzubleiben — sonst fühlt sich die Begrenzung wie eine unsichtbare Wand an.
+	if not WorldManager.is_walkable(to_rel):
+		var slide_x: Vector3 = Vector3(next.x, 0.0, _player.position.z)
+		var slide_z: Vector3 = Vector3(_player.position.x, 0.0, next.z)
+		if WorldManager.is_walkable(WorldManager.scene_to_world(slide_x)):
+			next = slide_x
+		elif WorldManager.is_walkable(WorldManager.scene_to_world(slide_z)):
+			next = slide_z
+		else:
+			return   # in eine Ecke gelaufen — Position halten
+		step = next - _player.position
 	_player.position = next
 	if Vector2(step.x, step.z).length() > 0.001:
 		_player.rotation.y = atan2(-step.x, -step.z)

@@ -22,6 +22,7 @@ func _ready() -> void:
 	_test_grid_inventory()
 	_test_world_manager()
 	_test_world_scale()
+	_test_walkable_zones()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
 	_test_overworld_quest_flow()
@@ -890,3 +891,35 @@ func _test_overworld_quest_flow() -> void:
 	var scrap_quest: Dictionary = QuestManager.QUESTS["q_scrap"]
 	_check("Sammel-Quest fordert 'schrott' (von der Drop-Tabelle gedeckt)",
 		String(scrap_quest["item"]) == "schrott")
+
+
+# ── Begehbare Zonen (GDD §1.4a: Zonen + Korridore statt offener Flaeche) ──────
+func _test_walkable_zones() -> void:
+	print("· Begehbare Zonen (Zonen + Korridore)")
+	_check("Rustwater-Mitte ist begehbar",
+		WorldManager.is_walkable(WorldManager.poi_position("rustwater")))
+	_check("Hub-Zone ist groesser als eine Nebenzone",
+		WorldManager.zone_radius("rustwater") > WorldManager.zone_radius("schrott_minen"))
+	# Mitte zwischen zwei verbundenen Orten liegt auf dem Korridor.
+	var a: Vector2 = WorldManager.poi_position("rustwater")
+	var b: Vector2 = WorldManager.poi_position("zugdepot")
+	_check("Mitte eines Korridors ist begehbar", WorldManager.is_walkable((a + b) / 2.0))
+	# Seitlich neben dem Korridor endet die begehbare Flaeche.
+	var perp: Vector2 = (b - a).normalized().orthogonal()
+	var off: Vector2 = (a + b) / 2.0 + perp * (WorldManager.CORRIDOR_HALF_W * 3.0)
+	_check("Weit neben dem Korridor ist es NICHT begehbar", not WorldManager.is_walkable(off))
+	# Leere Ecke der Karte gehoert zu keiner Zone.
+	_check("Abgelegene Kartenecke ist nicht begehbar", not WorldManager.is_walkable(Vector2(30, 1900)))
+	# Jeder POI muss ueber mindestens eine Route angebunden sein, sonst ist er unerreichbar.
+	var connected: Dictionary = {}
+	for r in WorldManager.ROUTES:
+		connected[String(r[0])] = true
+		connected[String(r[1])] = true
+	var all_connected: bool = true
+	for id in WorldManager.POIS.keys():
+		if not connected.has(String(id)):
+			all_connected = false
+	_check("Jeder Ort haengt an mindestens einer Route (kein unerreichbarer POI)", all_connected)
+	# Rueckfall: ein Punkt ausserhalb wird auf eine begehbare Position gezogen.
+	var rescued: Vector2 = WorldManager.nearest_walkable(Vector2(30, 1900))
+	_check("nearest_walkable liefert eine begehbare Position", WorldManager.is_walkable(rescued))
