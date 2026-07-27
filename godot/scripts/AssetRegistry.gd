@@ -128,6 +128,65 @@ static func _meshes_with_transform(node: Node, parent_xform: Transform3D, is_roo
 		out.append_array(_meshes_with_transform(c, xform, false))
 	return out
 
+# ── Animationen ───────────────────────────────────────────────────────────────
+## Clip-Namen kommen aus jedem Werkzeug anders („Walking", „Armature|walk", „CharacterArmature|Walk",
+## „laufen"). Statt jeden Export von Hand umzubenennen, sucht die Registry über **Namensteile**:
+## logische Rolle → mögliche Bestandteile des Clip-Namens (klein geschrieben, Teiltreffer).
+## Neues Werkzeug mit anderer Benennung = ein Wort hier ergänzen, kein Szenen-Code.
+const CLIP_ALIASES: Dictionary = {
+	"idle":   ["idle", "stand", "breath", "ruhe", "atmen"],
+	"walk":   ["walk", "lauf", "gehen", "move", "locomotion"],
+	"run":    ["run", "sprint", "renn", "jog"],
+	"attack": ["attack", "shoot", "fire", "punch", "angriff", "schuss", "schlag"],
+	"hit":    ["hit", "impact", "damage", "flinch", "treffer"],
+	"death":  ["death", "die", "dead", "sterb", "tod"],
+}
+
+## Erster AnimationPlayer unter `root` (glTF legt ihn beim Import automatisch an), sonst `null`.
+static func animation_player(root: Node) -> AnimationPlayer:
+	if root == null:
+		return null
+	if root is AnimationPlayer:
+		return root as AnimationPlayer
+	for c in root.get_children():
+		var found: AnimationPlayer = animation_player(c)
+		if found != null:
+			return found
+	return null
+
+## Tatsächlicher Clip-Name für eine logische Rolle ("" = dieses Modell hat sie nicht).
+## Exakte Treffer gewinnen vor Teiltreffern, damit „walk" nicht versehentlich „walk_backwards" zieht.
+static func find_clip(ap: AnimationPlayer, kind: String) -> String:
+	if ap == null:
+		return ""
+	var parts: Array = CLIP_ALIASES.get(kind, [kind])
+	var partial: String = ""
+	for raw in ap.get_animation_list():
+		var name: String = String(raw)
+		var tail: String = name.get_slice("|", name.get_slice_count("|") - 1).to_lower()
+		for p in parts:
+			if tail == String(p):
+				return name
+			if partial == "" and tail.contains(String(p)):
+				partial = name
+	return partial
+
+## Spielt die Rolle (`"walk"`, `"idle"`, …) auf dem Modell ab. Läuft der Clip schon, passiert
+## nichts — der Aufruf darf also gefahrlos jeden Frame kommen. `false`, wenn das Modell die
+## Rolle nicht kennt (dann bleibt es einfach unanimiert stehen; nichts bricht).
+static func play_clip(root: Node, kind: String, loop: bool = true) -> bool:
+	var ap: AnimationPlayer = animation_player(root)
+	var clip: String = find_clip(ap, kind)
+	if clip == "":
+		return false
+	if ap.current_animation == clip and ap.is_playing():
+		return true
+	var anim: Animation = ap.get_animation(clip)
+	if anim != null:
+		anim.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
+	ap.play(clip)
+	return true
+
 ## Lädt das erste PBR-Material eines Modells zur Wiederverwendung — z. B. um die Sand-Textur
 ## eines kleinen CC0-Bodenstücks gekachelt auf eine große Bodenfläche zu legen, statt das
 ## (oft klobige) Mesh selbst zu benutzen. `BaseMaterial3D` deckt sowohl `StandardMaterial3D`

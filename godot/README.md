@@ -46,6 +46,9 @@ wenn man an einem Bahnsteig steht (GDD §1.4a).
   beliebiger Herkunft einbaufertig: Skalierung auf die Zielhöhe in Metern (inkl. verschachtelter
   glTF-Transforms), **Unterkante auf Y = 0** (generierte Assets haben den Pivot fast nie am
   Boden) und Blickrichtungs-Korrektur über `YAW_DEG`.
+  Spielt außerdem **Animationen** ab (`play_clip("walk"/"idle"/"attack"/…)`) und findet die
+  Clips über Namensteile — „Walking", „Armature|Walk", „laufen" landen alle auf derselben Rolle,
+  niemand muss Exporte umbenennen. Fehlt eine Rolle, steht das Modell still; nichts bricht.
   Neues Asset = **GLB ablegen**, kein Code-Change (Export-Einstellungen, Pfade & Zielhöhen:
   `assets/README.md`).
 - `scripts/OverworldView.gd` + `scenes/Overworld.tscn` — **sichtbare Overworld** (GDD §1.4/§1.4a/§1.6):
@@ -185,7 +188,7 @@ Bei jedem Push/PR fährt der **CI-Workflow** (`.github/workflows/godot-backend.y
 Prüfung automatisch: `gdparse` + Godot-4.3-Headless (Import-Pass + TestRunner) gegen eine
 asset-freie Projektkopie.
 
-> **Verifiziert:** Godot **4.3.stable**, headless — **315/315 Checks grün, Exit 0**.
+> **Verifiziert:** Godot **4.3.stable**, headless — **320/320 Checks grün, Exit 0**.
 > Die **gesamte Spiel-Logik** ist portiert; offen bleibt nur die Präsentations-/Render-Schicht.
 > Der schwere 3D-Asset-Import unter `assets/models`
 > verlangsamt Pass 1; für reine Logik-Tests kann man Scripts/Tests/`project.godot` in ein

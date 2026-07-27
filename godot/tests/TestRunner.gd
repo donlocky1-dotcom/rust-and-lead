@@ -835,6 +835,25 @@ func _test_asset_registry() -> void:
 		_check("Echtes Modell: Unterkante steht auf Y = 0", absf(ib.position.y) < 0.001,
 			"gemessen: %.4f" % ib.position.y)
 		inst.free()
+	# Clip-Suche: Werkzeuge benennen Animationen unterschiedlich („Armature|Walk", „Idle",
+	# „walk_backwards"). Die Registry muss die Rolle treffen, ohne dass jemand umbenennt —
+	# und ein exakter Treffer muss einen Teiltreffer schlagen. Synthetisch, assetfrei.
+	var ap := AnimationPlayer.new()
+	var lib := AnimationLibrary.new()
+	for clip_name in ["walk_backwards", "CharacterArmature|Walk", "Idle_A"]:
+		lib.add_animation(clip_name, Animation.new())
+	ap.add_animation_library("", lib)
+	_check("Clip-Suche findet 'walk' trotz Armature-Praefix",
+		AssetRegistry.find_clip(ap, "walk") == "CharacterArmature|Walk",
+		"gefunden: '%s'" % AssetRegistry.find_clip(ap, "walk"))
+	_check("Clip-Suche findet 'idle' ueber Teiltreffer",
+		AssetRegistry.find_clip(ap, "idle") == "Idle_A")
+	_check("Fehlende Rolle liefert '' (Modell bleibt unanimiert)",
+		AssetRegistry.find_clip(ap, "death") == "")
+	_check("Ohne AnimationPlayer liefert die Suche ''", AssetRegistry.find_clip(null, "walk") == "")
+	_check("play_clip auf einem Modell ohne Animation ist folgenlos",
+		AssetRegistry.play_clip(null, "walk") == false)
+	ap.free()
 	_check("Bodentextur ist in der Registry vorgesehen", AssetRegistry.PATHS.has("ground_sand"))
 	_check("Unbekanntes Material liefert null (→ Einheitsfarbe)",
 		AssetRegistry.material_from_model("gibts_nicht") == null)

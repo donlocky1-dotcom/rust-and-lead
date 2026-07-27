@@ -24,6 +24,25 @@ Wenn Meshy ein ZIP liefert: entpacken, die `.glb` daraus an den Zielpfad legen �
 (`.bin`, Texturordner) braucht man bei GLB nicht. Nur falls du `.gltf` statt `.glb` exportierst,
 müssen `.bin` und der Texturordner **mit umziehen**, sonst ist das Modell weiß.
 
+### Animationen (Rigging in Meshy)
+
+**Ja, mach das in Meshy.** Rigging + Preset-Animationen dort sind für unseren Zweck völlig
+ausreichend, und der Export ist derselbe: **GLB trägt Skelett und Animationen mit** — eine Datei,
+Godot legt beim Import automatisch einen `AnimationPlayer` an.
+
+* **Wenn du mehrere Clips in einen Export packen kannst, tu das** (idle + walk am wichtigsten).
+  Geht nur ein Clip pro Datei, sag Bescheid — dann trage ich die Zusatzdateien als
+  Animationsbibliothek ein.
+* **Clip-Namen sind egal.** Die Registry sucht über Namensteile: „Walking", „Armature|Walk",
+  „laufen", „Walk_A" werden alle als *walk* erkannt (`AssetRegistry.CLIP_ALIASES`).
+* **Gebraucht werden, in dieser Reihenfolge:** `idle`, `walk`, `attack`, `hit`, `death`.
+  Fehlt eine Rolle, passiert nichts Schlimmes — das Modell steht dann eben still.
+* **Was schon verkabelt ist:** Der Spieler schaltet beim Laufen auf *walk* und im Stehen auf
+  *idle*; Gegner spielen *idle*, *walk* beim Verfolgen und *attack* im Nahkampf.
+* **Quadrupeden (Bolzen, der Blechhund) rigged Auto-Rigging erfahrungsgemäß schlecht** — das
+  ist auf Zweibeiner ausgelegt. Wenn Bolzen zerknautscht aussieht: lieber unanimiert liefern,
+  die Bewegung kann die Szene übernehmen (Trab-Wippen per Code kostet uns fünf Zeilen).
+
 **Was du NICHT selbst richten musst** — das macht die `AssetRegistry` beim Instanziieren:
 * **Größe:** wird auf die Zielhöhe unten in der Tabelle skaliert, egal wie groß Meshy exportiert.
 * **Pivot/Höhe:** die Unterkante wird auf Y = 0 gelegt. Generatoren setzen den Pivot fast immer

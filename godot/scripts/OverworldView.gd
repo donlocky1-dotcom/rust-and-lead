@@ -112,6 +112,7 @@ var _blockers: Array = []            # rechteckige Sperren: { c: Vector2(x,z), h
 var _pillars: Array = []             # runde Sperren:       { c: Vector2(x,z), r: float }
 var _rings: Array = []               # Ringmauern mit Toren: { c, r, t, gates, gate_half }
 var _stations: Array = []            # { id, pos: Vector3 } — Bahnsteige der Iron Rail
+var _player_model: Node3D = null     # nur gesetzt, wenn ein echtes Modell geladen wurde
 
 
 func _ready() -> void:
@@ -632,6 +633,7 @@ func _build_player() -> void:
 	var model: Node3D = AssetRegistry.instantiate("player", 1.8)
 	if model != null:
 		_player.add_child(model)
+		_player_model = model   # trägt den AnimationPlayer, sobald das Modell animiert ist
 	else:
 		var body := MeshInstance3D.new()
 		var cap := CapsuleMesh.new()
@@ -688,6 +690,7 @@ func _make_enemy(type_id: String) -> Dictionary:
 	var model: Node3D = AssetRegistry.instantiate(AssetRegistry.enemy_asset(type_id), 1.6)
 	if model != null:
 		node.add_child(model)
+		AssetRegistry.play_clip(model, "idle")
 	else:
 		var body := MeshInstance3D.new()
 		if target.classification == CombatData.MECHANICAL:
@@ -711,7 +714,7 @@ func _make_enemy(type_id: String) -> Dictionary:
 	bar.material_override = _mat(Color(0.52, 0.80, 0.09), true)
 	bar.position = Vector3(0.0, 2.1, 0.0)
 	node.add_child(bar)
-	return { "node": node, "target": target, "bar": bar }
+	return { "node": node, "target": target, "bar": bar, "model": model }
 
 
 func _spawn_pack() -> void:
@@ -923,6 +926,9 @@ func _process(delta: float) -> void:
 
 func _process_movement(delta: float) -> void:
 	var mv: Vector2 = _move_vector()
+	# Animation folgt der Bewegung, sobald ein animiertes Modell da ist. Kennt das Modell den
+	# Clip nicht (oder ist es der Kapsel-Platzhalter), passiert schlicht nichts.
+	AssetRegistry.play_clip(_player_model, "walk" if mv.length() >= 0.05 else "idle")
 	if mv.length() < 0.05:
 		return
 	# Eingabe ist bildschirmbezogen: um die Kamera-Gierung zurückdrehen, damit „nach oben
@@ -1025,11 +1031,15 @@ func _process_enemies(delta: float) -> void:
 		var node: Node3D = e["node"]
 		var d: float = _player.position.distance_to(node.position)
 		if d > AGGRO_M:
+			AssetRegistry.play_clip(e["model"], "idle")
 			continue
 		if d > CONTACT_RANGE_M:
 			var dir: Vector3 = (_player.position - node.position).normalized()
 			node.position += dir * ENEMY_SPEED_MS * delta
+			node.rotation.y = atan2(-dir.x, -dir.z)   # Gegner schaut, wohin er läuft
+			AssetRegistry.play_clip(e["model"], "walk")
 		else:
+			AssetRegistry.play_clip(e["model"], "attack")
 			var target: CombatTarget = e["target"]
 			_hp -= float(target.contact_dps) * delta * CombatEngine.player_damage_taken_mul(0)
 			if _hp <= 0.0:
