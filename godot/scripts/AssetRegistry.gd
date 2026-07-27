@@ -22,6 +22,10 @@ const PATHS: Dictionary = {
 	"enemy_klaeffer":  ["res://assets/models/enemies/klaeffer.glb", "res://assets/models/enemies/klaeffer.gltf"],
 	"enemy_goliath":   ["res://assets/models/enemies/goliath.glb", "res://assets/models/enemies/goliath.gltf"],
 	"companion_dog":   ["res://assets/models/characters/bolzen.glb", "res://assets/models/characters/bolzen.gltf"],
+	# ── NPCs (Story-Bibel §4, Rustwater) ──
+	"npc_mabel":       ["res://assets/models/npcs/mabel.glb"],
+	"npc_silas":       ["res://assets/models/npcs/silas.glb"],
+	"npc_doc":         ["res://assets/models/npcs/doc.glb"],
 	# ── Gebäude (Rustwater, GDD §1.6/§2.3) ──
 	"saloon":          ["res://assets/models/buildings/saloon.glb"],
 	"forge":           ["res://assets/models/buildings/forge.glb"],
@@ -66,6 +70,10 @@ const TARGET_HEIGHT: Dictionary = {
 	"enemy_konstrukt": 2.0,      # Konzern-Konstrukt / kleiner Panzer — überragt den Spieler
 	"enemy_goliath": 4.0,        # Schwerer Ernter (Boss)
 	"chest": 0.7,
+	# ── NPCs: Körpergrößen aus der Story-Bibel (§4) ──
+	"npc_mabel": 1.70,           # stämmig, Mitte fünfzig
+	"npc_silas": 1.75,
+	"npc_doc": 1.80,             # hager und hochgewachsen
 	# ── Gebäude ──
 	# Generatoren normieren jedes Modell auf dieselbe Kantenlänge; die Proportionen stimmen,
 	# der Maßstab ist beliebig. Gesetzt wird deshalb die HÖHE — die ist bei einem Haus die
@@ -99,6 +107,9 @@ const YAW_DEG: Dictionary = {
 	# Gemessen an der Geometrie: Zehen und Gesicht des Spieler-Modells zeigen nach +Z,
 	# Godot läuft nach −Z. Ohne die Drehung würde die Figur rückwärts durch die Wüste laufen.
 	"player": 180.0,
+	# Dieselbe Herkunft, dasselbe Rig, dieselbe Blickrichtung — die NPCs schauten sonst
+	# von ihrem Platz weg statt auf den Stadtplatz.
+	"npc_mabel": 180.0, "npc_silas": 180.0, "npc_doc": 180.0,
 }
 
 ## Gegner-Typ (CombatData.ENEMY_TYPES) → logischer Asset-Name.
@@ -275,6 +286,13 @@ const CLIP_OVERRIDES: Dictionary = {
 		"idle": "Idle_11", "walk": "Walking", "run": "Running",
 		"attack": "Run_and_Shoot", "hit": "Shot_and_Blown_Back", "death": "Dead",
 	},
+	# Die drei Rustwater-NPCs teilen dasselbe Animationspaket. `Stand_and_Chat` ist die
+	# Ruhepose für jemanden, der an seinem Platz steht und mit Leuten redet — die Namenssuche
+	# fände sie zwar auch, aber bei „Stand_Talking_Angry" daneben soll nichts dem Zufall
+	# überlassen bleiben.
+	"npc_mabel": { "idle": "Stand_and_Chat", "walk": "Walking", "run": "Running" },
+	"npc_silas": { "idle": "Stand_and_Chat", "walk": "Walking", "run": "Running" },
+	"npc_doc":   { "idle": "Stand_and_Chat", "walk": "Walking", "run": "Running" },
 }
 
 ## Erster AnimationPlayer unter `root` (glTF legt ihn beim Import automatisch an), sonst `null`.

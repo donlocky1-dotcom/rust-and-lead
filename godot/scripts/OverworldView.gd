@@ -671,15 +671,24 @@ func _build_npcs() -> void:
 		var d: float = float(n[3])
 		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
 		var node := Node3D.new()
-		var body := MeshInstance3D.new()
-		var cap := CapsuleMesh.new()
-		cap.radius = 0.42
-		cap.height = 1.7
-		body.mesh = cap
-		body.material_override = _mat(n[4])
-		body.position = Vector3(0.0, 0.85, 0.0)
-		node.add_child(body)
+		var asset: String = "npc_" + String(n[0])
+		var model: Node3D = AssetRegistry.instantiate(asset, AssetRegistry.height_of(asset))
+		if model != null:
+			node.add_child(model)
+			# `Stand_and_Chat` — die drei stehen an ihrem Platz und reden mit Leuten.
+			AssetRegistry.play_clip(model, "idle")
+		else:
+			var body := MeshInstance3D.new()
+			var cap := CapsuleMesh.new()
+			cap.radius = 0.42
+			cap.height = 1.7
+			body.mesh = cap
+			body.material_override = _mat(n[4])
+			body.position = Vector3(0.0, 0.85, 0.0)
+			node.add_child(body)
 		node.position = pos
+		# Die NPCs schauen zur Stadtmitte, wie die Gebäude — nicht in die Wüste hinaus.
+		node.rotation.y = atan2(c.x - pos.x, c.z - pos.z)
 		add_child(node)
 		var label: Label3D = _label(pos + Vector3(0.0, 2.5, 0.0), String(n[1]), Color(0.98, 0.94, 0.82), 85, 140.0)
 		_npcs.append({ "giver": String(n[0]), "name": String(n[1]), "node": node, "label": label, "pos": pos })

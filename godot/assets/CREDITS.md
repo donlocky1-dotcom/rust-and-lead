@@ -13,6 +13,17 @@ Auto-Rigging und Animations-Paket.
 | :-- | :-- | :-- | :-- |
 | `player.glb` | Spieler-Chassis, gerigged (24 Joints), 20 Animationen, 18,9 k Dreiecke, 2k-Textur | Overworld-Spielfigur | Meshy (eigene Generierung) |
 
+## NPCs (`models/npcs/`)
+| Datei | Beschreibung | Einsatz | Herkunft |
+| :-- | :-- | :-- | :-- |
+| `mabel.glb` | Mamma „Rusty" Mabel, gerigged (24 Joints), 6 Animationen, 20,1 k Dreiecke, 1,70 m | Saloon-Wirtin, Quest `q_bounty` | Meshy (eigene Generierung) |
+| `silas.glb` | Silas „Kupferauge" Finch, gerigged, 4 Animationen, 19,6 k Dreiecke, 1,75 m | Schmied, Quest `q_scrap` | Meshy (eigene Generierung) |
+| `doc.glb` | Doktor „Doc" Aris, gerigged, 4 Animationen, 19,5 k Dreiecke, 1,80 m | Feldarzt, Quest `q_rats` | Meshy (eigene Generierung) |
+
+Alle drei tragen **dasselbe 24-Knochen-Rig wie der Spieler** und dasselbe Animationspaket
+(`Stand_and_Chat` als Ruhepose, dazu Walking/Running). Sie stehen an ihrem Platz und schauen
+zum Stadtplatz.
+
 ## Gegner (`models/enemies/`)
 | Datei | Beschreibung | Einsatz | Herkunft |
 | :-- | :-- | :-- | :-- |
