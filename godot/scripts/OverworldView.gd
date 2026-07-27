@@ -109,6 +109,14 @@ const STICK_DEADZONE: float = 10.0   # darunter passiert nichts (Zittern/Klick)
 const MOUSE_STICK_ID: int = 9001     # eigene „Finger"-Id für die Maus (kollidiert mit keiner echten)
 const TURN_RATE: float = 12.0        # wie schnell die Figur in die neue Richtung eindreht
 
+# ── Waffe in der Hand ─────────────────────────────────────────────────────────
+## Knochen des Spieler-Rigs, an dem die Waffe hängt.
+const WEAPON_BONE: String = "RightHand"
+## Sitz im Griff — in Modell-Metern relativ zur Hand. Diese drei Zahlen kann man nicht
+## ausrechnen, nur ansehen: sie sind der Stellknopf, wenn die Waffe schief in der Faust liegt.
+const WEAPON_GRIP_OFFSET: Vector3 = Vector3(0.0, 0.02, 0.0)
+const WEAPON_GRIP_ROT: Vector3 = Vector3(0.0, 0.0, 0.0)   # Radiant (X, Y, Z)
+
 # ── Bauliche Begrenzung (GDD §1.4a) ───────────────────────────────────────────
 ## Die Wüste ist offen, die Aktionszonen sind eng — und zwar durch ECHTE Bauten, nicht
 ## durch unsichtbare Wände: jedes Haus, jeder Palisadenpfosten, jedes Turmbein trägt sich
@@ -161,6 +169,7 @@ var _rings: Array = []               # Ringmauern mit Toren: { c, r, t, gates, g
 var _rot_blockers: Array = []        # gedrehte Sperren:    { c: Vector2(x,z), h: Vector2, yaw }
 var _stations: Array = []            # { id, pos: Vector3 } — Bahnsteige der Iron Rail
 var _player_model: Node3D = null     # nur gesetzt, wenn ein echtes Modell geladen wurde
+var _weapon_model: Node3D = null     # Waffe in der Hand (optional)
 
 
 func _ready() -> void:
@@ -521,8 +530,13 @@ func _build_township() -> void:
 		var yaw: float = atan2(c.x - pos.x, c.z - pos.z)
 		var size: Vector3 = _place_building(String(b[1]), pos, yaw, Vector3(b[4].x, float(b[5]), b[4].y), b[6])
 		_label(pos + Vector3(0.0, size.y + 2.4, 0.0), String(b[0]), Color(0.98, 0.90, 0.72), 95, 150.0)
-	# Wohnhaeuser: Ring aus Huetten. Ein Modell, aber jede anders gedreht und leicht anders
-	# gross — zehn identisch ausgerichtete Kopien fallen sofort als Kopien auf.
+	# Wohnhaeuser: Ring aus Huetten. Vier verschiedene Bauweisen, gemischt, jede zusaetzlich
+	# anders gedreht und leicht anders gross — nur so liest sich der Ring als gewachsener Ort
+	# und nicht als zehnmal dasselbe Haus.
+	var shacks: Array = []
+	for suffix in ["a", "b", "c", "d"]:
+		if AssetRegistry.has_model("shack_" + suffix):
+			shacks.append("shack_" + suffix)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4711
 	for i in 10:
@@ -530,8 +544,11 @@ func _build_township() -> void:
 		var d: float = rng.randf_range(54.0, 68.0)
 		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
 		var yaw: float = atan2(c.x - pos.x, c.z - pos.z) + rng.randf_range(-0.5, 0.5)
-		_place_building("shack", pos, yaw, Vector3(6.0, 4.2, 5.0), Color(0.42, 0.33, 0.24),
-			rng.randf_range(0.88, 1.12))
+		# Gleichverteilt reihum statt zufällig gezogen: bei zehn Häusern und vier Bauweisen
+		# würfelt man sonst leicht dreimal dasselbe nebeneinander.
+		var asset: String = "" if shacks.is_empty() else String(shacks[i % shacks.size()])
+		_place_building(asset, pos, yaw, Vector3(6.0, 4.2, 5.0), Color(0.42, 0.33, 0.24),
+			rng.randf_range(0.9, 1.1))
 	# Wasserturm — die Silhouette, an der man Rustwater von weitem erkennt.
 	var tw: Vector3 = c + Vector3(-30.0, 0.0, -26.0)
 	if AssetRegistry.has_model("water_tower"):
@@ -788,6 +805,7 @@ func _build_player() -> void:
 		_player.add_child(body)
 	_player.position = _rustwater_spawn()
 	add_child(_player)
+	_equip_weapon_model()
 	_cam = Camera3D.new()
 	# Kamera nach Diablo-Immortal-Referenz eingemessen: enges Sichtfeld (Godots Standard-75°
 	# zieht die Welt auseinander und lässt die Figur winzig wirken), feste Neigung, feste
@@ -802,6 +820,44 @@ func _build_player() -> void:
 	_cam.far = 8000.0   # Kraterrand & Herz bleiben trotzdem am Horizont sichtbar (Landmark-Navigation)
 	add_child(_cam)
 	_cam.position = _player.position + CAM_OFFSET
+
+
+## Hängt das Waffenmodell in die rechte Hand der Figur. Das Spieler-Rig bringt Gewehr-Clips mit
+## („Rifle_Charge", „Run_and_Shoot") — die Hand ist also dafür gedacht, etwas zu halten.
+##
+## Sitz und Griffwinkel lassen sich nicht ausrechnen: wo genau eine generierte Waffe in einer
+## generierten Hand liegt, sieht man nur. `WEAPON_GRIP_*` sind deshalb bewusst drei Zahlen an
+## einer Stelle, keine verstreute Magie.
+func _equip_weapon_model() -> void:
+	if _player_model == null:
+		return
+	var skel: Skeleton3D = AssetRegistry.skeleton(_player_model)
+	if skel == null:
+		return
+	var idx: int = skel.find_bone(WEAPON_BONE)
+	if idx < 0:
+		return
+	var weapon: Node3D = AssetRegistry.instantiate("weapon_karabiner", 0.0, false)
+	if weapon == null:
+		return
+	var att := BoneAttachment3D.new()
+	att.bone_name = WEAPON_BONE
+	skel.add_child(att)
+	att.add_child(weapon)
+	# Vom Mesh-Raum der Figur in den Knochenraum — dieselbe Brücke wie bei jedem Anbauteil,
+	# sonst stimmt der Maßstab nicht (das Rig steht in Zentimetern, das Modell in Metern).
+	# Die Waffe wird an die Hand GESETZT (Ursprung = Griff), nicht wie ein Mantel im Mesh-Raum
+	# der Figur platziert. Gebraucht wird deshalb nur der Maßstab: Ein Knochenraum, dessen Rig
+	# in Zentimetern steht, misst pro Einheit rund einen Zentimeter — ein Meter Waffe braucht
+	# dort also den Faktor 100. Das rechnet die Skelett-Skalierung exakt aus, ohne Raterei.
+	var unit: float = 1.0 / maxf(skel.global_transform.basis.get_scale().x, 0.0001)
+	# `fitted` trägt die Skalierung auf Zielgröße aus `instantiate()` und muss erhalten bleiben —
+	# ein direktes Überschreiben von `transform` verwirft sie.
+	var fitted: Transform3D = weapon.transform
+	weapon.transform = Transform3D(
+		Basis.from_euler(WEAPON_GRIP_ROT).scaled(Vector3.ONE * unit),
+		WEAPON_GRIP_OFFSET * unit) * fitted
+	_weapon_model = weapon
 
 
 func _build_hud() -> void:
@@ -1120,6 +1176,10 @@ func _fast_travel(idx: int) -> void:
 func _cycle_weapon() -> void:
 	var i: int = WEAPON_ORDER.find(_weapon_id)
 	_weapon_id = WEAPON_ORDER[(i + 1) % WEAPON_ORDER.size()]
+	# Bisher gibt es nur ein Waffenmodell. Statt den Karabiner in der Hand zu lassen, während
+	# der Säure-Sprüher feuert, verschwindet er — lieber leere Hand als falsche Waffe.
+	if _weapon_model != null:
+		_weapon_model.visible = AssetRegistry.has_model("weapon_" + _weapon_id)
 	var dt: String = String(CombatData.WEAPONS[_weapon_id]["type"])
 	_say("%s %s (%s)" % [WEAPON_ICON[_weapon_id], String(CombatData.WEAPONS[_weapon_id]["name"]), dt], 2.0)
 

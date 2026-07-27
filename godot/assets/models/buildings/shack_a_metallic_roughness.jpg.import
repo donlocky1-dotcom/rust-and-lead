@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bojdv0fas54qg"
-path="res://.godot/imported/shack_metallic_roughness.jpg-3c4b967b1d280b2b8186c0b61c964749.ctex"
+uid="uid://bpw2meetnuaqm"
+path="res://.godot/imported/shack_a_metallic_roughness.jpg-15385bb0cb45d50219dc33f016947881.ctex"
 metadata={
 "vram_texture": false
 }
@@ -13,8 +13,8 @@ generator_parameters={
 
 [deps]
 
-source_file="res://assets/models/buildings/shack_metallic_roughness.jpg"
-dest_files=["res://.godot/imported/shack_metallic_roughness.jpg-3c4b967b1d280b2b8186c0b61c964749.ctex"]
+source_file="res://assets/models/buildings/shack_a_metallic_roughness.jpg"
+dest_files=["res://.godot/imported/shack_a_metallic_roughness.jpg-15385bb0cb45d50219dc33f016947881.ctex"]
 
 [params]
 

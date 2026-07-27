@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d13b338kbbopv"
-path="res://.godot/imported/shack_base_color.jpg-c8283f72419d38a78e03ba1ded4267ca.ctex"
+uid="uid://wh3b8k4b7f2x"
+path="res://.godot/imported/shack_d_base_color.jpg-764c807a69a1d0a989b3ba70c8d88da6.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "4ef3d772ed4212153b972a2805807d75"
+"md5": "db6ec8795120afd82aa354a6de626e68"
 }
 
 [deps]
 
-source_file="res://assets/models/buildings/shack_base_color.jpg"
-dest_files=["res://.godot/imported/shack_base_color.jpg-c8283f72419d38a78e03ba1ded4267ca.ctex"]
+source_file="res://assets/models/buildings/shack_d_base_color.jpg"
+dest_files=["res://.godot/imported/shack_d_base_color.jpg-764c807a69a1d0a989b3ba70c8d88da6.ctex"]
 
 [params]
 

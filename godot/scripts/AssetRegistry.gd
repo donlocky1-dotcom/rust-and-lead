@@ -25,7 +25,10 @@ const PATHS: Dictionary = {
 	# ── Gebäude (Rustwater, GDD §1.6/§2.3) ──
 	"saloon":          ["res://assets/models/buildings/saloon.glb"],
 	"forge":           ["res://assets/models/buildings/forge.glb"],
-	"shack":           ["res://assets/models/buildings/shack.glb"],
+	"shack_a":         ["res://assets/models/buildings/shack_a.glb"],
+	"shack_b":         ["res://assets/models/buildings/shack_b.glb"],
+	"shack_c":         ["res://assets/models/buildings/shack_c.glb"],
+	"shack_d":         ["res://assets/models/buildings/shack_d.glb"],
 	"water_tower":     ["res://assets/models/buildings/water_tower.glb"],
 	"gate":            ["res://assets/models/buildings/gate.glb"],
 	"palisade_a":      ["res://assets/models/buildings/palisade_a.glb"],
@@ -33,6 +36,8 @@ const PATHS: Dictionary = {
 	"palisade_c":      ["res://assets/models/buildings/palisade_c.glb"],
 	"palisade_d":      ["res://assets/models/buildings/palisade_d.glb"],
 	"palisade_e":      ["res://assets/models/buildings/palisade_e.glb"],
+	# ── Waffen (CombatData.WEAPONS) ──
+	"weapon_karabiner": ["res://assets/models/weapons/karabiner.glb"],
 	# ── Umgebung (bereits vorhandene CC0-Modelle) ──
 	"rock_small":      ["res://assets/models/environment/sand_rocks_small_01_1k/sand_rocks_small_01_1k.gltf"],
 	"rock_boulder":    ["res://assets/models/environment/namaqualand_boulder_03_1k/namaqualand_boulder_03_1k.gltf"],
@@ -68,13 +73,20 @@ const TARGET_HEIGHT: Dictionary = {
 	# Die Grundfläche folgt aus den Proportionen und wird gemessen, nicht geraten.
 	"saloon": 8.5,               # zweistöckig mit Scheinfassade
 	"forge": 7.0,                # niedrig und breit, hoher Schornstein
-	"shack": 4.5,
+	"shack_a": 4.5, "shack_b": 4.2, "shack_c": 4.0, "shack_d": 5.2,   # vier Bauweisen
 	"water_tower": 18.0,         # Silhouette, die man vor der Stadt sieht
 	"gate": 6.0,
 	"palisade_a": 3.4, "palisade_b": 3.4, "palisade_c": 3.4,
 	"palisade_d": 3.4, "palisade_e": 3.4,
 }
 const TARGET_HEIGHT_DEFAULT: float = 1.6
+
+## Assets, die über ihre **längste** Kante skaliert werden statt über die Höhe. Ein Karabiner
+## ist 40 cm hoch und einen Meter lang — auf 1 m Höhe skaliert wäre er fast fünf Meter lang.
+## Alles Langgestreckte (Waffen, Balken, Rohre) gehört hierher.
+const TARGET_LENGTH: Dictionary = {
+	"weapon_karabiner": 1.0,
+}
 
 ## Zielhöhe eines Assets in Metern (Rückfall: menschengroß).
 static func height_of(name: String) -> float:
@@ -126,7 +138,14 @@ static func instantiate(name: String, scale_to_height: float = 0.0, snap_to_floo
 	var n3: Node3D = node as Node3D
 	var bounds: AABB = local_bounds(n3)
 	var factor: float = 1.0
-	if scale_to_height > 0.0 and bounds.size.y > 0.001:
+	var by_length: float = float(TARGET_LENGTH.get(name, 0.0))
+	if by_length > 0.0:
+		# Langgestrecktes misst sich an der längsten Kante, nicht an der Höhe.
+		var longest: float = maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
+		if longest > 0.001:
+			factor = by_length / longest
+			n3.scale = Vector3.ONE * factor
+	elif scale_to_height > 0.0 and bounds.size.y > 0.001:
 		factor = scale_to_height / bounds.size.y
 		n3.scale = Vector3.ONE * factor
 	var yaw: float = float(YAW_DEG.get(name, 0.0))
@@ -167,6 +186,19 @@ static func local_bounds(root: Node3D) -> AABB:
 		box = a if not found else box.merge(a)
 		found = true
 	return box if found else AABB()
+
+
+## Abbildung **Mesh-Raum → Skelettraum** des ersten gehäuteten Meshes unter `root`.
+##
+## Das ist der Raum, in dem das Charakter-Mesh modelliert wurde. Wer etwas an einen Knochen
+## hängt (Waffe in die Hand, Hut auf den Kopf), braucht genau diese Abbildung: das Rig steht
+## bei generierten Modellen in Zentimetern, das Anbauteil in Metern, und dazu kommt die
+## Skalierung der Figur auf ihre Zielhöhe. Die Bindepose trägt alle drei Faktoren.
+static func mesh_to_skeleton(root: Node) -> Transform3D:
+	for mi in mesh_instances(root):
+		if (mi as MeshInstance3D).skin != null:
+			return _skin_transform(mi)
+	return Transform3D.IDENTITY
 
 
 ## Zusatz-Transform für **gehäutete** Meshes (Identität bei allem anderen).

@@ -28,10 +28,18 @@ Panzer 51,8 → 3,8 MB, Ratte 26,3 → 4,0 MB. Clip-Zuordnung: `AssetRegistry.CL
 | :-- | :-- | :-- | :-- |
 | `saloon.glb` | Gatling-Saloon, 14 k Dreiecke (von 1,06 Mio.), im Spiel 13,3 × 11,9 m, 8,5 m hoch | Township-Kern (§2.2 Auftragsbrett) | Meshy (eigene Generierung) |
 | `forge.glb` | Eiserne Schmiede, 14 k Dreiecke (von 1,46 Mio.), 10,0 × 9,4 m, 7,0 m hoch | Handelsposten (§2.2) | Meshy (eigene Generierung) |
-| `shack.glb` | Wohnhütte, 8 k Dreiecke (von 0,83 Mio.), 6,2 × 3,9 m, 4,5 m hoch | Hüttenring (10×, gedreht und leicht skaliert) | Meshy (eigene Generierung) |
+| `shack_a…d.glb` | Vier Hütten-Bauweisen: 8 k / 6 k / 6 k / 11,9 k Dreiecke (aus 0,83–1,82 Mio.), 5,3–7,2 m breit, 4,0–5,2 m hoch | Hüttenring (10 Stück, reihum gemischt, zusätzlich gedreht und leicht skaliert) | Meshy (eigene Generierung) |
 | `water_tower.glb` | Wasserturm, 10 k Dreiecke (von 0,93 Mio.), 9,4 × 8,0 m, 18 m hoch | Rustwaters Silhouette | Meshy (eigene Generierung) |
 | `gate.glb` | Geschlossenes Palisadentor, 8 k Dreiecke (von 0,94 Mio.), 8,0 m breit, 6,0 m hoch | verriegeltes Nordtor | Meshy (eigene Generierung) |
 | `palisade_a…e.glb` | Fünf Wandstück-Varianten, je 1,5 k Dreiecke, 7,6–8,6 m lang, 3,4 m hoch, 1k-Texturen | Stadtmauer-Ring (~60 Stück, zufällig gemischt) | Meshy (eigene Generierung) |
+
+## Waffen (`models/weapons/`)
+| Datei | Beschreibung | Einsatz | Herkunft |
+| :-- | :-- | :-- | :-- |
+| `karabiner.glb` | Blei-Karabiner, 4 k Dreiecke (von 108 k), 1,0 m lang, 1k-Texturen | In der rechten Hand des Spielers (`RightHand`) | Meshy (eigene Generierung) |
+
+Die Waffe wird über die **Länge** skaliert, nicht über die Höhe (`AssetRegistry.TARGET_LENGTH`):
+Ein Karabiner ist 40 cm hoch und einen Meter lang — auf 1 m Höhe skaliert wäre er 4,75 m lang.
 
 Die Palisaden bekommen bewusst nur 1k-Texturen und 1,5 k Dreiecke: sie stehen rund sechzigmal
 im Ring, da zählt jedes Dreieck sechzigfach.
