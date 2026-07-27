@@ -120,7 +120,7 @@ Priorität von oben nach unten — das Erste bringt den größten sichtbaren Spr
 | :-- | :-- | :-- |
 | ~~Spieler-Chassis~~ ✅ **fertig** | `models/characters/player.glb` | 1,8 m |
 | Grenzgänger (organisch) | `models/enemies/outlaw.glb` | 1,6 m |
-| Ölfresser-Ratte (organisch, Schwarm) | `models/enemies/fauna.glb` | ~0,6 m |
+| ~~Ölfresser-Ratte (organisch, Schwarm)~~ ✅ **fertig** | `models/enemies/fauna.glb` | 0,6 m |
 | Revolverheld (organisch, Fernkampf) | `models/enemies/revolver.glb` | 1,6 m |
 | ~~Konzern-Konstrukt (Maschine)~~ ✅ **fertig** — kleiner Panzer | `models/enemies/konstrukt.glb` | 2,0 m |
 | Kessel-Kläffer (Maschine, Schwarm) | `models/enemies/klaeffer.glb` | ~0,8 m |

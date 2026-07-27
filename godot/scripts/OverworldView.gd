@@ -18,7 +18,11 @@ class_name OverworldView extends Node3D
 const AGGRO_M: float = 16.0          # Gegner erwachen, sobald sie im Bild sind
 const SHOOT_RANGE_M: float = 11.0    # Auto-Ziel-Reichweite: gut sichtbar, nicht am Bildrand
 const CONTACT_RANGE_M: float = 2.2   # Nahkampf-Kontakt
-const ENEMY_SPEED_MS: float = 3.4    # Rudel etwas langsamer als der Spieler (4,7)
+const ENEMY_SPEED_MS: float = 3.4    # Referenztempo (CombatData `speed` 100); Typen skalieren daran
+## Ersatzbewegung für Modelle ohne Lauf-Animation (siehe `_scurry`).
+const SCURRY_HZ: float = 9.0
+const SCURRY_HOP: float = 0.09       # Anteil der Modellhöhe
+const SCURRY_ROLL_RAD: float = 0.09
 ## Spawn liegt neben, nicht auf der Rustwater-Landmarken-Säule (die am exakten POI-Punkt steht).
 const RUSTWATER_SPAWN_OFFSET: Vector3 = Vector3(0.0, 0.0, 25.0)   # 25 m südlich der Säule
 
@@ -29,6 +33,11 @@ const SPAWN_INTERVAL_SEC: float = 4.0
 ## solange man noch da ist, und weit genug, dass niemand vor der Nase aus dem Nichts auftaucht.
 const SPAWN_MIN_DIST: float = 18.0
 const SPAWN_MAX_DIST: float = 45.0
+## Schwarm-Gegner (CombatData `"swarm": true` — Ölfresser-Ratten, Kessel-Kläffer) erscheinen
+## als Rudel. Einzeln sind sie mit 32 Lebenspunkten weder gefährlich noch ein Bild.
+const SWARM_MIN: int = 4
+const SWARM_MAX: int = 7
+const SWARM_SPREAD_M: float = 4.5
 
 # ── Waffen (alle vier Schadensarten testbar — Kapitel-Gating folgt später über
 # das Quest-/Reveal-System; dieser Sandbox-Screen ist bewusst ungesperrt). ────
@@ -752,7 +761,12 @@ func _make_enemy(type_id: String) -> Dictionary:
 	# Höhe sonst mitten im Modell.
 	bar.position = Vector3(0.0, AssetRegistry.height_of(asset) + 0.35, 0.0)
 	node.add_child(bar)
-	return { "node": node, "target": target, "bar": bar, "model": model }
+	# Bringt das Modell eine Lauf-Animation mit? Wenn nicht, übernimmt `_scurry` die Bewegung —
+	# sonst gleitet die Figur reglos über den Sand, was bei einem Rudel besonders auffällt.
+	var animated: bool = model != null \
+		and AssetRegistry.find_clip(AssetRegistry.animation_player(model), "walk") != ""
+	return { "node": node, "target": target, "bar": bar, "model": model,
+		"animated": animated, "phase": randf() * TAU }
 
 
 func _spawn_pack() -> void:
@@ -771,6 +785,22 @@ func _spawn_pack() -> void:
 	for i in STARTER_TANKS:
 		var e: Dictionary = _make_enemy("konstrukt")
 		(e["node"] as Node3D).position = gate + Vector3(float(i) * 9.0 - 9.0, 0.0, 22.0 + float(i % 2) * 7.0)
+		add_child(e["node"])
+		_enemies.append(e)
+
+
+## Setzt ein Rudel um `center` ab (locker gestreut, nicht auf einem Punkt gestapelt).
+## Kappe und Bauten-Sperre gelten pro Tier — lieber ein kleinerer Schwarm als einer in der Wand.
+func _spawn_swarm(type_id: String, center: Vector3) -> void:
+	var count: int = mini(randi_range(SWARM_MIN, SWARM_MAX), ENEMY_MAX - _enemies.size())
+	for i in count:
+		var a: float = randf() * TAU
+		var r: float = randf_range(0.8, SWARM_SPREAD_M)
+		var pos: Vector3 = center + Vector3(cos(a) * r, 0.0, sin(a) * r)
+		if _blocked(pos):
+			continue
+		var e: Dictionary = _make_enemy(type_id)
+		(e["node"] as Node3D).position = pos
 		add_child(e["node"])
 		_enemies.append(e)
 
@@ -801,6 +831,11 @@ func _process_spawns(delta: float) -> void:
 		return   # befriedete Aktionszone (Hub / eigene Fraktionsbasis)
 	var biome_id: String = WorldManager.biome_at(rel)
 	var type_id: String = WorldManager.pick_enemy_type(biome_id, GameState.is_revealed)
+	# Schwarm-Typen (CombatData: Ratten, Kläffer) treten NIE einzeln auf — einzeln sind sie
+	# weder gefährlich noch schön, im Rudel sind sie beides. Die Kappe gilt weiterhin.
+	if bool(CombatData.ENEMY_TYPES[type_id].get("swarm", false)):
+		_spawn_swarm(type_id, pos)
+		return
 	var e: Dictionary = _make_enemy(type_id)
 	(e["node"] as Node3D).position = pos
 	add_child(e["node"])
@@ -1128,19 +1163,55 @@ func _process_enemies(delta: float) -> void:
 		var d: float = _player.position.distance_to(node.position)
 		if d > AGGRO_M:
 			AssetRegistry.play_clip(e["model"], "idle")
+			_scurry(e, false)
 			continue
 		if d > CONTACT_RANGE_M:
 			var dir: Vector3 = (_player.position - node.position).normalized()
-			node.position += dir * ENEMY_SPEED_MS * delta
+			node.position += dir * _enemy_speed(e) * delta
 			node.rotation.y = atan2(-dir.x, -dir.z)   # Gegner schaut, wohin er läuft
 			AssetRegistry.play_clip(e["model"], "walk")
+			_scurry(e, true)
 		else:
 			AssetRegistry.play_clip(e["model"], "attack")
+			_scurry(e, true)
 			var target: CombatTarget = e["target"]
 			_hp -= float(target.contact_dps) * delta * CombatEngine.player_damage_taken_mul(0)
 			if _hp <= 0.0:
 				_respawn()
 				return
+
+
+## Tempo eines Gegners aus seinen echten Werten (CombatData `speed`, 100 = Referenz) statt
+## einer Pauschale — eine Ratte (122) huscht, ein Panzer soll nicht wie ein Grenzgänger traben.
+func _enemy_speed(e: Dictionary) -> float:
+	var type_id: String = (e["target"] as CombatTarget).type_id
+	var s: float = float(CombatData.ENEMY_TYPES[type_id].get("speed", 100))
+	return ENEMY_SPEED_MS * (s / 100.0)
+
+
+## Ersatzbewegung für Modelle OHNE Lauf-Animation, phasenversetzt je Einheit. Kein Ersatz für
+## eine echte Animation, aber ein Rudel reglos über den Sand gleitender Ratten sieht kaputt aus.
+##
+## Nach Klasse getrennt, sonst wird es albern: **Organisches** hüpft (Huschen, Trippeln),
+## **Maschinen** wanken nur (ein hüpfender Panzer ist kein Panzer). Die Amplitude hängt an der
+## Modellhöhe — eine 0,6-m-Ratte darf nicht so weit vom Boden wie ein 2-m-Konstrukt.
+func _scurry(e: Dictionary, moving: bool) -> void:
+	if bool(e.get("animated", false)) or e["model"] == null:
+		return
+	var model: Node3D = e["model"]
+	if not moving:
+		model.position.y = 0.0
+		model.rotation.z = 0.0
+		return
+	var target: CombatTarget = e["target"]
+	var height: float = AssetRegistry.height_of(AssetRegistry.enemy_asset(target.type_id))
+	var t: float = Time.get_ticks_msec() / 1000.0 * SCURRY_HZ + float(e["phase"])
+	if target.classification == CombatData.MECHANICAL:
+		model.position.y = 0.0
+		model.rotation.z = sin(t * 0.35) * SCURRY_ROLL_RAD   # schweres Wanken, kein Hüpfen
+	else:
+		model.position.y = absf(sin(t)) * SCURRY_HOP * height
+		model.rotation.z = sin(t * 0.5) * SCURRY_ROLL_RAD
 
 
 func _process_hazards(delta: float) -> void:
