@@ -14,8 +14,6 @@ class_name AssetRegistry extends RefCounted
 const PATHS: Dictionary = {
 	# ── Charaktere (deine kommenden Assets) ──
 	"player":          ["res://assets/models/characters/player.glb", "res://assets/models/characters/player.gltf"],
-	## Separates Kleidungsstück, das an einen Knochen der Figur gehängt wird (siehe `best_bone`).
-	"player_coat":     ["res://assets/models/characters/player_coat.glb", "res://assets/models/characters/player_coat.gltf"],
 	# ── Gegner (Fallback: Primitive nach Klasse) ──
 	"enemy_outlaw":    ["res://assets/models/enemies/outlaw.glb", "res://assets/models/enemies/outlaw.gltf"],
 	"enemy_fauna":     ["res://assets/models/enemies/fauna.glb", "res://assets/models/enemies/fauna.gltf"],
@@ -148,19 +146,6 @@ static func local_bounds(root: Node3D) -> AABB:
 	return box if found else AABB()
 
 
-## Abbildung **Mesh-Raum → Skelettraum** des ersten gehäuteten Meshes unter `root`.
-##
-## Das ist der Raum, in dem ein Charakter-Mesh modelliert wurde — und damit auch der, in dem
-## Kleidung und Anbauteile aus demselben Generator modelliert sind. Wer ein solches Teil an
-## einen Knochen hängt, braucht genau diese Abbildung, sonst stimmt der Maßstab nicht (das Rig
-## steht in Zentimetern, das Mesh in Metern) und die Skalierung auf Zielhöhe fehlt.
-static func mesh_to_skeleton(root: Node) -> Transform3D:
-	for mi in mesh_instances(root):
-		if (mi as MeshInstance3D).skin != null:
-			return _skin_transform(mi)
-	return Transform3D.IDENTITY
-
-
 ## Zusatz-Transform für **gehäutete** Meshes (Identität bei allem anderen).
 ##
 ## Bei einem gehäuteten Mesh bestimmt nicht die Knotenkette die Lage — glTF ignoriert die
@@ -210,24 +195,6 @@ static func skeleton(root: Node) -> Skeleton3D:
 		if found != null:
 			return found
 	return null
-
-## Knochennamen, an denen ein Umhang/Mantel hängt — vom besten zum notdürftigsten.
-## Rigs benennen die Brustwirbel unterschiedlich (Mixamo: `Spine2`, Meshy: `Spine`,
-## Blender-Rigify: `spine_03`), deshalb eine Liste statt eines festen Namens.
-const COAT_BONES: Array = ["Spine2", "UpperChest", "Chest", "Spine", "spine_03", "Spine01", "Spine1"]
-
-## Erster vorhandener Knochen aus `candidates` ("" = keiner passt). Gross-/Kleinschreibung egal.
-static func best_bone(skel: Skeleton3D, candidates: Array) -> String:
-	if skel == null:
-		return ""
-	var lower: Dictionary = {}
-	for i in skel.get_bone_count():
-		lower[skel.get_bone_name(i).to_lower()] = skel.get_bone_name(i)
-	for c in candidates:
-		var key: String = String(c).to_lower()
-		if lower.has(key):
-			return String(lower[key])
-	return ""
 
 
 # ── Animationen ───────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ bricht: eine Datei ablegen, fertig.
 | Texturauflösung | **2K**, für kleine Props 1K | Mobile-Ziel; 4K bringt auf dem Handy nichts außer Ladezeit |
 | Topologie | **Quads** | im Spiel egal (die GPU trianguliert eh), aber Quads bleiben in Blender editier- und riggbar — Dreiecke sind eine Einbahnstraße |
 | Polygone | Charaktere ~5–15 k Tris, Props ~1–3 k | eine Wüste voller 100-k-Modelle ruckelt auf dem Handy. **Achtung:** 1 Quad = 2 Dreiecke, das Budget zählt in Dreiecken |
+| Y-up | **an** (glTF-Standard) | Godot ist Y-up |
 
 **Die Objektgröße (12 cm / 120 cm) hat mit der Polygonzahl nichts zu tun.** Das ist nur eine
 Maßangabe — sie skaliert das Modell, sie verfeinert es nicht. Wie fein das Netz wird, steuert
@@ -24,7 +25,6 @@ Maßangabe ohnehin gleichgültig: die `AssetRegistry` skaliert jedes Modell auf 
 
 Wenn ein Export trotzdem mit einer Million Dreiecken ankommt (Scan-Auflösung statt
 Spielauflösung), erledigt das Aufbereitungs-Skript unten die Reduktion — texturerhaltend.
-| Y-up | **an** (glTF-Standard) | Godot ist Y-up |
 
 **Nicht** FBX (Texturen hängen je nach Exporter außen dran, Godot importiert es nur über einen
 Umweg) und **nicht** OBJ (kann kein PBR, nur eine `.mtl` mit losen Bilddateien).
@@ -79,19 +79,6 @@ Spiel schaden. Gemessen: Spieler-Chassis **40,7 MB → 2,3 MB**, Panzer **51,8 M
   transparent zu rendern kostet Sortierung und Füllrate, ohne dass man etwas davon hätte.
 * Animationen bleiben unangetastet.
 
-### Kleidung & Anbauteile (Mantel, Hut, Rucksack)
-
-Ein Mantel kommt als **eigene Datei**, nicht in die Figur hineinmodelliert:
-`models/characters/player_coat.glb`. Grund: als separates Mesh kann er sich frei bewegen —
-in die Figur eingebacken würde ihn deren Rig mitverformen, und Auto-Rigging kennt keine
-Stoff-Knochen.
-
-**Wichtig beim Export:** derselbe Ursprung und derselbe Maßstab wie die Figur (also in der
-Pose exportieren, in der die Figur modelliert wurde — Meshy macht das von allein, wenn der
-Mantel aus derselben Figur stammt). Der Mantel wird dann am Brustknochen (`Spine`) aufgehängt
-und bekommt automatisch den Schwung-Shader: der Saum zieht beim Laufen nach, hebt sich mit dem
-Tempo und flattert im Wind. Kein Rigging nötig, keine Stoffsimulation.
-
 **Was du NICHT selbst richten musst** — das macht die `AssetRegistry` beim Instanziieren:
 * **Größe:** wird auf die Zielhöhe unten in der Tabelle skaliert, egal wie groß Meshy exportiert.
 * **Pivot/Höhe:** die Unterkante wird auf Y = 0 gelegt. Generatoren setzen den Pivot fast immer
@@ -129,7 +116,7 @@ Priorität von oben nach unten — das Erste bringt den größten sichtbaren Spr
 | Grenzgänger (organisch) | `models/enemies/outlaw.glb` | 1,6 m |
 | Ölfresser-Ratte (organisch, Schwarm) | `models/enemies/fauna.glb` | ~0,6 m |
 | Revolverheld (organisch, Fernkampf) | `models/enemies/revolver.glb` | 1,6 m |
-| Konzern-Konstrukt (Maschine) | `models/enemies/konstrukt.glb` | 1,9 m |
+| ~~Konzern-Konstrukt (Maschine)~~ ✅ **fertig** — kleiner Panzer | `models/enemies/konstrukt.glb` | 2,0 m |
 | Kessel-Kläffer (Maschine, Schwarm) | `models/enemies/klaeffer.glb` | ~0,8 m |
 | Schwerer Ernter / Goliath (Boss) | `models/enemies/goliath.glb` | ~4 m |
 | Bolzen, der Blechhund (Begleiter) | `models/characters/bolzen.glb` | ~0,7 m |

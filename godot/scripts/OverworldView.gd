@@ -144,9 +144,6 @@ var _pillars: Array = []             # runde Sperren:       { c: Vector2(x,z), r
 var _rings: Array = []               # Ringmauern mit Toren: { c, r, t, gates, gate_half }
 var _stations: Array = []            # { id, pos: Vector3 } — Bahnsteige der Iron Rail
 var _player_model: Node3D = null     # nur gesetzt, wenn ein echtes Modell geladen wurde
-var _coat: Node3D = null             # angehängter Mantel (optional)
-var _coat_mats: Array = []           # dessen ShaderMaterials (Schwung-Parameter)
-var _coat_sway: float = 0.0          # geglättete Laufstärke 0…1 (kein Ruckeln beim Anlaufen)
 
 
 func _ready() -> void:
@@ -679,7 +676,6 @@ func _build_player() -> void:
 		_player.add_child(body)
 	_player.position = _rustwater_spawn()
 	add_child(_player)
-	_attach_coat()
 	_cam = Camera3D.new()
 	# Kamera nach Diablo-Immortal-Referenz eingemessen: enges Sichtfeld (Godots Standard-75°
 	# zieht die Welt auseinander und lässt die Figur winzig wirken), feste Neigung, feste
@@ -694,96 +690,6 @@ func _build_player() -> void:
 	_cam.far = 8000.0   # Kraterrand & Herz bleiben trotzdem am Horizont sichtbar (Landmark-Navigation)
 	add_child(_cam)
 	_cam.position = _player.position + CAM_OFFSET
-
-
-## Hängt den Mantel (falls vorhanden) an den Brustknochen der Figur und ersetzt sein Material
-## durch den Schwung-Shader. Fehlt die Datei, passiert nichts — wie bei jedem anderen Asset.
-##
-## Der Mantel ist ein EIGENES Mesh, kein Teil der Figur: so kann er sich frei bewegen, ohne
-## dass das Rig der Figur ihn mitverformt (Auto-Rigging kennt keine Stoff-Knochen). Angehängt
-## wird an `Spine` & Co. — dort, wo ein Mantel auf den Schultern aufliegt.
-func _attach_coat() -> void:
-	if _player_model == null:
-		return
-	var skel: Skeleton3D = AssetRegistry.skeleton(_player_model)
-	if skel == null:
-		return
-	var bone: String = AssetRegistry.best_bone(skel, AssetRegistry.COAT_BONES)
-	if bone == "":
-		return
-	# Ohne Boden-Snap und ohne Zielhöhe: der Mantel muss GENAU so im Raum liegen, wie er
-	# modelliert wurde, sonst passt er nicht zur Figur.
-	var coat: Node3D = AssetRegistry.instantiate("player_coat", 0.0, false)
-	if coat == null:
-		return
-	var bounds: AABB = AssetRegistry.local_bounds(coat)
-	var idx: int = skel.find_bone(bone)
-	if idx < 0:
-		coat.queue_free()
-		return
-	var att := BoneAttachment3D.new()
-	att.bone_name = bone
-	skel.add_child(att)
-	att.add_child(coat)
-	# Der Mantel ist im MESH-Raum der Figur modelliert (Ursprung an den Füßen, 1,7 m hoch), die
-	# Aufhängung sitzt dagegen auf Brusthöhe im SKELETT-Raum — der bei generierten Rigs in
-	# Zentimetern steht. Die Bindepose ist genau die Brücke zwischen beiden Räumen; damit
-	# stimmen Versatz UND Maßstab (inklusive der Skalierung der Figur auf 1,80 m), ohne einen
-	# einzigen geratenen Faktor. Rein lokale Matrizen — funktioniert schon im ersten Frame,
-	# bevor `BoneAttachment3D` seine Weltlage überhaupt berechnet hat.
-	coat.transform = skel.get_bone_global_rest(idx).affine_inverse() \
-		* AssetRegistry.mesh_to_skeleton(_player_model)
-	_coat = coat
-	_apply_coat_shader(coat, bounds)
-
-
-## Ersetzt die Materialien des Mantels durch `coat_sway.gdshader` und übernimmt dabei Farbe,
-## Textur und Rauheit aus dem importierten Material — der Mantel sieht also aus wie modelliert,
-## bewegt sich aber. Aufhängung und Länge kommen aus den gemessenen Bounds (nichts abgeschrieben).
-func _apply_coat_shader(coat: Node3D, bounds: AABB) -> void:
-	var shader: Shader = load("res://shaders/coat_sway.gdshader") as Shader
-	if shader == null:
-		return
-	for mi in AssetRegistry.mesh_instances(coat):
-		var src: BaseMaterial3D = mi.get_active_material(0) as BaseMaterial3D
-		var mat := ShaderMaterial.new()
-		mat.shader = shader
-		mat.set_shader_parameter("coat_top", bounds.position.y + bounds.size.y)
-		mat.set_shader_parameter("coat_length", maxf(bounds.size.y, 0.05))
-		if src != null:
-			mat.set_shader_parameter("albedo_color", src.albedo_color)
-			mat.set_shader_parameter("albedo_tex", src.albedo_texture)
-			mat.set_shader_parameter("roughness", src.roughness)
-			mat.set_shader_parameter("metallic", src.metallic)
-			# Normal- und ORM-Map mitnehmen, sonst verliert der Mantel beim Materialwechsel
-			# genau die Details (Nähte, Falten, Lederglanz), für die er modelliert wurde.
-			if src.normal_enabled and src.normal_texture != null:
-				mat.set_shader_parameter("normal_tex", src.normal_texture)
-				mat.set_shader_parameter("has_normal", true)
-			var orm: Texture2D = src.orm_texture if src is ORMMaterial3D else null
-			if orm != null:
-				mat.set_shader_parameter("orm_tex", orm)
-				mat.set_shader_parameter("has_orm", true)
-		mi.material_override = mat
-		_coat_mats.append(mat)
-
-
-## Füttert den Shader mit der aktuellen Bewegung. `world_dir` ist die Laufrichtung in der
-## XZ-Ebene (Länge 0 = Stillstand); sie wird in den lokalen Raum des Mantels gedreht, weil der
-## Stoff relativ zur Figur nachzieht, nicht relativ zur Welt.
-func _process_coat(delta: float, world_dir: Vector3) -> void:
-	if _coat_mats.is_empty():
-		return
-	var target: float = clampf(world_dir.length(), 0.0, 1.0)
-	# Anwehen schnell, Ausschwingen langsam — sonst fällt der Stoff beim Stehenbleiben zu abrupt.
-	var rate: float = 6.0 if target > _coat_sway else 2.5
-	_coat_sway = lerpf(_coat_sway, target, clampf(delta * rate, 0.0, 1.0))
-	var local: Vector3 = Vector3.FORWARD
-	if world_dir.length_squared() > 0.0001:
-		local = (_coat.global_transform.basis.inverse() * world_dir).normalized()
-	for mat in _coat_mats:
-		(mat as ShaderMaterial).set_shader_parameter("sway_dir", local)
-		(mat as ShaderMaterial).set_shader_parameter("sway_amount", _coat_sway)
 
 
 func _build_hud() -> void:
@@ -1116,13 +1022,11 @@ func _process_movement(delta: float) -> void:
 	# Animation folgt der Bewegung, sobald ein animiertes Modell da ist. Kennt das Modell den
 	# Clip nicht (oder ist es der Kapsel-Platzhalter), passiert schlicht nichts.
 	AssetRegistry.play_clip(_player_model, "walk" if moving else "idle")
+	if not moving:
+		return
 	# Eingabe ist bildschirmbezogen: um die Kamera-Gierung zurückdrehen, damit „nach oben
 	# ziehen" auch bei gedrehter Kamera nach oben läuft (sonst zieht es schräg).
 	var dir: Vector2 = mv.rotated(-deg_to_rad(CAM_YAW))
-	# Der Mantel schwingt auch im Stand aus — deshalb VOR dem frühen Ausstieg.
-	_process_coat(delta, Vector3(dir.x, 0.0, dir.y) if moving else Vector3.ZERO)
-	if not moving:
-		return
 	var step: Vector3 = Vector3(dir.x, 0.0, dir.y) * WorldManager.PLAYER_SPEED_MS * delta
 	var next: Vector3 = _player.position + step
 	# Weltgrenzen (Kraterrand).
