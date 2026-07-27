@@ -63,7 +63,8 @@ const AUTOSAVE_INTERVAL_SEC: float = 10.0
 
 ## Rustwater ist Schutzzone: innerhalb dieses Radius spawnt nichts Feindliches und es
 ## wird kein Dekor gestreut — die Stadt bleibt Stadt (GDD §1.6: befriedete Hubs).
-const TOWN_SAFE_M: float = 90.0
+## Befriedeter Umkreis: knapp außerhalb der Palisade (52 m) plus Bahnsteig-Vorfeld.
+const TOWN_SAFE_M: float = 78.0
 ## Panzer-Rotte vor dem Tor beim Spielstart (der kontinuierliche Nachschub würfelt sie danach
 ## aus dem Biom-Mix — in der Wüste rund jeder zehnte Gegner, WorldManager.ENEMY_POOLS).
 const STARTER_TANKS: int = 3
@@ -74,11 +75,13 @@ const FAST_TRAVEL: Array = WorldManager.RAIL_STATIONS
 # ── NPCs & Quests: der QuestManager ist seit Phase 2 fertig, hier zum ersten Mal
 # an die sichtbare Welt angeschlossen. Auftraggeber stehen bei ihren Gebäuden. ──
 const NPC_INTERACT_M: float = 4.5
-## giver-Id (QuestManager.QUESTS[..].giver) → Anzeigename, Winkel/Distanz um das Stadtzentrum, Farbe.
+## giver-Id (QuestManager.QUESTS[..].giver) → Anzeigename, Standort (Versatz vom Zentrum), Farbe.
+## Jeder steht **vor seinem Haus** an der Straßenkante — Mabel vor dem Saloon, Silas vor der
+## Schmiede, Doc vor dem Labor. Vorher standen sie auf einem eigenen Kreis irgendwo im Sand.
 const TOWN_NPCS: Array = [
-	["mabel", "Mamma „Rusty“ Mabel", 25.0, 22.0, Color(0.85, 0.45, 0.35)],
-	["silas", "Silas „Kupferauge“ Finch", 110.0, 21.0, Color(0.55, 0.50, 0.40)],
-	["doc", "Doktor „Doc“ Aris", 285.0, 22.0, Color(0.88, 0.88, 0.90)],
+	["mabel", "Mamma „Rusty“ Mabel", Vector2(-5.0, 3.0), Color(0.85, 0.45, 0.35)],
+	["silas", "Silas „Kupferauge“ Finch", Vector2(5.0, 3.0), Color(0.55, 0.50, 0.40)],
+	["doc", "Doktor „Doc“ Aris", Vector2(5.5, 15.0), Color(0.88, 0.88, 0.90)],
 ]
 ## Material-Drops beim Kill — ohne sie ist die Sammel-Quest „Baumaterial: Schrott" unlösbar.
 const DROP_TABLE: Array = [["schrott", 0.65], ["zahnrad", 0.22], ["dampfkern", 0.05]]
@@ -124,9 +127,48 @@ const WEAPON_GRIP_ROT: Vector3 = Vector3(0.0, 0.0, 0.0)   # Radiant (X, Y, Z)
 const PLAYER_RADIUS_M: float = 0.6
 ## Rustwaters Palisade: Radius, Tore (Grad) und halbe Torbreite. Wand und Sperre werden
 ## beide daraus gebaut — die vier Tore sind die einzigen Wege hinein.
-const PALISADE_R: float = 84.0
+##
+## 84 m waren viel zu weit: Rustwater war ein Ring aus Einzelhäusern mit zwanzig Metern Sand
+## dazwischen, in dem man Schmiede und Wasserturm schlicht nicht fand. 52 m umschließen den
+## Stadtplan (`TOWN_LAYOUT`) knapp.
+const PALISADE_R: float = 52.0
 const PALISADE_GATES: Array = [0.0, 90.0, 180.0, 270.0]
 const PALISADE_GATE_HALF_DEG: float = 7.0
+
+# ── Stadtplan Rustwater ───────────────────────────────────────────────────────
+## Eine Hauptstraße von Süden (Tor bei 90°) nach Norden zum Platz, Kernbauten links und rechts
+## davon, Hütten in Reihen dahinter, der Wasserturm am Kopfende als Blickfang. Alle Werte sind
+## Versätze vom Stadtzentrum in Metern: **+x Ost, +z Süd**.
+##
+## Blickrichtung in Grad: 90 = nach Osten, 270 = nach Westen. Häuser an der Westseite schauen
+## also nach Osten auf die Straße — nicht zur Stadtmitte, sonst stünden sie schräg zur Gasse.
+## Die Straße bleibt zwischen x = −6 und x = +6 frei, das sind zwölf Meter: eng genug, dass
+## immer beide Seiten im Bild sind, breit genug für Kampf und Ausweichen.
+const STREET_HALF_W: float = 6.0
+## [Beschriftung, Registry-Name ("" = nur Platzhalter), Versatz, Blickrichtung, Ersatzmaße, Farbe]
+const TOWN_LAYOUT: Array = [
+	["🍺 Gatling-Saloon", "saloon", Vector2(-12.0, 1.0), 90.0,
+		Vector3(13.0, 8.5, 11.0), Color(0.45, 0.28, 0.16)],
+	["🔨 Eiserne Schmiede", "forge", Vector2(12.0, 1.0), 270.0,
+		Vector3(10.0, 7.0, 9.0), Color(0.36, 0.30, 0.27)],
+	["🥃 Destille", "", Vector2(-12.5, 17.0), 90.0,
+		Vector3(11.0, 6.5, 9.0), Color(0.40, 0.34, 0.20)],
+	["⚗ Alchemie-Labor", "", Vector2(12.5, 17.0), 270.0,
+		Vector3(12.0, 6.0, 10.0), Color(0.30, 0.36, 0.31)],
+	["", "water_tower", Vector2(-14.0, -18.0), 180.0,
+		Vector3(9.0, 18.0, 9.0), Color(0.48, 0.38, 0.26)],
+]
+## Der Turm steht NEBEN dem Kopfende der Straße, nicht darauf: mit 9,4 m Breite würde er die
+## zwölf Meter Gasse dichtmachen. Bei 18 m Höhe sieht man ihn von überall, auch von der Seite.
+const TOWER_SPOT: Vector2 = Vector2(-14.0, -18.0)
+## Hüttenplätze: zwei Reihen an der Straße, zwei Zeilen hinter den Kernbauten.
+const SHACK_SPOTS: Array = [
+	Vector2(-11.0, 28.0), Vector2(11.0, 28.0),
+	Vector2(-11.0, 36.0), Vector2(11.0, 36.0),
+	Vector2(-11.0, 44.0), Vector2(11.0, 44.0),
+	Vector2(-24.0, 8.0), Vector2(24.0, 8.0),
+	Vector2(-24.0, -8.0), Vector2(24.0, -8.0),
+]
 ## Das Nordtor ist **verriegelt** — dort steht das geschlossene Torblatt, und dort sperrt die
 ## Mauer auch wirklich. Ein Tor, das zu aussieht und durch das man trotzdem spaziert, ist der
 ## schlimmere Fehler; so ergibt dasselbe Modell eine glaubwürdige Stadt mit drei Durchlässen.
@@ -138,6 +180,8 @@ const BUILDING_COLLISION_SHRINK: float = 0.82
 # ── Eisenbahn (GDD §1.4a): Schnellreise nur noch von Bahnhof zu Bahnhof ───────
 const RAIL_GAUGE_M: float = 3.2        # Spurweite der Iron Rail (Breitspur, Panzerzug-tauglich)
 const STATION_RANGE_M: float = 45.0    # so nah muss man am Bahnsteig stehen, um zu fahren
+## Abstand des Bahnsteigs vom Ortsmittelpunkt — außerhalb von Rustwaters Palisade (52 m).
+const STATION_OFFSET_M: float = 68.0
 
 func _in_town(pos: Vector3) -> bool:
 	return pos.distance_to(WorldManager.poi_scene_position("rustwater")) < TOWN_SAFE_M
@@ -496,68 +540,55 @@ func _build_railway() -> void:
 ## das Depot schon — es ist Teil der baulichen Begrenzung des Ortes.
 func _build_station(poi_id: String) -> void:
 	var c: Vector3 = WorldManager.poi_scene_position(poi_id)
-	var platform: Vector3 = c + Vector3(0.0, 0.0, 14.0)
+	# Der Bahnhof liegt VOR den Toren, nicht auf dem Marktplatz: Rustwaters Stadtplan reicht
+	# jetzt bis dicht an die Palisade, ein Bahnsteig mittendrin stünde in der Gasse.
+	var platform: Vector3 = c + Vector3(0.0, 0.0, STATION_OFFSET_M)
 	_box(Vector3(26.0, 0.9, 8.0), platform + Vector3(0.0, 0.45, 0.0), Color(0.44, 0.38, 0.30))
 	for x in [-11.0, 0.0, 11.0]:
 		_box(Vector3(0.5, 3.4, 0.5), platform + Vector3(x, 2.6, 3.2), Color(0.30, 0.26, 0.22))
 	_box(Vector3(26.0, 0.4, 7.0), platform + Vector3(0.0, 4.5, 1.2), Color(0.34, 0.28, 0.22))   # Vordach
-	_solid_box(Vector3(9.0, 5.0, 6.0), c + Vector3(-18.0, 2.5, 16.0), Color(0.38, 0.31, 0.24))  # Depot
+	_solid_box(Vector3(9.0, 5.0, 6.0), platform + Vector3(-18.0, 2.5, 2.0), Color(0.38, 0.31, 0.24))  # Depot
 	_label(platform + Vector3(0.0, 6.4, 0.0), "🚂 Bahnhof " + String(WorldManager.poi(poi_id)["name"]),
 		Color(0.92, 0.86, 0.70), 100, 200.0)
 	_stations.append({ "id": poi_id, "pos": platform })
 
 
-## Rustwater als begehbare Township (GDD §1.6/§2.3). Wo ein Modell vorliegt, steht das Modell;
-## wo noch keins da ist, steht weiterhin ein Primitiv (AssetRegistry-Prinzip — die Stadt ist
-## jederzeit vollstaendig, nur unterschiedlich fertig).
+## Rustwater als begehbare Township (GDD §1.6/§2.3) — **enge Strassenstadt**, kein Kreisring.
 ##
-## Die Kollision wird aus den GEMESSENEN Modellmassen gebildet, nicht aus den Zahlen, mit denen
-## die Platzhalter-Boxen gebaut waren: sonst liefe man in eine Wand, wo keine ist.
+## Der erste Entwurf verteilte alles auf Kreisen um das Zentrum. Bei 84 m Palisadenradius lagen
+## zwischen zwei Haeusern zwanzig Meter Sand: man lief durch Rustwater, ohne die Schmiede oder
+## den Wasserturm ueberhaupt zu sehen. Diablo macht das Gegenteil — enge Gassen, Haeuser fast
+## auf Tuchfuehlung, der Blick faellt immer auf etwas.
+##
+## Deshalb ein ECHTER Stadtplan: eine Hauptstrasse von Sued nach Nord, Kernbauten links und
+## rechts davon, Huetten in Reihen dahinter, der Wasserturm am Kopfende als Blickfang. Die
+## Zahlen sind Versaetze vom Stadtzentrum in Metern (+x Ost, +z Sued).
 func _build_township() -> void:
 	var c: Vector3 = WorldManager.poi_scene_position("rustwater")
-	# Kernbauten: Beschriftung, Registry-Name, Winkel um das Zentrum, Distanz, Ersatzmasse
-	# (Grundflaeche + Hoehe) und Farbe fuer den Fall, dass das Modell noch fehlt.
-	var core: Array = [
-		["🍺 Gatling-Saloon", "saloon", 25.0, 40.0, Vector2(16.0, 11.0), 7.5, Color(0.45, 0.28, 0.16)],
-		["🔨 Schmiede", "forge", 110.0, 38.0, Vector2(12.0, 10.0), 6.0, Color(0.36, 0.30, 0.27)],
-		["🥃 Destille", "", 195.0, 33.0, Vector2(11.0, 9.0), 6.5, Color(0.40, 0.34, 0.20)],
-		["⚗ Alchemie-Labor", "", 285.0, 34.0, Vector2(12.0, 10.0), 6.0, Color(0.30, 0.36, 0.31)],
-	]
-	for b in core:
-		var ang: float = deg_to_rad(float(b[2]))
-		var pos: Vector3 = c + Vector3(cos(ang) * float(b[3]), 0.0, sin(ang) * float(b[3]))
-		# Haeuser schauen zur Stadtmitte — sonst kehrt der halbe Ort dem Platz den Ruecken zu.
-		var yaw: float = atan2(c.x - pos.x, c.z - pos.z)
-		var size: Vector3 = _place_building(String(b[1]), pos, yaw, Vector3(b[4].x, float(b[5]), b[4].y), b[6])
-		_label(pos + Vector3(0.0, size.y + 2.4, 0.0), String(b[0]), Color(0.98, 0.90, 0.72), 95, 150.0)
-	# Wohnhaeuser: Ring aus Huetten. Vier verschiedene Bauweisen, gemischt, jede zusaetzlich
-	# anders gedreht und leicht anders gross — nur so liest sich der Ring als gewachsener Ort
-	# und nicht als zehnmal dasselbe Haus.
+	for b in TOWN_LAYOUT:
+		var pos: Vector3 = c + Vector3(b[2].x, 0.0, b[2].y)
+		var size: Vector3 = _place_building(String(b[1]), pos, deg_to_rad(float(b[3])),
+			b[4], Color(b[5]))
+		if String(b[0]) != "":
+			_label(pos + Vector3(0.0, size.y + 2.2, 0.0), String(b[0]),
+				Color(0.98, 0.90, 0.72), 95, 150.0)
+	# Wohnhaeuser in zwei Reihen entlang der Strasse und zwei Zeilen dahinter. Vier Bauweisen,
+	# reihum vergeben; leichte Drehung, damit die Reihe nicht wie gestempelt wirkt.
 	var shacks: Array = []
 	for suffix in ["a", "b", "c", "d"]:
 		if AssetRegistry.has_model("shack_" + suffix):
 			shacks.append("shack_" + suffix)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4711
-	for i in 10:
-		var ang: float = deg_to_rad(float(i) * 36.0 + 18.0)
-		var d: float = rng.randf_range(54.0, 68.0)
-		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
-		var yaw: float = atan2(c.x - pos.x, c.z - pos.z) + rng.randf_range(-0.5, 0.5)
-		# Gleichverteilt reihum statt zufällig gezogen: bei zehn Häusern und vier Bauweisen
-		# würfelt man sonst leicht dreimal dasselbe nebeneinander.
+	for i in SHACK_SPOTS.size():
+		var spot: Vector2 = SHACK_SPOTS[i]
+		var pos: Vector3 = c + Vector3(spot.x, 0.0, spot.y)
+		# Haus schaut zur Strasse (x = 0), nicht zur Stadtmitte.
+		var yaw: float = (PI * 0.5 if spot.x < 0.0 else -PI * 0.5) + rng.randf_range(-0.12, 0.12)
 		var asset: String = "" if shacks.is_empty() else String(shacks[i % shacks.size()])
-		_place_building(asset, pos, yaw, Vector3(6.0, 4.2, 5.0), Color(0.42, 0.33, 0.24),
-			rng.randf_range(0.9, 1.1))
-	# Wasserturm — die Silhouette, an der man Rustwater von weitem erkennt.
-	var tw: Vector3 = c + Vector3(-30.0, 0.0, -26.0)
-	if AssetRegistry.has_model("water_tower"):
-		_place_building("water_tower", tw, 0.0, Vector3.ZERO, Color.WHITE)
-	else:
-		for leg in [Vector3(-3.0, 0.0, -3.0), Vector3(3.0, 0.0, -3.0), Vector3(-3.0, 0.0, 3.0), Vector3(3.0, 0.0, 3.0)]:
-			_solid_box(Vector3(0.8, 14.0, 0.8), tw + leg + Vector3(0.0, 7.0, 0.0), Color(0.33, 0.27, 0.22))
-		_box(Vector3(9.0, 6.0, 9.0), tw + Vector3(0.0, 17.0, 0.0), Color(0.48, 0.38, 0.26))
-	_label(tw + Vector3(0.0, 22.0, 0.0), "RUSTWATER", Color(0.95, 0.82, 0.55), 120, 350.0)
+		_place_building(asset, pos, yaw, Vector3(6.0, 4.2, 5.0), Color(0.42, 0.33, 0.24))
+	_label(c + Vector3(TOWER_SPOT.x, 21.0, TOWER_SPOT.y), "RUSTWATER",
+		Color(0.95, 0.82, 0.55), 120, 350.0)
 	_build_palisade(c)
 
 
@@ -667,9 +698,8 @@ func _build_palisade_placeholder(c: Vector3) -> void:
 func _build_npcs() -> void:
 	var c: Vector3 = WorldManager.poi_scene_position("rustwater")
 	for n in TOWN_NPCS:
-		var ang: float = deg_to_rad(float(n[2]))
-		var d: float = float(n[3])
-		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
+		var spot: Vector2 = n[2]
+		var pos: Vector3 = c + Vector3(spot.x, 0.0, spot.y)
 		var node := Node3D.new()
 		var asset: String = "npc_" + String(n[0])
 		var model: Node3D = AssetRegistry.instantiate(asset, AssetRegistry.height_of(asset))
@@ -683,12 +713,13 @@ func _build_npcs() -> void:
 			cap.radius = 0.42
 			cap.height = 1.7
 			body.mesh = cap
-			body.material_override = _mat(n[4])
+			body.material_override = _mat(n[3])
 			body.position = Vector3(0.0, 0.85, 0.0)
 			node.add_child(body)
 		node.position = pos
 		# Die NPCs schauen zur Stadtmitte, wie die Gebäude — nicht in die Wüste hinaus.
-		node.rotation.y = atan2(c.x - pos.x, c.z - pos.z)
+		# Zur Straßenmitte schauen (x = 0), wie die Häuser hinter ihnen — nicht zum Stadtplatz.
+		node.rotation.y = PI * 0.5 if spot.x < 0.0 else -PI * 0.5
 		add_child(node)
 		var label: Label3D = _label(pos + Vector3(0.0, 2.5, 0.0), String(n[1]), Color(0.98, 0.94, 0.82), 85, 140.0)
 		_npcs.append({ "giver": String(n[0]), "name": String(n[1]), "node": node, "label": label, "pos": pos })

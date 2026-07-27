@@ -929,6 +929,7 @@ func _test_asset_registry() -> void:
 		m.free()
 	_check("Kein Asset ist unverhaeltnismaessig gross skaliert",
 		scale_ok, "schlimmster Fall: %s mit Faktor %.1f" % [worst, worst_ratio])
+	_test_town_layout()
 	_check("Bodentextur ist in der Registry vorgesehen", AssetRegistry.PATHS.has("ground_sand"))
 	_check("Unbekanntes Material liefert null (→ Einheitsfarbe)",
 		AssetRegistry.material_from_model("gibts_nicht") == null)
@@ -1060,6 +1061,71 @@ func _test_walkable_zones() -> void:
 	# 5. Rueckfall: ein Punkt ausserhalb des Kraters wird hineingezogen.
 	var rescued: Vector2 = WorldManager.nearest_walkable(Vector2(-40, 2400))
 	_check("nearest_walkable liefert eine begehbare Position", WorldManager.is_walkable(rescued))
+
+
+## Stadtplan von Rustwater: eng, aber nicht ineinander. Genau die Pruefung, die eine dichte
+## Bebauung braucht — je enger man baut, desto leichter steht ein Haus im naechsten oder in
+## der Gasse. Gerechnet wird mit den GEMESSENEN Modellmassen, nicht mit den Planzahlen.
+func _test_town_layout() -> void:
+	print("· Stadtplan Rustwater (enge Strassenstadt)")
+	var plots: Array = []   # [Name, Mitte (x,z), halbe Kantenlaengen]
+	for b in OverworldView.TOWN_LAYOUT:
+		plots.append(_plot(String(b[1]), b[2], float(b[3]), b[4]))
+	var shack_count: int = 0
+	for spot in OverworldView.SHACK_SPOTS:
+		var asset: String = "shack_%s" % ["a", "b", "c", "d"][shack_count % 4]
+		var yaw: float = 90.0 if spot.x < 0.0 else -90.0
+		plots.append(_plot(asset, spot, yaw, Vector3(6.0, 4.2, 5.0)))
+		shack_count += 1
+
+	var overlap: String = ""
+	for i in plots.size():
+		for j in range(i + 1, plots.size()):
+			var d: Vector2 = (Vector2(plots[i][1]) - Vector2(plots[j][1])).abs()
+			var need: Vector2 = Vector2(plots[i][2]) + Vector2(plots[j][2])
+			if d.x < need.x and d.y < need.y:
+				overlap = "%s <-> %s" % [plots[i][0], plots[j][0]]
+	_check("Keine zwei Gebaeude ueberlappen sich", overlap == "", overlap)
+
+	# Die Hauptstrasse muss frei bleiben, sonst laeuft man in der eigenen Stadt gegen eine Wand.
+	var blocked: String = ""
+	var in_wall: String = ""
+	for p in plots:
+		var centre: Vector2 = p[1]
+		var half: Vector2 = p[2]
+		if absf(centre.x) - half.x < OverworldView.STREET_HALF_W and absf(centre.x) < 30.0:
+			blocked = String(p[0])
+		if centre.length() + maxf(half.x, half.y) > OverworldView.PALISADE_R - 2.0:
+			in_wall = String(p[0])
+	_check("Die Hauptstrasse bleibt frei (%.0f m breit)" % (2.0 * OverworldView.STREET_HALF_W),
+		blocked == "", blocked)
+	_check("Alle Bauten stehen innerhalb der Palisade", in_wall == "", in_wall)
+
+	# NPCs: auf der Strasse, vor ihrem Haus, nicht in einer Wand.
+	var npc_bad: String = ""
+	for n in OverworldView.TOWN_NPCS:
+		var pos: Vector2 = n[2]
+		for p in plots:
+			var d2: Vector2 = (pos - Vector2(p[1])).abs()
+			if d2.x < float(p[2].x) and d2.y < float(p[2].y):
+				npc_bad = "%s steckt in %s" % [String(n[0]), String(p[0])]
+	_check("Kein NPC steht in einer Hauswand", npc_bad == "", npc_bad)
+	_check("Der Bahnhof liegt ausserhalb der Palisade",
+		OverworldView.STATION_OFFSET_M > OverworldView.PALISADE_R)
+
+
+## Grundflaeche eines geplanten Bauwerks: gemessenes Modell (falls vorhanden), sonst Ersatzmass.
+## Bei 90°/270° Drehung tauschen Breite und Tiefe die Achsen.
+func _plot(asset: String, spot: Vector2, yaw_deg: float, fallback: Vector3) -> Array:
+	var size := Vector2(fallback.x, fallback.z)
+	if asset != "" and AssetRegistry.has_model(asset):
+		var m: Node3D = AssetRegistry.instantiate(asset, AssetRegistry.height_of(asset))
+		var b: Vector3 = AssetRegistry.local_bounds(m).size
+		size = Vector2(b.x, b.z)
+		m.free()
+	if absf(sin(deg_to_rad(yaw_deg))) > 0.7:
+		size = Vector2(size.y, size.x)
+	return [asset if asset != "" else "Platzhalter", spot, size * 0.5]
 
 
 ## Wegwerf-AnimationPlayer mit den angegebenen Clip-Namen (fuer die Namenssuche-Tests).
