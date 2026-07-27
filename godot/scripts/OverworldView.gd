@@ -49,8 +49,8 @@ const AUTOSAVE_INTERVAL_SEC: float = 10.0
 ## wird kein Dekor gestreut — die Stadt bleibt Stadt (GDD §1.6: befriedete Hubs).
 const TOWN_SAFE_M: float = 95.0
 
-## Schnellreise-Ziele (Tasten 1–5) — nur echte Hubs, passend zu GDD §1.4.
-const FAST_TRAVEL: Array = ["rustwater", "zugdepot", "fort_freedom", "rogues_landing", "sektor01"]
+## Reiseziele (Tasten 1–5) sind exakt die Bahnhöfe — eine Liste, keine zweite Wahrheit.
+const FAST_TRAVEL: Array = WorldManager.RAIL_STATIONS
 
 # ── NPCs & Quests: der QuestManager ist seit Phase 2 fertig, hier zum ersten Mal
 # an die sichtbare Welt angeschlossen. Auftraggeber stehen bei ihren Gebäuden. ──
@@ -69,6 +69,21 @@ const CAM_FOV: float = 50.0     # eng statt Godots 75° — sonst wirkt die Figu
 const CAM_DIST: float = 14.0    # Abstand zur Figur; ergibt ~14 % Bildhöhe wie in der Vorlage
 const CAM_PITCH: float = 55.0   # Neigung nach unten
 const CAM_YAW: float = 20.0     # leichte Gierung -> isometrischer Eindruck statt Frontalsicht
+
+# ── Bauliche Begrenzung (GDD §1.4a) ───────────────────────────────────────────
+## Die Wüste ist offen, die Aktionszonen sind eng — und zwar durch ECHTE Bauten, nicht
+## durch unsichtbare Wände: jedes Haus, jeder Palisadenpfosten, jedes Turmbein trägt sich
+## beim Bauen selbst als Sperre ein (`_solid_box` / `_solid_pillar`). Was man sieht, blockt.
+const PLAYER_RADIUS_M: float = 0.6
+## Rustwaters Palisade: Radius, Tore (Grad) und halbe Torbreite. Wand und Sperre werden
+## beide daraus gebaut — die vier Tore sind die einzigen Wege hinein.
+const PALISADE_R: float = 84.0
+const PALISADE_GATES: Array = [0.0, 90.0, 180.0, 270.0]
+const PALISADE_GATE_HALF_DEG: float = 7.0
+
+# ── Eisenbahn (GDD §1.4a): Schnellreise nur noch von Bahnhof zu Bahnhof ───────
+const RAIL_GAUGE_M: float = 3.2        # Spurweite der Iron Rail (Breitspur, Panzerzug-tauglich)
+const STATION_RANGE_M: float = 45.0    # so nah muss man am Bahnsteig stehen, um zu fahren
 
 func _in_town(pos: Vector3) -> bool:
 	return pos.distance_to(WorldManager.poi_scene_position("rustwater")) < TOWN_SAFE_M
@@ -93,6 +108,10 @@ var _touch_start: Vector2 = Vector2.ZERO
 var _touch_vec: Vector2 = Vector2.ZERO
 var _save_loaded: bool = false
 var _save_cd: float = AUTOSAVE_INTERVAL_SEC
+var _blockers: Array = []            # rechteckige Sperren: { c: Vector2(x,z), h: Vector2 }
+var _pillars: Array = []             # runde Sperren:       { c: Vector2(x,z), r: float }
+var _rings: Array = []               # Ringmauern mit Toren: { c, r, t, gates, gate_half }
+var _stations: Array = []            # { id, pos: Vector3 } — Bahnsteige der Iron Rail
 
 
 func _ready() -> void:
@@ -101,6 +120,7 @@ func _ready() -> void:
 	_build_ground_and_biomes()
 	_build_sector_lines_and_rim()
 	_build_roads()
+	_build_railway()
 	_build_pois()
 	_build_township()
 	_scatter_decor()
@@ -155,6 +175,59 @@ func _box(size: Vector3, pos: Vector3, color: Color, alpha: float = 1.0) -> Mesh
 	mi.position = pos
 	add_child(mi)
 	return mi
+
+
+## Wie `_box`, aber die Grundfläche sperrt den Weg. Der Spielerradius wird schon beim
+## Eintragen aufgeschlagen — der Lauftest ist damit ein reiner Punkt-in-Rechteck-Test.
+func _solid_box(size: Vector3, pos: Vector3, color: Color, alpha: float = 1.0) -> MeshInstance3D:
+	var mi: MeshInstance3D = _box(size, pos, color, alpha)
+	_blockers.append({
+		"c": Vector2(pos.x, pos.z),
+		"h": Vector2(size.x * 0.5 + PLAYER_RADIUS_M, size.z * 0.5 + PLAYER_RADIUS_M) })
+	return mi
+
+
+## Runde Sperre (Säulen, Türme, Silos) — Radius inklusive Spielerradius.
+func _solid_pillar(center: Vector3, radius: float) -> void:
+	_pillars.append({ "c": Vector2(center.x, center.z), "r": radius + PLAYER_RADIUS_M })
+
+
+## Ringmauer mit Toren (Palisaden, Stadtmauern, Arena-Wälle). Exakter und billiger als
+## hunderte Einzelboxen — und die Tore bleiben garantiert genau dort, wo die Optik sie zeigt.
+func _solid_ring(center: Vector3, radius: float, thickness: float, gates_deg: Array, gate_half_deg: float) -> void:
+	_rings.append({
+		"c": Vector2(center.x, center.z), "r": radius,
+		"t": thickness * 0.5 + PLAYER_RADIUS_M,
+		"gates": gates_deg, "gate_half": gate_half_deg })
+
+
+## Liegt der Winkel in einer der Torlücken? (Grad, Szenen-Konvention atan2(z, x).)
+func _in_gate_gap(ang_deg: float, gates_deg: Array, gate_half_deg: float) -> bool:
+	for g in gates_deg:
+		if absf(wrapf(ang_deg - float(g), -180.0, 180.0)) <= gate_half_deg:
+			return true
+	return false
+
+
+## Steht dieser Punkt in einem Bauwerk? Grundlage der baulichen Begrenzung: in der Wildnis
+## ist die Liste leer, in einer Aktionszone dicht — daher fühlt sich dieselbe Steuerung
+## draußen weit und drinnen geführt an.
+func _blocked(p: Vector3) -> bool:
+	var q := Vector2(p.x, p.z)
+	for b in _blockers:
+		var d: Vector2 = (q - Vector2(b["c"])).abs()
+		if d.x <= float(b["h"].x) and d.y <= float(b["h"].y):
+			return true
+	for s in _pillars:
+		if q.distance_to(Vector2(s["c"])) <= float(s["r"]):
+			return true
+	for r in _rings:
+		var off: Vector2 = q - Vector2(r["c"])
+		if absf(off.length() - float(r["r"])) > float(r["t"]):
+			continue   # weder in noch an der Mauer
+		if not _in_gate_gap(rad_to_deg(atan2(off.y, off.x)), r["gates"], float(r["gate_half"])):
+			return true
+	return false
 
 
 ## Echte Sand-PBR-Textur (Diffuse/Normal/ARM aus "ground_sand"), über die gesamte Fläche
@@ -278,7 +351,7 @@ func _build_pois() -> void:
 		if id == "eisernes_herz":
 			# Zentrale Landmarke: hoher, dunkler Turm — von überall am Horizont sichtbar.
 			# Der Turm trägt die Fernsicht; die Schrift bleibt dezent und blendet früher aus.
-			_box(Vector3(120.0, 420.0, 120.0), pos + Vector3(0.0, 210.0, 0.0), Color(0.15, 0.13, 0.14))
+			_solid_box(Vector3(120.0, 420.0, 120.0), pos + Vector3(0.0, 210.0, 0.0), Color(0.15, 0.13, 0.14))
 			_label(pos + Vector3(0.0, 445.0, 0.0), "🖤 " + String(p["name"]), Color(1.0, 0.45, 0.35), 220, 900.0)
 			continue
 		var pillar := MeshInstance3D.new()
@@ -290,11 +363,13 @@ func _build_pois() -> void:
 		pillar.material_override = _mat(col)
 		pillar.position = pos + Vector3(0.0, 18.0, 0.0)
 		add_child(pillar)
+		_solid_pillar(pos, 6.0)   # die Landmarke steht im Weg — man läuft um sie herum
 		_label(pos + Vector3(0.0, 41.0, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
 
 
-## Zeichnet die Korridore aus `WorldManager.ROUTES` als gestampfte Pisten. Straßen-Optik und
-## begehbarer Bereich stammen damit aus DERSELBEN Quelle — was man sieht, ist auch begehbar.
+## Zeichnet die Routen aus `WorldManager.ROUTES` als gestampfte Pisten. Sie SPERREN nichts —
+## die Wüste daneben ist genauso begehbar (GDD §1.4a). Sie sind Wegführung: die schnellste,
+## sicherste Linie zwischen zwei Orten, an der man sich orientiert, statt Wände zu haben.
 func _build_roads() -> void:
 	var road_col := Color(0.56, 0.46, 0.32)   # festgefahrener, hellerer Staub
 	for r in WorldManager.ROUTES:
@@ -308,6 +383,57 @@ func _build_roads() -> void:
 		seg.position = (a + b) / 2.0 + Vector3(0.0, 0.06, 0.0)   # knapp über dem Boden
 		seg.look_at_from_position(seg.position, b, Vector3.UP)
 		add_child(seg)
+
+
+## Die Iron Rail (GDD §1.4a): Schotterbett + zwei Schienen auf den Routen zwischen den
+## Bahnhöfen, dazu an jedem Knoten ein Bahnsteig mit Depot. Der lange Fußmarsch durch die
+## Wüste bleibt möglich — später fährt man ihn. Fahren darf man nur AM Bahnsteig
+## (`_fast_travel`), damit Schnellreise ein Ort in der Welt ist und kein Menüpunkt.
+func _build_railway() -> void:
+	var ballast := Color(0.30, 0.27, 0.24)
+	var steel := Color(0.62, 0.60, 0.58)
+	for seg_ids in WorldManager.rail_segments():
+		var a: Vector3 = WorldManager.poi_scene_position(String(seg_ids[0]))
+		var b: Vector3 = WorldManager.poi_scene_position(String(seg_ids[1]))
+		var mid: Vector3 = (a + b) / 2.0
+		var length: float = a.distance_to(b)
+		# Schotterbett und beide Schienen liegen im selben gedrehten Knoten — dann muss die
+		# Ausrichtung nur einmal berechnet werden und die Spurweite stimmt garantiert.
+		var track := Node3D.new()
+		add_child(track)
+		track.position = mid + Vector3(0.0, 0.2, 0.0)
+		track.look_at(Vector3(b.x, track.position.y, b.z), Vector3.UP)
+		var bed := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(RAIL_GAUGE_M + 2.4, 0.3, length)
+		bed.mesh = bm
+		bed.material_override = _mat(ballast)
+		track.add_child(bed)
+		for side in [-1.0, 1.0]:
+			var rail := MeshInstance3D.new()
+			var rm := BoxMesh.new()
+			rm.size = Vector3(0.22, 0.24, length)
+			rail.mesh = rm
+			rail.material_override = _mat(steel)
+			rail.position = Vector3(side * RAIL_GAUGE_M * 0.5, 0.27, 0.0)
+			track.add_child(rail)
+	for id in WorldManager.RAIL_STATIONS:
+		_build_station(String(id))
+
+
+## Bahnsteig + Depot an einem Knoten. Der Bahnsteig selbst sperrt nicht (man steht darauf),
+## das Depot schon — es ist Teil der baulichen Begrenzung des Ortes.
+func _build_station(poi_id: String) -> void:
+	var c: Vector3 = WorldManager.poi_scene_position(poi_id)
+	var platform: Vector3 = c + Vector3(0.0, 0.0, 14.0)
+	_box(Vector3(26.0, 0.9, 8.0), platform + Vector3(0.0, 0.45, 0.0), Color(0.44, 0.38, 0.30))
+	for x in [-11.0, 0.0, 11.0]:
+		_box(Vector3(0.5, 3.4, 0.5), platform + Vector3(x, 2.6, 3.2), Color(0.30, 0.26, 0.22))
+	_box(Vector3(26.0, 0.4, 7.0), platform + Vector3(0.0, 4.5, 1.2), Color(0.34, 0.28, 0.22))   # Vordach
+	_solid_box(Vector3(9.0, 5.0, 6.0), c + Vector3(-18.0, 2.5, 16.0), Color(0.38, 0.31, 0.24))  # Depot
+	_label(platform + Vector3(0.0, 6.4, 0.0), "🚂 Bahnhof " + String(WorldManager.poi(poi_id)["name"]),
+		Color(0.92, 0.86, 0.70), 100, 200.0)
+	_stations.append({ "id": poi_id, "pos": platform })
 
 
 ## Rustwater als begehbare Township (GDD §1.6/§2.3: Saloon, Schmiede, Destille, Labor +
@@ -328,8 +454,8 @@ func _build_township() -> void:
 		var fp: Vector2 = b[3]
 		var h: float = float(b[4])
 		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
-		_box(Vector3(fp.x, h, fp.y), pos + Vector3(0.0, h / 2.0, 0.0), b[5])
-		_box(Vector3(fp.x + 1.6, 0.6, fp.y + 1.6), pos + Vector3(0.0, h + 0.3, 0.0), Color(0.24, 0.19, 0.15))   # Dachkante
+		_solid_box(Vector3(fp.x, h, fp.y), pos + Vector3(0.0, h / 2.0, 0.0), b[5])
+		_box(Vector3(fp.x + 1.6, 0.6, fp.y + 1.6), pos + Vector3(0.0, h + 0.3, 0.0), Color(0.24, 0.19, 0.15))   # Dachkante (überhängend, sperrt nicht)
 		_label(pos + Vector3(0.0, h + 2.4, 0.0), String(b[0]), Color(0.98, 0.90, 0.72), 95, 150.0)
 	# Wohnhäuser: schlichter Ring aus kleinen Hütten, deterministisch gesetzt.
 	var rng := RandomNumberGenerator.new()
@@ -340,20 +466,39 @@ func _build_township() -> void:
 		var w: float = rng.randf_range(5.0, 8.0)
 		var h: float = rng.randf_range(3.4, 4.8)
 		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
-		_box(Vector3(w, h, w * 0.85), pos + Vector3(0.0, h / 2.0, 0.0), Color(0.42, 0.33, 0.24))
+		_solid_box(Vector3(w, h, w * 0.85), pos + Vector3(0.0, h / 2.0, 0.0), Color(0.42, 0.33, 0.24))
 	# Wasserturm — die Silhouette, an der man Rustwater von weitem erkennt.
 	var tw: Vector3 = c + Vector3(-26.0, 0.0, -22.0)
 	for leg in [Vector3(-3.0, 0.0, -3.0), Vector3(3.0, 0.0, -3.0), Vector3(-3.0, 0.0, 3.0), Vector3(3.0, 0.0, 3.0)]:
-		_box(Vector3(0.8, 14.0, 0.8), tw + leg + Vector3(0.0, 7.0, 0.0), Color(0.33, 0.27, 0.22))
+		_solid_box(Vector3(0.8, 14.0, 0.8), tw + leg + Vector3(0.0, 7.0, 0.0), Color(0.33, 0.27, 0.22))
 	_box(Vector3(9.0, 6.0, 9.0), tw + Vector3(0.0, 17.0, 0.0), Color(0.48, 0.38, 0.26))
 	_label(tw + Vector3(0.0, 22.0, 0.0), "RUSTWATER", Color(0.95, 0.82, 0.55), 120, 350.0)
-	# Palisade: unterbrochener Ring aus Pfosten (Durchlässe bleiben begehbar).
-	for i in 48:
-		if i % 6 == 0:
-			continue   # Torlücken
-		var ang: float = deg_to_rad(float(i) * 7.5)
-		var pos: Vector3 = c + Vector3(cos(ang) * 84.0, 0.0, sin(ang) * 84.0)
-		_box(Vector3(1.0, 3.2, 1.0), pos + Vector3(0.0, 1.6, 0.0), Color(0.34, 0.26, 0.19))
+	# Palisade: geschlossene Bretterwand mit vier Toren. Das ist die bauliche Grenze der
+	# Aktionszone (GDD §1.4a) — man kommt nur durch die Tore hinein, aber man SIEHT warum:
+	# es ist eine Wand, keine unsichtbare Barriere. Optik (Panele) und Sperre (Ring-Blocker)
+	# stammen aus denselben Zahlen, können also nicht auseinanderlaufen.
+	_solid_ring(c, PALISADE_R, 1.2, PALISADE_GATES, PALISADE_GATE_HALF_DEG)
+	var panels: int = 120
+	for i in panels:
+		var ang_deg: float = float(i) * (360.0 / float(panels))
+		if _in_gate_gap(ang_deg, PALISADE_GATES, PALISADE_GATE_HALF_DEG):
+			continue
+		var a: float = deg_to_rad(ang_deg)
+		var pos: Vector3 = c + Vector3(cos(a) * PALISADE_R, 1.6, sin(a) * PALISADE_R)
+		var panel := MeshInstance3D.new()
+		var pm := BoxMesh.new()
+		pm.size = Vector3(1.2, 3.2, TAU * PALISADE_R / float(panels) + 0.4)   # tangential, leicht überlappend
+		panel.mesh = pm
+		panel.material_override = _mat(Color(0.34, 0.26, 0.19))
+		panel.position = pos
+		panel.rotation.y = -a
+		add_child(panel)
+	# Torpfeiler markieren die Durchlässe (und tragen die Ring-Lücke optisch).
+	for g in PALISADE_GATES:
+		for side in [-PALISADE_GATE_HALF_DEG, PALISADE_GATE_HALF_DEG]:
+			var a2: float = deg_to_rad(float(g) + float(side))
+			var pos2: Vector3 = c + Vector3(cos(a2) * PALISADE_R, 0.0, sin(a2) * PALISADE_R)
+			_solid_box(Vector3(2.2, 5.4, 2.2), pos2 + Vector3(0.0, 2.7, 0.0), Color(0.28, 0.21, 0.15))
 
 
 # ── NPCs & Quests ─────────────────────────────────────────────────────────────
@@ -468,7 +613,8 @@ func _scatter_decor() -> void:
 		# Nicht in die Smog-Zone streuen und im Kraterbecken bleiben.
 		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
 		pos.z = clampf(pos.z, -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT), -20.0)
-		if _in_town(pos):
+		# Weder in der Stadt noch auf Piste/Trasse — die Wege sollen frei und lesbar bleiben.
+		if _in_town(pos) or WorldManager.on_route(WorldManager.scene_to_world(pos)):
 			rock.queue_free()
 			continue
 		rock.position = pos
@@ -597,10 +743,13 @@ func _process_spawns(delta: float) -> void:
 	if _in_town(pos):
 		return   # Rustwater ist befriedet
 	var rel: Vector2 = WorldManager.scene_to_world(pos)
-	if not WorldManager.is_walkable(rel):
-		return   # nur dort, wo der Spieler auch hinkommt
+	if not WorldManager.is_walkable(rel) or _blocked(pos):
+		return   # nur dort, wo der Spieler auch hinkommt — und nicht mitten in einem Bau
 	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)):
 		return   # jenseits eines noch geschlossenen Tors — hier siedelt sich (noch) nichts an
+	var zone: String = WorldManager.zone_at(rel)
+	if zone != "" and WorldManager.is_safe_zone(zone):
+		return   # befriedete Aktionszone (Hub / eigene Fraktionsbasis)
 	var biome_id: String = WorldManager.biome_at(rel)
 	var type_id: String = WorldManager.pick_enemy_type(biome_id, GameState.is_revealed)
 	var e: Dictionary = _make_enemy(type_id)
@@ -645,6 +794,8 @@ func _process_chest_spawns(delta: float) -> void:
 	var rel: Vector2 = WorldManager.scene_to_world(pos)
 	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)) or not WorldManager.is_walkable(rel):
 		return
+	if _blocked(pos):
+		return   # keine Truhe in einer Hauswand
 	_spawn_chest_near(pos)
 
 
@@ -713,19 +864,35 @@ func _input(event: InputEvent) -> void:
 			_fast_travel(event.keycode - KEY_1)
 
 
-## Schnellreise zu den großen Knoten (GDD §1.4: Bahnhöfe nur an echten Hubs). Gesperrte
-## Sektoren bleiben gesperrt — dasselbe Gating wie Bewegung und Spawns, aus WorldManager.
+## Bahnhof, an dem der Spieler gerade steht ("" = keiner in Reichweite).
+func _station_at_player() -> String:
+	for s in _stations:
+		if _player.position.distance_to(s["pos"]) <= STATION_RANGE_M:
+			return String(s["id"])
+	return ""
+
+
+## Iron-Rail-Reise (GDD §1.4a): von Bahnsteig zu Bahnsteig. Die Wüste dazwischen kann man
+## immer zu Fuß durchqueren — die Bahn ersetzt nur den langen Marsch, und zwar erst, wenn
+## man tatsächlich an einem Bahnhof steht. Gesperrte Sektoren bleiben gesperrt (WorldManager).
 func _fast_travel(idx: int) -> void:
 	if idx < 0 or idx >= FAST_TRAVEL.size():
 		return
+	var here: String = _station_at_player()
+	if here == "":
+		_say("🚉 Nur am Bahnhof. Die Iron Rail hält nicht mitten in der Wüste.", 2.5)
+		return
 	var poi_id: String = String(FAST_TRAVEL[idx])
 	var p: Dictionary = WorldManager.POIS[poi_id]
+	if poi_id == here:
+		_say("🚉 Du stehst schon in %s." % String(p["name"]), 2.0)
+		return
 	var sec: int = int(p["sector"])
 	if not WorldManager.can_enter_sector(sec):
 		_say("🚫 %s liegt hinter einem verschlossenen Tor (Sektor %d)." % [String(p["name"]), sec], 2.5)
 		return
 	_player.position = WorldManager.poi_scene_position(poi_id) + Vector3(0.0, 0.0, 25.0)
-	_say("🚂 Schnellreise: %s" % String(p["name"]), 2.5)
+	_say("🚂 Iron Rail: %s → %s" % [String(WorldManager.poi(here)["name"]), String(p["name"])], 2.5)
 
 
 func _cycle_weapon() -> void:
@@ -773,15 +940,16 @@ func _process_movement(delta: float) -> void:
 		next.z = maxf(next.z, -(float(WorldManager.BORDER_S1_S2_Y) * WorldManager.METERS_PER_UNIT - 1.5))
 		_say("⛔ Die Sprengtore sind zu. Erst der Panzerzug (Kapitel 4) bricht sie auf.", 2.5)
 		to_rel = WorldManager.scene_to_world(next)
-	# Begehbare Zonen (GDD §1.4a): die Welt ist ein Netz aus Orten und Korridoren, keine
-	# offene Ebene. Achsenweise nachgeben, damit man an einer Kante entlanggleitet statt
-	# hängenzubleiben — sonst fühlt sich die Begrenzung wie eine unsichtbare Wand an.
-	if not WorldManager.is_walkable(to_rel):
+	# Weltstruktur (GDD §1.4a): draußen ist offene Wüste, drinnen begrenzen BAUTEN. Beides
+	# geht durch denselben Test — nur ist die Blocker-Liste in der Wildnis leer, weshalb sich
+	# dort nichts anfühlt wie eine Wand. Achsenweise nachgeben, damit man an einer Hausecke
+	# entlanggleitet statt hängenzubleiben.
+	if not WorldManager.is_walkable(to_rel) or _blocked(next):
 		var slide_x: Vector3 = Vector3(next.x, 0.0, _player.position.z)
 		var slide_z: Vector3 = Vector3(_player.position.x, 0.0, next.z)
-		if WorldManager.is_walkable(WorldManager.scene_to_world(slide_x)):
+		if WorldManager.is_walkable(WorldManager.scene_to_world(slide_x)) and not _blocked(slide_x):
 			next = slide_x
-		elif WorldManager.is_walkable(WorldManager.scene_to_world(slide_z)):
+		elif WorldManager.is_walkable(WorldManager.scene_to_world(slide_z)) and not _blocked(slide_z):
 			next = slide_z
 		else:
 			return   # in eine Ecke gelaufen — Position halten
@@ -903,7 +1071,15 @@ func _update_hud() -> void:
 		WEAPON_ICON[_weapon_id], String(CombatData.WEAPONS[_weapon_id]["name"]),
 		String(WorldManager.POIS[poi_id]["name"]), poi_d,
 		WorldManager.sector_of_pos(rel), String(biome["name"])]
-	_hud.text += "   [1-5] Schnellreise"
+	# Weltstruktur ablesbar machen (GDD §1.4a): am Bahnsteig fährt man, in der Aktionszone
+	# ist es baulich eng, dazwischen liegt offene Wüste. Die Bahn ist ein Ort, kein Menüpunkt.
+	var zone: String = WorldManager.zone_at(rel)
+	if _station_at_player() != "":
+		_hud.text += "   🚉 [1-5] Iron Rail"
+	elif zone != "":
+		_hud.text += "   🏛 " + String(WorldManager.poi(zone)["name"])
+	else:
+		_hud.text += "   🏜 offene Wüste"
 	var q: String = _active_quest_line()
 	if q != "":
 		_hud.text += "\n📜 " + q

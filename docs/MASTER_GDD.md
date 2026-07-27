@@ -107,27 +107,36 @@ Welt eng:
   Rogue's Landing) und Dungeons (z. B. die Schrott-Minen) sind Bereiche desselben Kraterbeckens.
   Konkrete Weltkoordinaten & Sektoren: §1.6; Progressions-Tore: §1.7.
 
-## 1.4a Weltstruktur: Zonen & Korridore (revidiert — kein freies Open World)
+## 1.4a Weltstruktur: offene Wüste + bauliche Aktionszonen + Eisenbahn
 
-**Entscheidung.** Die Welt ist **kein frei begehbares Gelände** mehr, sondern ein **Netz aus
-Zonen und Korridoren** — die Struktur, die mobile Action-RPGs (Diablo Immortal) benutzen. Grund:
-Auf dem Touchscreen, mit Daumen-Joystick und fester Schulterkamera, ist eine offene 5000-m-Ebene
-nicht navigierbar — man verliert die Orientierung und läuft ins Nichts. Ein geführter Weg löst
-genau das, **ohne** die Weite aufzugeben: Reisezeiten, Biom-Takt und Landmark-Navigation aus §1.4
-bleiben unverändert, nur die *seitliche* Freiheit fällt weg.
+**Entscheidung.** Gemischtes Modell statt „alles offen" oder „alles Schlauch". Ein reines
+Korridornetz (der erste Entwurf nach der Diablo-Immortal-Referenz) nimmt der Wüste genau das,
+wofür sie da ist — die Weite. Eine völlig offene 5000-m-Ebene wiederum ist mit Daumen-Joystick
+und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
 
-* **Zonen** = begehbare Flächen um jeden POI. Hubs und Fraktionsbasen großzügig (Radius ≈ 115 m),
-  Dungeons/Jagdgründe/Arenen enger (≈ 65 m).
-* **Korridore** = die Routen dazwischen, ≈ 27 m breite Pisten. Sie sind zugleich das sichtbare
-  Straßen-Layout — **was man sieht, ist auch begehbar** (eine Datenquelle, keine Doppelpflege).
-* **Jeder Ort hängt an mindestens einer Route** — kein unerreichbarer POI (per Test abgesichert).
-* **Kanten statt Wände:** An der Zonengrenze *gleitet* die Figur entlang, statt hart zu stoppen.
-  Diegetisch begrenzt wird durch Geländer, Felskanten, Abgründe und Ruinen — nicht durch
-  unsichtbare Wände (§1.7).
-* Gegner-Nachschub und Truhen erscheinen **nur in begehbaren Bereichen** — nichts lockt mehr
-  irgendwohin, wo man nicht hinkommt.
+* **Wildnis** — die Wüste **zwischen** den Orten ist frei begehbar. Keine seitliche Begrenzung,
+  nur der Kraterrand. Reisezeiten, Biom-Takt und Landmark-Navigation aus §1.4 bleiben voll
+  erhalten; die **Pisten** (≈ 27 m breit, aus `ROUTES`) sind Wegführung, keine Sperre — die
+  schnelle, sichere Linie, an der man sich orientiert, wenn man will.
+* **Aktionszonen** — Städte, Basen, Dungeons und Arenen (Radius ≈ 115 m für Hubs/Basen,
+  ≈ 65 m sonst). Hier ist es eng und geführt wie im mobilen Action-RPG, und zwar durch
+  **echte Bauten**: Palisaden mit Toren, Häuserzeilen, Turmbeine, Felskanten. **Keine
+  unsichtbaren Wände** — was blockt, sieht man auch, und man gleitet an der Kante entlang,
+  statt hart zu stoppen.
+* **Eisenbahn** — die Iron Rail verbindet die fünf Knoten (Rustwater, Zugdepot, Rogue's
+  Landing, Fort Freedom, Sektor 01). Ihre Trasse liegt **auf den Pisten** (zweite Geografie
+  ausgeschlossen). Gereist wird **nur vom Bahnsteig aus**: Schnellreise ist ein Ort in der
+  Welt, kein Menüpunkt. Der Fußmarsch bleibt jederzeit möglich — die Bahn ersetzt ihn später
+  nur, wenn man ihn nicht mehr braucht.
+* **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und
+  Truhen erscheinen nie in einer Hauswand und nie hinter einem geschlossenen Sektor-Tor.
+* **Jeder Ort hängt an mindestens einer Route**, und das Schienennetz ist zusammenhängend —
+  beides per Test abgesichert.
 
-Umsetzung: `WorldManager.ROUTES` / `zone_radius()` / `is_walkable()` / `nearest_walkable()`.
+Umsetzung: `WorldManager.ROUTES` / `zone_at()` / `zone_radius()` / `on_route()` /
+`is_walkable()` (nur noch Kraterrand) / `rail_segments()` / `has_station()` / `is_safe_zone()`;
+die bauliche Begrenzung trägt die Szene selbst (`OverworldView._solid_box/_solid_pillar/_solid_ring`
+→ `_blocked()`), weil sie aus denselben Zahlen gebaut wird wie die sichtbaren Bauten.
 
 ## 1.5 Steuerung (Mobile-First, auch Desktop)
 * **Linke Bildschirmhälfte:** dynamischer virtueller Touch-Joystick (erscheint bei
@@ -1383,7 +1392,7 @@ Biom-Zonierung (§1.6.3) bereits nach `WorldManager` portiert ist.
 | **Overworld im Produktions-Maßstab** (5000 m, Biome, Tore, POIs, Kraterrand) | §1.4/§1.6 | `OverworldView` + `WorldManager`-Maßstabsschicht | ✅ erste sichtbare Szene (Primitives; finale Assets/Meshes folgen) |
 
 > **Stand:** Die **gesamte Spiel-Logik** ist ins Godot-Backend portiert und **headless verifiziert**
-> (Godot 4.3.stable, `godot --headless --path godot` → **300/300 Checks, Exit 0**), zusätzlich in
+> (Godot 4.3.stable, `godot --headless --path godot` → **312/312 Checks, Exit 0**), zusätzlich in
 > **CI** abgesichert (`.github/workflows/godot-backend.yml`). Offen bleibt allein die
 > **Präsentations-/Render-Schicht** (Kampf-Lesbarkeit §8.4, 3D-Szenen/Assets, Audio, UI) — kein
 > Logik-Port mehr, sondern View-Arbeit auf dem fertigen, getesteten Fundament.

@@ -54,6 +54,16 @@ func _draw() -> void:
 	var blast_y: float = world_to_map(Vector3(0.0, 0.0, -float(WorldManager.BORDER_S1_S2_Y) * m)).y
 	draw_line(Vector2(0.0, blast_y), Vector2(MAP_PX, blast_y), Color(1.0, 0.55, 0.35, 0.85), 1.5)
 	draw_line(Vector2(0.0, smog_y), Vector2(MAP_PX, smog_y), Color(0.6, 1.0, 0.5, 0.85), 1.5)
+	# Pisten zwischen den Orten — Wegführung, keine Sperre (GDD §1.4a).
+	for r0 in WorldManager.ROUTES:
+		draw_line(world_to_map(WorldManager.poi_scene_position(String(r0[0]))),
+			world_to_map(WorldManager.poi_scene_position(String(r0[1]))),
+			Color(0.72, 0.62, 0.44, 0.45), 1.0)
+	# Iron-Rail-Trasse darüber: dicker und heller — sie ist die Reiseachse der Karte.
+	for seg in WorldManager.rail_segments():
+		draw_line(world_to_map(WorldManager.poi_scene_position(String(seg[0]))),
+			world_to_map(WorldManager.poi_scene_position(String(seg[1]))),
+			Color(0.90, 0.82, 0.55, 0.85), 2.0)
 	# POIs, eingefärbt nach Sektor; gesperrte Sektoren blass.
 	for id in WorldManager.POIS.keys():
 		var p: Dictionary = WorldManager.POIS[id]
@@ -65,6 +75,9 @@ func _draw() -> void:
 		var r: float = DOT_POI * (1.8 if id == "eisernes_herz" else 1.0)
 		draw_circle(at, r, col)
 		draw_arc(at, r + 1.0, 0.0, TAU, 12, Color(0.0, 0.0, 0.0, 0.6), 1.0)
+		# Bahnhöfe bekommen einen hellen Ring — man sieht auf einen Blick, wo man fahren kann.
+		if WorldManager.has_station(String(id)):
+			draw_arc(at, r + 3.0, 0.0, TAU, 16, Color(0.95, 0.86, 0.58, 0.9), 1.4)
 	# Gegner in der Umgebung.
 	for e in enemy_positions:
 		draw_circle(world_to_map(e), 1.8, Color(0.95, 0.35, 0.30, 0.9))

@@ -893,24 +893,35 @@ func _test_overworld_quest_flow() -> void:
 		String(scrap_quest["item"]) == "schrott")
 
 
-# ── Begehbare Zonen (GDD §1.4a: Zonen + Korridore statt offener Flaeche) ──────
+# ── Weltstruktur (GDD §1.4a: offene Wildnis + bauliche Aktionszonen + Eisenbahn) ──
 func _test_walkable_zones() -> void:
-	print("· Begehbare Zonen (Zonen + Korridore)")
+	print("· Weltstruktur (Wildnis / Aktionszonen / Eisenbahn)")
+	# 1. Wildnis: die Wueste zwischen den Orten ist FREI. Nur der Kraterrand begrenzt.
 	_check("Rustwater-Mitte ist begehbar",
 		WorldManager.is_walkable(WorldManager.poi_position("rustwater")))
-	_check("Hub-Zone ist groesser als eine Nebenzone",
-		WorldManager.zone_radius("rustwater") > WorldManager.zone_radius("schrott_minen"))
-	# Mitte zwischen zwei verbundenen Orten liegt auf dem Korridor.
 	var a: Vector2 = WorldManager.poi_position("rustwater")
 	var b: Vector2 = WorldManager.poi_position("zugdepot")
-	_check("Mitte eines Korridors ist begehbar", WorldManager.is_walkable((a + b) / 2.0))
-	# Seitlich neben dem Korridor endet die begehbare Flaeche.
+	_check("Mitte zwischen zwei Orten ist begehbar", WorldManager.is_walkable((a + b) / 2.0))
 	var perp: Vector2 = (b - a).normalized().orthogonal()
 	var off: Vector2 = (a + b) / 2.0 + perp * (WorldManager.CORRIDOR_HALF_W * 3.0)
-	_check("Weit neben dem Korridor ist es NICHT begehbar", not WorldManager.is_walkable(off))
-	# Leere Ecke der Karte gehoert zu keiner Zone.
-	_check("Abgelegene Kartenecke ist nicht begehbar", not WorldManager.is_walkable(Vector2(30, 1900)))
-	# Jeder POI muss ueber mindestens eine Route angebunden sein, sonst ist er unerreichbar.
+	_check("Auch weit neben der Piste ist die Wueste begehbar", WorldManager.is_walkable(off))
+	_check("Abgelegene Kartenecke ist begehbar (offene Welt)",
+		WorldManager.is_walkable(Vector2(30, 1900)))
+	_check("Jenseits des Kraterrands endet die Welt",
+		not WorldManager.is_walkable(Vector2(-5, 500)) and not WorldManager.is_walkable(Vector2(500, 2100)))
+	# 2. Aktionszonen: dort greift die bauliche Begrenzung, draussen nicht.
+	_check("Hub-Zone ist groesser als eine Nebenzone",
+		WorldManager.zone_radius("rustwater") > WorldManager.zone_radius("schrott_minen"))
+	_check("Am Ort steht man in dessen Aktionszone",
+		WorldManager.zone_at(WorldManager.poi_position("rustwater")) == "rustwater")
+	_check("Zwischen den Orten ist keine Aktionszone",
+		not WorldManager.in_action_zone((a + b) / 2.0))
+	_check("Aktionszonen ueberlappen sich nicht (jede Zone ist eindeutig)", _zones_disjoint())
+	_check("Rustwater ist befriedet, ein Dungeon nicht",
+		WorldManager.is_safe_zone("rustwater") and not WorldManager.is_safe_zone("schrott_minen"))
+	# 3. Pisten: reine Wegfuehrung, keine Sperre — aber sie muessen jeden Ort erreichen.
+	_check("Mitte einer Route liegt auf der Piste", WorldManager.on_route((a + b) / 2.0))
+	_check("Weit neben der Route ist keine Piste", not WorldManager.on_route(off))
 	var connected: Dictionary = {}
 	for r in WorldManager.ROUTES:
 		connected[String(r[0])] = true
@@ -920,6 +931,57 @@ func _test_walkable_zones() -> void:
 		if not connected.has(String(id)):
 			all_connected = false
 	_check("Jeder Ort haengt an mindestens einer Route (kein unerreichbarer POI)", all_connected)
-	# Rueckfall: ein Punkt ausserhalb wird auf eine begehbare Position gezogen.
-	var rescued: Vector2 = WorldManager.nearest_walkable(Vector2(30, 1900))
+	# 4. Eisenbahn: Bahnhoefe sind echte Orte, die Trasse liegt auf den Pisten.
+	var stations_are_pois: bool = true
+	for s in WorldManager.RAIL_STATIONS:
+		if not WorldManager.has_poi(String(s)):
+			stations_are_pois = false
+	_check("Jeder Bahnhof ist ein echter POI", stations_are_pois)
+	_check("Rustwater hat einen Bahnhof, das Rattengestruepp nicht",
+		WorldManager.has_station("rustwater") and not WorldManager.has_station("rattengestruepp"))
+	var segs: Array = WorldManager.rail_segments()
+	_check("Es gibt Trassenabschnitte", segs.size() > 0)
+	var segs_ok: bool = true
+	for s in segs:
+		if not WorldManager.has_station(String(s[0])) or not WorldManager.has_station(String(s[1])):
+			segs_ok = false
+	_check("Jeder Trassenabschnitt verbindet zwei Bahnhoefe", segs_ok)
+	_check("Das Schienennetz haengt zusammen (jeder Bahnhof erreichbar)", _rail_network_connected())
+	# 5. Rueckfall: ein Punkt ausserhalb des Kraters wird hineingezogen.
+	var rescued: Vector2 = WorldManager.nearest_walkable(Vector2(-40, 2400))
 	_check("nearest_walkable liefert eine begehbare Position", WorldManager.is_walkable(rescued))
+
+
+## Keine zwei Aktionszonen duerfen sich beruehren — sonst waere `zone_at` von der
+## Reihenfolge der POI-Tabelle abhaengig statt von der Geografie.
+func _zones_disjoint() -> bool:
+	var ids: Array = WorldManager.POIS.keys()
+	for i in ids.size():
+		for j in range(i + 1, ids.size()):
+			var x: String = String(ids[i])
+			var y: String = String(ids[j])
+			var d: float = WorldManager.poi_position(x).distance_to(WorldManager.poi_position(y))
+			if d < WorldManager.zone_radius(x) + WorldManager.zone_radius(y):
+				return false
+	return true
+
+
+## Breitensuche ueber die Trasse: von einem Bahnhof aus muessen alle anderen erreichbar sein.
+func _rail_network_connected() -> bool:
+	var segs: Array = WorldManager.rail_segments()
+	if WorldManager.RAIL_STATIONS.is_empty():
+		return false
+	var seen: Dictionary = { String(WorldManager.RAIL_STATIONS[0]): true }
+	var queue: Array = [String(WorldManager.RAIL_STATIONS[0])]
+	while not queue.is_empty():
+		var cur: String = String(queue.pop_front())
+		for s in segs:
+			var other: String = ""
+			if String(s[0]) == cur:
+				other = String(s[1])
+			elif String(s[1]) == cur:
+				other = String(s[0])
+			if other != "" and not seen.has(other):
+				seen[other] = true
+				queue.append(other)
+	return seen.size() == WorldManager.RAIL_STATIONS.size()

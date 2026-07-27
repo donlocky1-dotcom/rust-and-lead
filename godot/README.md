@@ -10,6 +10,8 @@ steuerbarem Spieler (4,7 m/s, Touch-Joystick + Tastatur) und erstem Kampf über 
 **den Unterordner `godot/` importieren** (dort liegt `project.godot`), Play drücken —
 die Overworld startet in Rustwater. Ziehen = laufen, Gegner in Reichweite werden
 automatisch beschossen. Erster Import dauert wegen der 3D-Assets etwas.
+Tastatur: `[Tab]` wechselt die Waffe, `[1]`–`[5]` fahren mit der **Iron Rail** — aber nur,
+wenn man an einem Bahnsteig steht (GDD §1.4a).
 
 ## Dateien
 - `scripts/GameState.gd` — globaler Laufzeit-Zustand (Single Source of Truth).
@@ -43,11 +45,13 @@ automatisch beschossen. Erster Import dauert wegen der 3D-Assets etwas.
   automatischem **Fallback auf Primitives**, wenn die Datei (noch) fehlt. Skaliert Modelle
   beliebiger Herkunft auf ihre Zielhöhe in Metern (inkl. verschachtelter glTF-Transforms).
   Neues Asset = Datei ablegen, kein Code-Change (Pfade & Zielhöhen: `assets/README.md`).
-- `scripts/OverworldView.gd` + `scenes/Overworld.tscn` — **sichtbare Overworld** (GDD §1.4/§1.6):
+- `scripts/OverworldView.gd` + `scenes/Overworld.tscn` — **sichtbare Overworld** (GDD §1.4/§1.4a/§1.6):
   generiert den 5000-m-Krater zur Laufzeit aus `WorldManager` (Boden, Biom-Zonen, Sprengtor-/
   Smog-Linie, Kraterrand + Rand-Tunnel, POI-Landmarken, Eisernes-Herz-Turm), Spieler mit
-  virtuellem Joystick, Gegner-Rudel + Auto-Feuer via `PlayerStats`/`CombatEngine`. Nur
-  Primitives — keine Asset-Abhängigkeit, läuft sofort in Xogot/Editor/headless.
+  virtuellem Joystick, Gegner-Rudel + Auto-Feuer via `PlayerStats`/`CombatEngine`. Trägt auch
+  die **bauliche Begrenzung** (§1.4a): Häuser, Palisade mit vier Toren und Turmbeine sperren
+  über `_solid_box/_solid_pillar/_solid_ring` → `_blocked()` — dieselben Zahlen bauen die Optik
+  und die Kollision. Nur Primitives — keine Asset-Abhängigkeit, läuft sofort in Xogot/Editor/headless.
 - `scripts/SaveManager.gd` — **Persistenz** (GDD §2.3): serialisiert/lädt den `GameState`
   (inkl. Loadout; Dictionary/JSON, defensiv gegen JSON-Floats & fehlende Felder) inkl. Datei-Slots (`user://`).
 - `scripts/EncounterManager.gd` — **Mini-Dungeons & Unique-Champions** (GDD §7.5.6a/§8.2):
@@ -60,6 +64,9 @@ automatisch beschossen. Erster Import dauert wegen der 3D-Assets etwas.
   POI-Registry mit Koordinaten, Sektor-Logik, die drei Tore (Sprengtore, Smog-Linie, Fraktions-
   Feindseligkeit) und die aus dem Prototyp portierten **Biom-Zonen** (Palette/Flora/Gegner-Leitmix,
   ans Sektor-Gating gebunden) — alles als aus `GameState` abgeleitete Abfragen (`class_name`, `static`).
+  Dazu die **Weltstruktur** (§1.4a): `ROUTES`/`on_route()` (Pisten als Wegführung, keine Sperre),
+  `zone_at()`/`zone_radius()`/`is_safe_zone()` (Aktionszonen) und `RAIL_STATIONS`/`rail_segments()`
+  (Iron Rail). `is_walkable()` begrenzt nur noch den Kraterrand — die Wüste ist offen.
 
 ## Weltgeografie & Gating (WorldManager)
 Koordinaten: Ursprung SW-Ecke, X = W→O, Y = S→N (0…2000). Alle Gate-Zustände sind aus
@@ -175,7 +182,7 @@ Bei jedem Push/PR fährt der **CI-Workflow** (`.github/workflows/godot-backend.y
 Prüfung automatisch: `gdparse` + Godot-4.3-Headless (Import-Pass + TestRunner) gegen eine
 asset-freie Projektkopie.
 
-> **Verifiziert:** Godot **4.3.stable**, headless — **300/300 Checks grün, Exit 0**.
+> **Verifiziert:** Godot **4.3.stable**, headless — **312/312 Checks grün, Exit 0**.
 > Die **gesamte Spiel-Logik** ist portiert; offen bleibt nur die Präsentations-/Render-Schicht.
 > Der schwere 3D-Asset-Import unter `assets/models`
 > verlangsamt Pass 1; für reine Logik-Tests kann man Scripts/Tests/`project.godot` in ein

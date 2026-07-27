@@ -33,21 +33,24 @@ static func poi_scene_position(poi_id: String) -> Vector3:
 	return world_to_scene(poi_position(poi_id))
 
 
-# ── Begehbare Zonen (Master-GDD §1.4a) ────────────────────────────────────────
-## Die Welt ist bewusst KEINE frei begehbare Fläche mehr, sondern ein Netz aus Zonen
-## (POI-Bereiche) und Korridoren (Routen dazwischen) — die Struktur, die mobile
-## Action-RPGs wie Diablo Immortal benutzen. Das erhält die Weite und die Reisezeiten
-## des Kraters, macht die Navigation am Touchscreen aber führbar: man folgt einem Weg,
-## statt in einer 5000-m-Ebene die Orientierung zu verlieren.
+# ── Weltstruktur: offene Wildnis + baulich begrenzte Aktionszonen (GDD §1.4a) ──
+## Gemischtes Modell statt „alles offen" oder „alles Schlauch":
+##  • **Wildnis** — die Wüste zwischen den Orten ist FREI begehbar. Weite, Reisezeit,
+##    Landmark-Navigation und Biom-Takt aus §1.4 bleiben vollständig erhalten.
+##  • **Aktionszonen** — Städte, Basen, Dungeons und Arenen sind **baulich** begrenzt
+##    (Mauern, Palisaden, Geländer, Felskanten). Dort spielt der Kampf, dort ist es eng
+##    und geführt wie in mobilen Action-RPGs. Die Grenzen sind echte Objekte, keine
+##    unsichtbaren Wände — die Kollision setzt die Szene über ihre Bauten.
+##  • **Eisenbahn** — verbindet die Hauptorte und ersetzt später den langen Fußmarsch.
 ## Alle Werte in relativen Weltkoordinaten (0…2000); ×METERS_PER_UNIT ergibt Meter.
 
-## Radius der begehbaren Fläche um einen POI. Hubs sind großzügiger als Nebenpunkte.
+## Radius einer Aktionszone um einen POI (dort greifen bauliche Begrenzung & Stadtregeln).
 const ZONE_RADIUS_HUB: float = 46.0        # ≈ 115 m — Rustwater & Fraktionsbasen
 const ZONE_RADIUS_DEFAULT: float = 26.0    # ≈ 65 m  — Dungeons, Jagdgründe, Arenen
-## Halbe Breite der Verbindungswege.
-const CORRIDOR_HALF_W: float = 11.0        # ≈ 27 m breite Piste (beidseitig ~13 m)
+## Halbe Breite der sichtbaren Pisten zwischen den Orten (reine Wegführung, keine Sperre).
+const CORRIDOR_HALF_W: float = 11.0        # ≈ 27 m breite Piste
 
-## Verbindungen zwischen den Orten — zugleich Straßen-Layout und begehbare Korridore.
+## Verbindungen zwischen den Orten — Straßen-Layout und Trassenführung.
 const ROUTES: Array = [
 	["rustwater", "rattengestruepp"], ["rustwater", "schrott_minen"], ["rustwater", "zugdepot"],
 	["zugdepot", "rogues_landing"], ["rogues_landing", "fort_freedom"],
@@ -56,7 +59,32 @@ const ROUTES: Array = [
 	["alchemie_raffinerie", "eisernes_herz"],
 ]
 
-## Begehbarer Radius eines POI (Hubs & Basen weiter, Rest enger).
+## Bahnhöfe der Iron Rail: nur echte Knoten (GDD §1.4). Reisen zwischen ihnen ersetzt
+## später den Fußmarsch; die Trasse verläuft entlang der Routen zwischen diesen Orten.
+const RAIL_STATIONS: Array = ["rustwater", "zugdepot", "rogues_landing", "fort_freedom", "sektor01"]
+
+static func has_station(poi_id: String) -> bool:
+	return RAIL_STATIONS.has(poi_id)
+
+## Trassenabschnitte der Iron Rail: alle Routen, deren BEIDE Enden einen Bahnhof haben.
+## Damit liegt das Schienennetz zwangsläufig auf den bestehenden Straßen — es gibt keine
+## zweite, widersprüchliche Geografie.
+static func rail_segments() -> Array:
+	var out: Array = []
+	for r in ROUTES:
+		if has_station(String(r[0])) and has_station(String(r[1])):
+			out.append([String(r[0]), String(r[1])])
+	return out
+
+## Befriedete Zone: dort spawnt nichts Feindliches. Der Hub immer, Fraktionsbasen nur,
+## solange die eigene Gilde dort willkommen ist (§1.7.3).
+static func is_safe_zone(poi_id: String) -> bool:
+	var t: String = String(poi(poi_id).get("type", ""))
+	if t == "hub":
+		return true
+	return t == "base" and is_base_friendly(poi_id)
+
+## Radius der Aktionszone eines POI (Hubs & Basen weiter, Rest enger).
 static func zone_radius(poi_id: String) -> float:
 	var t: String = String(poi(poi_id).get("type", ""))
 	return ZONE_RADIUS_HUB if (t == "hub" or t == "base") else ZONE_RADIUS_DEFAULT
@@ -70,33 +98,37 @@ static func _dist_to_segment(p: Vector2, a: Vector2, b: Vector2) -> float:
 	var t: float = clampf((p - a).dot(ab) / len_sq, 0.0, 1.0)
 	return p.distance_to(a + ab * t)
 
-## Liegt die Position in einer Zone oder auf einem Korridor? (relative Weltkoordinaten)
-static func is_walkable(rel: Vector2) -> bool:
+## In welcher Aktionszone steht der Punkt? ("" = offene Wildnis)
+static func zone_at(rel: Vector2) -> String:
 	for id in POIS.keys():
 		if rel.distance_to(poi_position(String(id))) <= zone_radius(String(id)):
-			return true
+			return String(id)
+	return ""
+
+static func in_action_zone(rel: Vector2) -> bool:
+	return zone_at(rel) != ""
+
+## Steht der Punkt auf einer der sichtbaren Pisten? (Nur Orientierung/Optik — die Wildnis
+## daneben ist genauso begehbar.)
+static func on_route(rel: Vector2) -> bool:
 	for r in ROUTES:
-		var a: Vector2 = poi_position(String(r[0]))
-		var b: Vector2 = poi_position(String(r[1]))
-		if _dist_to_segment(rel, a, b) <= CORRIDOR_HALF_W:
+		if _dist_to_segment(rel, poi_position(String(r[0])), poi_position(String(r[1]))) <= CORRIDOR_HALF_W:
 			return true
 	return false
 
-## Nächstgelegener begehbarer Punkt zu `rel` (Mittelpunkt der nächsten Zone/des nächsten
-## Korridors, auf dessen Rand gezogen). Dient als Rückfallposition, wenn jemand doch
-## außerhalb landet (Schnellreise, Rückstoß, geladener Spielstand aus einer alten Fassung).
+## Liegt die Position im begehbaren Teil der Welt? Die Wüste ist offen — begrenzt wird nur
+## durch den Kraterrand (Außengrenze der Welt). Bauten sperren zusätzlich lokal, das
+## entscheidet aber die Szene über ihre Kollisionsobjekte, nicht diese Geografie-Schicht.
+static func is_walkable(rel: Vector2) -> bool:
+	return rel.x >= 1.0 and rel.x <= float(WORLD_SIZE) - 1.0 \
+		and rel.y >= 1.0 and rel.y <= float(WORLD_SIZE) - 1.0
+
+## Nächstgelegene gültige Position innerhalb des Kraters (Rückfall nach Schnellreise,
+## Rückstoß oder einem Spielstand aus einer älteren Fassung).
 static func nearest_walkable(rel: Vector2) -> Vector2:
-	if is_walkable(rel):
-		return rel
-	var best: Vector2 = poi_position("rustwater")
-	var best_d: float = INF
-	for id in POIS.keys():
-		var c: Vector2 = poi_position(String(id))
-		var d: float = rel.distance_to(c) - zone_radius(String(id))
-		if d < best_d:
-			best_d = d
-			best = c + (rel - c).normalized() * (zone_radius(String(id)) - 1.0)
-	return best
+	return Vector2(
+		clampf(rel.x, 1.0, float(WORLD_SIZE) - 1.0),
+		clampf(rel.y, 1.0, float(WORLD_SIZE) - 1.0))
 
 # ── Gating-Parameter ──────────────────────────────────────────────────────────
 const BLAST_GATE_CHAPTER: int = 5              # ab hier ist der Panzerzug durchgebrochen
