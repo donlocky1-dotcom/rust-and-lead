@@ -260,7 +260,8 @@ def read_accessor(gltf: dict, binary: bytes, index: int):
     return np.frombuffer(binary, dtype=dtype, count=acc["count"] * ncomp, offset=start).reshape(-1, ncomp)
 
 
-def decimate(gltf: dict, binary: bytes, max_tris: int, log: list[str]) -> tuple[bytes, dict]:
+def decimate(gltf: dict, binary: bytes, max_tris: int, log: list[str],
+             crease: float = 45.0) -> tuple[bytes, dict]:
     """Reduziert zu feine Meshes auf ein Budget und liefert (Binaerchunk, neue Views).
 
     Generatoren liefern gern 1–2 Millionen Dreiecke — das ist Scan-Aufloesung, keine
@@ -319,11 +320,12 @@ def decimate(gltf: dict, binary: bytes, max_tris: int, log: list[str]) -> tuple[
             out = ms.current_mesh()
             new_v = np.asarray(out.vertex_matrix(), dtype=np.float64)
             new_f = np.asarray(out.face_matrix(), dtype=np.int64)
-            new_n = _smooth_normals(new_v, new_f)
+            corner_n = corner_normals(new_v, new_f, crease)
+            wedge = None
             if uvs is not None:
                 wedge = np.asarray(out.wedge_tex_coord_matrix(), dtype=np.float64).reshape(-1, 3, 2)
-                new_v, new_n, new_uv, new_f = _split_uv_seams(new_v, new_n, wedge, new_f)
-            else:
+            new_v, new_n, new_uv, new_f = _split_corners(new_v, corner_n, wedge, new_f)
+            if uvs is None:
                 new_uv = None
 
             _write_primitive(gltf, prim, extra, new_v, new_n, new_uv, new_f)
@@ -376,37 +378,68 @@ def open_edge_share(verts, faces) -> float:
     return float((counts == 1).sum()) / float(len(uniq))
 
 
-def _smooth_normals(verts, faces):
-    """Flaechengewichtete Eckpunkt-Normalen (MeshLab liefert nach der Reduktion keine mit)."""
+def corner_normals(verts, faces, crease_deg: float = 45.0):
+    """Normale je Flaechen-Ecke mit **Knickwinkel** — die Zutat, die Kanten scharf haelt.
+
+    MeshLab liefert nach der Reduktion keine Normalen mit; rechnet man sie rundum weich, wird
+    aus jedem Balken und jeder Hausecke eine verschmierte Scherbe (genau der Look, an dem die
+    Palisade gescheitert ist). Gemittelt werden deshalb nur Nachbarflaechen, die weniger als
+    `crease_deg` voneinander abweichen: glatte Woelbungen bleiben glatt, echte Kanten bleiben
+    Kanten. Das ist dasselbe Prinzip wie Blenders „Auto Smooth".
+    """
     import numpy as np
 
-    normals = np.zeros_like(verts)
     tri = verts[faces]
-    face_n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
-    for k in range(3):
-        np.add.at(normals, faces[:, k], face_n)
-    length = np.linalg.norm(normals, axis=1, keepdims=True)
-    return normals / np.where(length < 1e-12, 1.0, length)
+    face_n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])   # Laenge = 2x Flaeche
+    length = np.linalg.norm(face_n, axis=1, keepdims=True)
+    unit_n = face_n / np.where(length < 1e-12, 1.0, length)
+
+    adjacency: dict[int, list[int]] = {}
+    for fi in range(faces.shape[0]):
+        for k in range(3):
+            adjacency.setdefault(int(faces[fi, k]), []).append(fi)
+
+    limit = float(np.cos(np.radians(crease_deg)))
+    out = np.empty((faces.shape[0], 3, 3), dtype=np.float64)
+    for fi in range(faces.shape[0]):
+        own = unit_n[fi]
+        for k in range(3):
+            acc = np.zeros(3)
+            for g in adjacency[int(faces[fi, k])]:
+                if float(unit_n[g] @ own) >= limit:
+                    acc += face_n[g]        # flaechengewichtet
+            norm = float(np.linalg.norm(acc))
+            out[fi, k] = acc / norm if norm > 1e-12 else own
+    return out
 
 
-def _split_uv_seams(verts, normals, wedge, faces):
-    """glTF speichert eine UV pro Eckpunkt — an Texturnaehten muss der Eckpunkt doppelt sein."""
+def _split_corners(verts, corner_n, wedge, faces):
+    """Baut die glTF-Eckpunktliste: eine Position, UV und Normale je Eckpunkt.
+
+    An Texturnaehten UND an harten Kanten muss derselbe Punkt mehrfach vorliegen — glTF kennt
+    nur einen Wert pro Eckpunkt. Der Schluessel ist deshalb (Punkt, UV, Normale).
+    """
     import numpy as np
 
     mapping: dict[tuple, int] = {}
     pos, nor, uv = [], [], []
     new_faces = np.empty_like(faces)
+    has_uv = wedge is not None
     for f in range(faces.shape[0]):
         for k in range(3):
             vi = int(faces[f, k])
-            key = (vi, round(float(wedge[f, k, 0]), 6), round(float(wedge[f, k, 1]), 6))
+            n = corner_n[f, k]
+            key = (vi,
+                   round(float(wedge[f, k, 0]), 5) if has_uv else 0.0,
+                   round(float(wedge[f, k, 1]), 5) if has_uv else 0.0,
+                   round(float(n[0]), 3), round(float(n[1]), 3), round(float(n[2]), 3))
             idx = mapping.get(key)
             if idx is None:
                 idx = len(pos)
                 mapping[key] = idx
                 pos.append(verts[vi])
-                nor.append(normals[vi])
-                uv.append(wedge[f, k])
+                nor.append(n)
+                uv.append(wedge[f, k] if has_uv else (0.0, 0.0))
             new_faces[f, k] = idx
     return np.array(pos), np.array(nor), np.array(uv), new_faces
 
@@ -551,6 +584,8 @@ def main() -> int:
     ap.add_argument("--max-texture", type=int, default=2048, help="laengste Kante in Pixeln (Standard 2048)")
     ap.add_argument("--max-tris", type=int, default=20000,
                     help="Dreiecks-Budget je Mesh (Standard 20000, 0 = nicht reduzieren)")
+    ap.add_argument("--crease", type=float, default=45.0,
+                    help="Knickwinkel in Grad: darueber bleibt eine Kante hart (Standard 45)")
     ap.add_argument("--keep-png", action="store_true", help="nicht nach JPEG wandeln")
     args = ap.parse_args()
 
@@ -561,7 +596,7 @@ def main() -> int:
     replaced: dict[int, bytes] = {}
     watertight = _is_watertight(gltf, binary)
     if args.max_tris > 0:
-        binary, extra = decimate(gltf, binary, args.max_tris, log)
+        binary, extra = decimate(gltf, binary, args.max_tris, log, args.crease)
         replaced.update(extra)
         watertight = _is_watertight(gltf, binary, replaced)
     clean_materials(gltf, binary, log, watertight)

@@ -99,7 +99,8 @@ const TARGET_LENGTH: Dictionary = {
 	"weapon_karabiner": 1.0,
 	"rock_small": 1.6,       # Geröllfeld, kein Findling
 	"rock_boulder": 2.4,
-	"cliff": 9.0,
+	"cliff": 4.5,            # Felsnase am Wegrand. Bei 9 m wurde daraus ein 18-m-Klotz, den
+	                         # man aus der Nähe für ein zerfallenes Gebäude hielt.
 }
 
 ## Ziel-Länge eines Assets (0.0 = wird über die Höhe skaliert).

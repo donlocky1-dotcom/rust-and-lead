@@ -781,7 +781,11 @@ func _scatter_decor() -> void:
 		if rock == null:
 			continue
 		var ang: float = rng.randf() * TAU
-		var dist: float = rng.randf_range(TOWN_SAFE_M + 15.0, 700.0)   # außerhalb der Stadt
+		# Große Felsen gehören in die Ferne, nicht vor das Stadttor: aus zehn Metern Entfernung
+		# füllt eine Felsnase den Bildschirm und wirkt wie ein Bauwerk. Je größer das Stück,
+		# desto weiter weg beginnt sein Streubereich.
+		var near: float = TOWN_SAFE_M + 15.0 + AssetRegistry.length_of(kind) * 12.0
+		var dist: float = rng.randf_range(near, 700.0)
 		var pos: Vector3 = origin + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
 		# Nicht in die Smog-Zone streuen und im Kraterbecken bleiben.
 		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
