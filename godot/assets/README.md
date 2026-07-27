@@ -3,6 +3,34 @@
 3D-Assets für die Godot-Produktion. Zielformat: **glTF/GLB** (Godots natives 3D-Format;
 FBX/OBJ werden importiert, glTF/GLB ist bevorzugt). PBR-Materialien (§1 Master-GDD).
 
+## Export aus Meshy (oder einem anderen Generator)
+
+**Format: `GLB`.** Das ist glTF in einer einzigen Binärdatei — **Mesh, Material und alle
+Texturen stecken darin**. Kein Ordner mit losen PNGs, kein Materialpfad, der beim Kopieren
+bricht: eine Datei ablegen, fertig.
+
+| Einstellung in Meshy | Wert | Warum |
+| :-- | :-- | :-- |
+| Format | **GLB** | Godots natives Format, Texturen eingebettet |
+| Textur / PBR | **an** (Base Color + Normal + Roughness + Metallic) | Godot liest die glTF-PBR-Maps direkt; Metallic/Roughness kommen gepackt als **ORM** an — das ist normal und richtig |
+| Texturauflösung | **2K**, für kleine Props 1K | Mobile-Ziel; 4K bringt auf dem Handy nichts außer Ladezeit |
+| Polygone / Topologie | so niedrig wie brauchbar (Charaktere ~5–15 k Tris, Props ~1–3 k) | eine Wüste voller 100-k-Modelle ruckelt auf dem Handy |
+| Y-up | **an** (glTF-Standard) | Godot ist Y-up |
+
+**Nicht** FBX (Texturen hängen je nach Exporter außen dran, Godot importiert es nur über einen
+Umweg) und **nicht** OBJ (kann kein PBR, nur eine `.mtl` mit losen Bilddateien).
+
+Wenn Meshy ein ZIP liefert: entpacken, die `.glb` daraus an den Zielpfad legen — den Rest
+(`.bin`, Texturordner) braucht man bei GLB nicht. Nur falls du `.gltf` statt `.glb` exportierst,
+müssen `.bin` und der Texturordner **mit umziehen**, sonst ist das Modell weiß.
+
+**Was du NICHT selbst richten musst** — das macht die `AssetRegistry` beim Instanziieren:
+* **Größe:** wird auf die Zielhöhe unten in der Tabelle skaliert, egal wie groß Meshy exportiert.
+* **Pivot/Höhe:** die Unterkante wird auf Y = 0 gelegt. Generatoren setzen den Pivot fast immer
+  in die Modellmitte — ohne diese Korrektur würde die Figur zur Hälfte im Sand stecken.
+* **Blickrichtung:** falls das Modell rückwärts läuft, trage die Gradzahl in
+  `AssetRegistry.YAW_DEG` ein (z. B. `"player": 180.0`) — eine Zahl statt einer Blender-Runde.
+
 ## So kommt ein Asset ins Spiel
 
 **Datei am richtigen Pfad ablegen — mehr nicht.** Die `AssetRegistry`
@@ -16,9 +44,11 @@ anfassen, wenn ein neues Modell dazukommt.
 glTF-Transforms. Ein Chassis darf also in Blender 200 Einheiten hoch sein — im Spiel steht
 es korrekt in 1,8 m.
 
-**Ausrichtung (wichtig — das kann die Registry nicht raten):**
-- **+Y = oben**, Figur steht mit den Füßen auf **Y = 0** (Pivot am Boden, nicht in der Mitte).
+**Ausrichtung:**
+- **+Y = oben** (glTF-Standard, kommt aus jedem Generator richtig).
+- Pivot egal — die Registry legt die Unterkante des Modells auf **Y = 0**.
 - **Blickrichtung = −Z** (Godot-Konvention). In Blender beim glTF-Export: `-Y forward, Z up`.
+  Bei generierten Assets: notfalls über `AssetRegistry.YAW_DEG` korrigieren.
 - 1 Godot-Unit = **1 Meter** (die Welt spannt 5000 × 5000 m, §1.4).
 
 ## Gesuchte Assets (Registry-Namen & Pfade)

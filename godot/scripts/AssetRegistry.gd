@@ -36,6 +36,11 @@ const PATHS: Dictionary = {
 	"chemistry_set":   ["res://assets/models/props/chemistry_set_1k/chemistry_set_1k.gltf"],
 }
 
+## Blickrichtungs-Korrektur je Asset (Grad um Y). Godot-Konvention ist „vorne = −Z"; viele
+## Generatoren (Meshy, Sketchfab-Rips, ältere FBX-Ketten) exportieren nach +Z oder +X. Statt
+## jede Datei in Blender zu drehen, steht die Korrektur hier — eine Zahl pro Asset.
+const YAW_DEG: Dictionary = {}
+
 ## Gegner-Typ (CombatData.ENEMY_TYPES) → logischer Asset-Name.
 static func enemy_asset(type_id: String) -> String:
 	return "enemy_" + type_id
@@ -51,10 +56,15 @@ static func resolve(name: String) -> String:
 			return path
 	return ""
 
-## Instanziiert das Modell (oder `null`, wenn keins vorhanden ist).
-## `scale_to_height` skaliert das Modell auf eine Zielhöhe in Metern — so passen Assets
-## unterschiedlicher Herkunft ohne Nacharbeit in den 1-Unit-=-1-Meter-Maßstab der Welt.
-static func instantiate(name: String, scale_to_height: float = 0.0) -> Node3D:
+## Instanziiert das Modell (oder `null`, wenn keins vorhanden ist) — **einbaufertig**:
+##  • `scale_to_height` skaliert auf eine Zielhöhe in Metern (1 Unit = 1 m, GDD §1.4),
+##  • die Unterkante wird auf Y = 0 gelegt (`snap_to_floor`) — egal wohin der Exporter den
+##    Pivot gesetzt hat; ohne das schwebt oder versinkt jedes zweite generierte Modell,
+##  • `YAW_DEG` dreht die Blickrichtung auf Godots −Z.
+## Damit ist ein zugekauftes oder generiertes Asset ohne Nacharbeit in Blender benutzbar.
+## Beim Snappen kommt das Modell in einen Halter-Node: der Aufrufer darf `position` und
+## `rotation` frei setzen, ohne die Bodenkorrektur zu überschreiben.
+static func instantiate(name: String, scale_to_height: float = 0.0, snap_to_floor: bool = true) -> Node3D:
 	var path: String = resolve(name)
 	if path == "":
 		return null
@@ -66,30 +76,45 @@ static func instantiate(name: String, scale_to_height: float = 0.0) -> Node3D:
 		node.queue_free()
 		return null
 	var n3: Node3D = node as Node3D
-	if scale_to_height > 0.0:
-		var h: float = local_height(n3)
-		if h > 0.001:
-			n3.scale = Vector3.ONE * (scale_to_height / h)
-	return n3
+	var bounds: AABB = local_bounds(n3)
+	var factor: float = 1.0
+	if scale_to_height > 0.0 and bounds.size.y > 0.001:
+		factor = scale_to_height / bounds.size.y
+		n3.scale = Vector3.ONE * factor
+	var yaw: float = float(YAW_DEG.get(name, 0.0))
+	if not is_zero_approx(yaw):
+		n3.rotation.y = deg_to_rad(yaw)
+	if not snap_to_floor or bounds.size.y <= 0.001:
+		return n3
+	var holder := Node3D.new()
+	holder.name = "asset_" + name
+	holder.add_child(n3)
+	n3.position.y = -bounds.position.y * factor   # tiefster Punkt exakt auf Y = 0
+	return holder
 
 ## Höhe der zusammengefassten Mesh-Bounds im lokalen Raum von `root` (0.0 = keine Meshes).
 ## Bequemer Sonderfall von `local_size()` für die häufigste Abfrage (Zielhöhen-Skalierung).
 static func local_height(root: Node3D) -> float:
 	return local_size(root).y
 
-## Größe (X/Y/Z) der zusammengefassten Mesh-Bounds **im lokalen Raum von `root`**
-## (`Vector3.ZERO` = keine Meshes gefunden). Berücksichtigt die komplette Transform-Kette bis
-## zu jedem Mesh — glTF-Hierarchien haben oft verschachtelte Rotationen/Skalierungen, die eine
-## naive Messung verfälschen würden. Die eigene Transform von `root` bleibt bewusst außen vor,
-## damit `instantiate()`/Aufrufer daraus ihren eigenen Skalierungsfaktor bilden können.
+## Größe (X/Y/Z) der zusammengefassten Mesh-Bounds im lokalen Raum von `root`
+## (`Vector3.ZERO` = keine Meshes gefunden).
 static func local_size(root: Node3D) -> Vector3:
+	return local_bounds(root).size
+
+## Zusammengefasste Mesh-Bounds **im lokalen Raum von `root`** (leere AABB = keine Meshes).
+## Berücksichtigt die komplette Transform-Kette bis zu jedem Mesh — glTF-Hierarchien haben oft
+## verschachtelte Rotationen/Skalierungen, die eine naive Messung verfälschen würden. Die eigene
+## Transform von `root` bleibt bewusst außen vor, damit `instantiate()`/Aufrufer daraus ihren
+## eigenen Skalierungs- und Boden-Versatz bilden können.
+static func local_bounds(root: Node3D) -> AABB:
 	var box: AABB = AABB()
 	var found: bool = false
 	for entry in _meshes_with_transform(root, Transform3D.IDENTITY, true):
 		var a: AABB = (entry[1] as Transform3D) * ((entry[0] as MeshInstance3D).get_aabb())
 		box = a if not found else box.merge(a)
 		found = true
-	return box.size if found else Vector3.ZERO
+	return box if found else AABB()
 
 ## Alle MeshInstance3D unter `node` samt ihrer Transform relativ zur Startwurzel.
 static func _meshes_with_transform(node: Node, parent_xform: Transform3D, is_root: bool) -> Array:

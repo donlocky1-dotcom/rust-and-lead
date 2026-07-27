@@ -818,7 +818,23 @@ func _test_asset_registry() -> void:
 	_check("local_size liefert volle Bounds (1×6×1 m, gleicher Baum)",
 		AssetRegistry.local_size(root).is_equal_approx(Vector3(2.0, 6.0, 2.0)),
 		"gemessen: %s" % AssetRegistry.local_size(root))
+	# Boden-Versatz: der Baum liegt zwischen y=-2 und y=+4 (Mesh ±3 ×2 verschoben um +1×2).
+	# `instantiate()` muss diesen Versatz herausrechnen, damit generierte Assets (Meshy & Co.)
+	# nicht schweben oder im Sand versinken — dort sitzt der Pivot fast nie am Boden.
+	var b: AABB = AssetRegistry.local_bounds(root)
+	_check("local_bounds liefert auch die Unterkante (y = -2 m)",
+		is_equal_approx(b.position.y, -2.0), "gemessen: %.3f" % b.position.y)
 	root.free()
+	# Gegenprobe an einem echten Modell (nur wenn Assets vorhanden sind — das Projekt muss
+	# auch ohne sie testbar bleiben): Zielhöhe getroffen UND Unterkante auf dem Boden.
+	if AssetRegistry.has_model("rock_small"):
+		var inst: Node3D = AssetRegistry.instantiate("rock_small", 2.0)
+		var ib: AABB = AssetRegistry.local_bounds(inst)
+		_check("Echtes Modell: auf 2,00 m skaliert", is_equal_approx(ib.size.y, 2.0),
+			"gemessen: %.3f" % ib.size.y)
+		_check("Echtes Modell: Unterkante steht auf Y = 0", absf(ib.position.y) < 0.001,
+			"gemessen: %.4f" % ib.position.y)
+		inst.free()
 	_check("Bodentextur ist in der Registry vorgesehen", AssetRegistry.PATHS.has("ground_sand"))
 	_check("Unbekanntes Material liefert null (→ Einheitsfarbe)",
 		AssetRegistry.material_from_model("gibts_nicht") == null)
