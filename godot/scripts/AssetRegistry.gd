@@ -22,6 +22,17 @@ const PATHS: Dictionary = {
 	"enemy_klaeffer":  ["res://assets/models/enemies/klaeffer.glb", "res://assets/models/enemies/klaeffer.gltf"],
 	"enemy_goliath":   ["res://assets/models/enemies/goliath.glb", "res://assets/models/enemies/goliath.gltf"],
 	"companion_dog":   ["res://assets/models/characters/bolzen.glb", "res://assets/models/characters/bolzen.gltf"],
+	# ── Gebäude (Rustwater, GDD §1.6/§2.3) ──
+	"saloon":          ["res://assets/models/buildings/saloon.glb"],
+	"forge":           ["res://assets/models/buildings/forge.glb"],
+	"shack":           ["res://assets/models/buildings/shack.glb"],
+	"water_tower":     ["res://assets/models/buildings/water_tower.glb"],
+	"gate":            ["res://assets/models/buildings/gate.glb"],
+	"palisade_a":      ["res://assets/models/buildings/palisade_a.glb"],
+	"palisade_b":      ["res://assets/models/buildings/palisade_b.glb"],
+	"palisade_c":      ["res://assets/models/buildings/palisade_c.glb"],
+	"palisade_d":      ["res://assets/models/buildings/palisade_d.glb"],
+	"palisade_e":      ["res://assets/models/buildings/palisade_e.glb"],
 	# ── Umgebung (bereits vorhandene CC0-Modelle) ──
 	"rock_small":      ["res://assets/models/environment/sand_rocks_small_01_1k/sand_rocks_small_01_1k.gltf"],
 	"rock_boulder":    ["res://assets/models/environment/namaqualand_boulder_03_1k/namaqualand_boulder_03_1k.gltf"],
@@ -50,6 +61,18 @@ const TARGET_HEIGHT: Dictionary = {
 	"enemy_konstrukt": 2.0,      # Konzern-Konstrukt / kleiner Panzer — überragt den Spieler
 	"enemy_goliath": 4.0,        # Schwerer Ernter (Boss)
 	"chest": 0.7,
+	# ── Gebäude ──
+	# Generatoren normieren jedes Modell auf dieselbe Kantenlänge; die Proportionen stimmen,
+	# der Maßstab ist beliebig. Gesetzt wird deshalb die HÖHE — die ist bei einem Haus die
+	# Größe, an der das Auge misst (Türhöhe, Stockwerke im Verhältnis zur 1,8-m-Figur).
+	# Die Grundfläche folgt aus den Proportionen und wird gemessen, nicht geraten.
+	"saloon": 8.5,               # zweistöckig mit Scheinfassade
+	"forge": 7.0,                # niedrig und breit, hoher Schornstein
+	"shack": 4.5,
+	"water_tower": 18.0,         # Silhouette, die man vor der Stadt sieht
+	"gate": 6.0,
+	"palisade_a": 3.4, "palisade_b": 3.4, "palisade_c": 3.4,
+	"palisade_d": 3.4, "palisade_e": 3.4,
 }
 const TARGET_HEIGHT_DEFAULT: float = 1.6
 

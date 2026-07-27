@@ -119,6 +119,13 @@ const PLAYER_RADIUS_M: float = 0.6
 const PALISADE_R: float = 84.0
 const PALISADE_GATES: Array = [0.0, 90.0, 180.0, 270.0]
 const PALISADE_GATE_HALF_DEG: float = 7.0
+## Das Nordtor ist **verriegelt** — dort steht das geschlossene Torblatt, und dort sperrt die
+## Mauer auch wirklich. Ein Tor, das zu aussieht und durch das man trotzdem spaziert, ist der
+## schlimmere Fehler; so ergibt dasselbe Modell eine glaubwürdige Stadt mit drei Durchlässen.
+const PALISADE_BARRED_GATE: float = 270.0
+## Gebäude-Kollision etwas kleiner als die Bounding-Box: Vordächer, Schornsteine und Anbauten
+## stecken darin, und man soll am Haus entlanglaufen können, nicht an dessen Luftraum.
+const BUILDING_COLLISION_SHRINK: float = 0.82
 
 # ── Eisenbahn (GDD §1.4a): Schnellreise nur noch von Bahnhof zu Bahnhof ───────
 const RAIL_GAUGE_M: float = 3.2        # Spurweite der Iron Rail (Breitspur, Panzerzug-tauglich)
@@ -151,6 +158,7 @@ var _save_cd: float = AUTOSAVE_INTERVAL_SEC
 var _blockers: Array = []            # rechteckige Sperren: { c: Vector2(x,z), h: Vector2 }
 var _pillars: Array = []             # runde Sperren:       { c: Vector2(x,z), r: float }
 var _rings: Array = []               # Ringmauern mit Toren: { c, r, t, gates, gate_half }
+var _rot_blockers: Array = []        # gedrehte Sperren:    { c: Vector2(x,z), h: Vector2, yaw }
 var _stations: Array = []            # { id, pos: Vector3 } — Bahnsteige der Iron Rail
 var _player_model: Node3D = null     # nur gesetzt, wenn ein echtes Modell geladen wurde
 
@@ -228,6 +236,15 @@ func _solid_box(size: Vector3, pos: Vector3, color: Color, alpha: float = 1.0) -
 	return mi
 
 
+## Gedrehte Sperre: dieselbe Rechteck-Sperre, aber um `yaw` gedreht. Gebäude stehen im Kreis
+## um das Stadtzentrum und schauen nach innen — eine achsenparallele Box würde dabei entweder
+## in die Gasse ragen oder die Ecke des Hauses frei lassen.
+func _solid_rect_rot(center: Vector3, half: Vector2, yaw: float) -> void:
+	_rot_blockers.append({
+		"c": Vector2(center.x, center.z), "yaw": yaw,
+		"h": half + Vector2(PLAYER_RADIUS_M, PLAYER_RADIUS_M) })
+
+
 ## Runde Sperre (Säulen, Türme, Silos) — Radius inklusive Spielerradius.
 func _solid_pillar(center: Vector3, radius: float) -> void:
 	_pillars.append({ "c": Vector2(center.x, center.z), "r": radius + PLAYER_RADIUS_M })
@@ -261,6 +278,10 @@ func _blocked(p: Vector3) -> bool:
 			return true
 	for s in _pillars:
 		if q.distance_to(Vector2(s["c"])) <= float(s["r"]):
+			return true
+	for r in _rot_blockers:
+		var local: Vector2 = (q - Vector2(r["c"])).rotated(-float(r["yaw"])).abs()
+		if local.x <= float(r["h"].x) and local.y <= float(r["h"].y):
 			return true
 	for r in _rings:
 		var off: Vector2 = q - Vector2(r["c"])
@@ -477,69 +498,151 @@ func _build_station(poi_id: String) -> void:
 	_stations.append({ "id": poi_id, "pos": platform })
 
 
-## Rustwater als begehbare Township (GDD §1.6/§2.3: Saloon, Schmiede, Destille, Labor +
-## Wohnhäuser + Palisade). Bewusst aus Primitives gebaut — so steht die Stadt schon jetzt,
-## und die Blender-Module können sie später Stück für Stück ersetzen (AssetRegistry-Prinzip).
+## Rustwater als begehbare Township (GDD §1.6/§2.3). Wo ein Modell vorliegt, steht das Modell;
+## wo noch keins da ist, steht weiterhin ein Primitiv (AssetRegistry-Prinzip — die Stadt ist
+## jederzeit vollstaendig, nur unterschiedlich fertig).
+##
+## Die Kollision wird aus den GEMESSENEN Modellmassen gebildet, nicht aus den Zahlen, mit denen
+## die Platzhalter-Boxen gebaut waren: sonst liefe man in eine Wand, wo keine ist.
 func _build_township() -> void:
 	var c: Vector3 = WorldManager.poi_scene_position("rustwater")
-	# Kernbauten: Name, Winkel um das Zentrum, Distanz, Grundfläche, Höhe, Farbe.
+	# Kernbauten: Beschriftung, Registry-Name, Winkel um das Zentrum, Distanz, Ersatzmasse
+	# (Grundflaeche + Hoehe) und Farbe fuer den Fall, dass das Modell noch fehlt.
 	var core: Array = [
-		["🍺 Gatling-Saloon", 25.0, 34.0, Vector2(16.0, 11.0), 7.5, Color(0.45, 0.28, 0.16)],
-		["🔨 Schmiede", 110.0, 32.0, Vector2(12.0, 10.0), 6.0, Color(0.36, 0.30, 0.27)],
-		["🥃 Destille", 195.0, 33.0, Vector2(11.0, 9.0), 6.5, Color(0.40, 0.34, 0.20)],
-		["⚗ Alchemie-Labor", 285.0, 34.0, Vector2(12.0, 10.0), 6.0, Color(0.30, 0.36, 0.31)],
+		["🍺 Gatling-Saloon", "saloon", 25.0, 40.0, Vector2(16.0, 11.0), 7.5, Color(0.45, 0.28, 0.16)],
+		["🔨 Schmiede", "forge", 110.0, 38.0, Vector2(12.0, 10.0), 6.0, Color(0.36, 0.30, 0.27)],
+		["🥃 Destille", "", 195.0, 33.0, Vector2(11.0, 9.0), 6.5, Color(0.40, 0.34, 0.20)],
+		["⚗ Alchemie-Labor", "", 285.0, 34.0, Vector2(12.0, 10.0), 6.0, Color(0.30, 0.36, 0.31)],
 	]
 	for b in core:
-		var ang: float = deg_to_rad(float(b[1]))
-		var d: float = float(b[2])
-		var fp: Vector2 = b[3]
-		var h: float = float(b[4])
-		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
-		_solid_box(Vector3(fp.x, h, fp.y), pos + Vector3(0.0, h / 2.0, 0.0), b[5])
-		_box(Vector3(fp.x + 1.6, 0.6, fp.y + 1.6), pos + Vector3(0.0, h + 0.3, 0.0), Color(0.24, 0.19, 0.15))   # Dachkante (überhängend, sperrt nicht)
-		_label(pos + Vector3(0.0, h + 2.4, 0.0), String(b[0]), Color(0.98, 0.90, 0.72), 95, 150.0)
-	# Wohnhäuser: schlichter Ring aus kleinen Hütten, deterministisch gesetzt.
+		var ang: float = deg_to_rad(float(b[2]))
+		var pos: Vector3 = c + Vector3(cos(ang) * float(b[3]), 0.0, sin(ang) * float(b[3]))
+		# Haeuser schauen zur Stadtmitte — sonst kehrt der halbe Ort dem Platz den Ruecken zu.
+		var yaw: float = atan2(c.x - pos.x, c.z - pos.z)
+		var size: Vector3 = _place_building(String(b[1]), pos, yaw, Vector3(b[4].x, float(b[5]), b[4].y), b[6])
+		_label(pos + Vector3(0.0, size.y + 2.4, 0.0), String(b[0]), Color(0.98, 0.90, 0.72), 95, 150.0)
+	# Wohnhaeuser: Ring aus Huetten. Ein Modell, aber jede anders gedreht und leicht anders
+	# gross — zehn identisch ausgerichtete Kopien fallen sofort als Kopien auf.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4711
 	for i in 10:
 		var ang: float = deg_to_rad(float(i) * 36.0 + 18.0)
-		var d: float = rng.randf_range(52.0, 68.0)
-		var w: float = rng.randf_range(5.0, 8.0)
-		var h: float = rng.randf_range(3.4, 4.8)
+		var d: float = rng.randf_range(54.0, 68.0)
 		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
-		_solid_box(Vector3(w, h, w * 0.85), pos + Vector3(0.0, h / 2.0, 0.0), Color(0.42, 0.33, 0.24))
+		var yaw: float = atan2(c.x - pos.x, c.z - pos.z) + rng.randf_range(-0.5, 0.5)
+		_place_building("shack", pos, yaw, Vector3(6.0, 4.2, 5.0), Color(0.42, 0.33, 0.24),
+			rng.randf_range(0.88, 1.12))
 	# Wasserturm — die Silhouette, an der man Rustwater von weitem erkennt.
-	var tw: Vector3 = c + Vector3(-26.0, 0.0, -22.0)
-	for leg in [Vector3(-3.0, 0.0, -3.0), Vector3(3.0, 0.0, -3.0), Vector3(-3.0, 0.0, 3.0), Vector3(3.0, 0.0, 3.0)]:
-		_solid_box(Vector3(0.8, 14.0, 0.8), tw + leg + Vector3(0.0, 7.0, 0.0), Color(0.33, 0.27, 0.22))
-	_box(Vector3(9.0, 6.0, 9.0), tw + Vector3(0.0, 17.0, 0.0), Color(0.48, 0.38, 0.26))
+	var tw: Vector3 = c + Vector3(-30.0, 0.0, -26.0)
+	if AssetRegistry.has_model("water_tower"):
+		_place_building("water_tower", tw, 0.0, Vector3.ZERO, Color.WHITE)
+	else:
+		for leg in [Vector3(-3.0, 0.0, -3.0), Vector3(3.0, 0.0, -3.0), Vector3(-3.0, 0.0, 3.0), Vector3(3.0, 0.0, 3.0)]:
+			_solid_box(Vector3(0.8, 14.0, 0.8), tw + leg + Vector3(0.0, 7.0, 0.0), Color(0.33, 0.27, 0.22))
+		_box(Vector3(9.0, 6.0, 9.0), tw + Vector3(0.0, 17.0, 0.0), Color(0.48, 0.38, 0.26))
 	_label(tw + Vector3(0.0, 22.0, 0.0), "RUSTWATER", Color(0.95, 0.82, 0.55), 120, 350.0)
-	# Palisade: geschlossene Bretterwand mit vier Toren. Das ist die bauliche Grenze der
-	# Aktionszone (GDD §1.4a) — man kommt nur durch die Tore hinein, aber man SIEHT warum:
-	# es ist eine Wand, keine unsichtbare Barriere. Optik (Panele) und Sperre (Ring-Blocker)
-	# stammen aus denselben Zahlen, können also nicht auseinanderlaufen.
-	_solid_ring(c, PALISADE_R, 1.2, PALISADE_GATES, PALISADE_GATE_HALF_DEG)
+	_build_palisade(c)
+
+
+## Setzt ein Gebaeude ab und traegt seine Kollision ein. Liefert die tatsaechliche Groesse
+## zurueck (fuer die Hoehe der Beschriftung). `fallback` ist die Ersatzbox, falls kein Modell
+## vorliegt; `extra_scale` variiert baugleiche Haeuser.
+func _place_building(asset: String, pos: Vector3, yaw: float, fallback: Vector3,
+		color: Color, extra_scale: float = 1.0) -> Vector3:
+	var model: Node3D = null
+	if asset != "":
+		model = AssetRegistry.instantiate(asset, AssetRegistry.height_of(asset) * extra_scale)
+	if model == null:
+		_solid_box(fallback, pos + Vector3(0.0, fallback.y / 2.0, 0.0), color)
+		return fallback
+	model.position = pos
+	model.rotation.y = yaw
+	add_child(model)
+	# Kollision aus dem gemessenen Modell. Etwas kleiner als die Bounding-Box, weil Vordaecher,
+	# Schornsteine und Anbauten darin stecken — man soll am Haus entlanglaufen koennen, nicht
+	# an dessen Luftraum.
+	var size: Vector3 = AssetRegistry.local_bounds(model).size
+	_solid_rect_rot(pos, Vector2(size.x, size.z) * 0.5 * BUILDING_COLLISION_SHRINK, yaw)
+	return size
+
+
+## Palisade aus echten Wandstuecken. Die Sperre bleibt der Ring-Blocker: er ist fuer eine
+## kreisfoermige Mauer exakt, kostet einen Test statt sechzig, und die vier Tore sitzen
+## garantiert dort, wo die Optik sie zeigt.
+func _build_palisade(c: Vector3) -> void:
+	# Nur die OFFENEN Tore sind Lücken im Sperr-Ring; das verriegelte zählt als Mauer.
+	var open_gates: Array = []
+	for g in PALISADE_GATES:
+		if not is_equal_approx(float(g), PALISADE_BARRED_GATE):
+			open_gates.append(g)
+	_solid_ring(c, PALISADE_R, 1.2, open_gates, PALISADE_GATE_HALF_DEG)
+	var variants: Array = []
+	for suffix in ["a", "b", "c", "d", "e"]:
+		if AssetRegistry.has_model("palisade_" + suffix):
+			variants.append("palisade_" + suffix)
+	if variants.is_empty():
+		_build_palisade_placeholder(c)
+		return
+	# Segmentlaenge messen und den Ring gleichmaessig darauf aufteilen. Genommen wird die Laenge
+	# des KUERZESTEN Stuecks (die Varianten unterscheiden sich um bis zu einen Meter): so
+	# ueberlappen die laengeren Stuecke leicht, statt dass zwischen ihnen Luecken klaffen — und
+	# durch eine Palisade soll man nicht durchsehen.
+	var seg_len: float = 99.0
+	for v in variants:
+		var probe: Node3D = AssetRegistry.instantiate(String(v), AssetRegistry.height_of(String(v)))
+		seg_len = minf(seg_len, AssetRegistry.local_bounds(probe).size.x)
+		probe.queue_free()
+	var count: int = maxi(12, int(round(TAU * PALISADE_R / maxf(seg_len, 0.5))))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20250727
+	for i in count:
+		var ang_deg: float = float(i) * (360.0 / float(count))
+		if _in_gate_gap(ang_deg, PALISADE_GATES, PALISADE_GATE_HALF_DEG):
+			continue
+		var a: float = deg_to_rad(ang_deg)
+		var name: String = String(variants[rng.randi_range(0, variants.size() - 1)])
+		var seg: Node3D = AssetRegistry.instantiate(name, AssetRegistry.height_of(name))
+		if seg == null:
+			continue
+		seg.position = c + Vector3(cos(a) * PALISADE_R, 0.0, sin(a) * PALISADE_R)
+		seg.rotation.y = -a + PI * 0.5   # Laengsachse tangential zum Ring
+		add_child(seg)
+	# Verriegeltes Tor: das geschlossene Torblatt sitzt in seiner Lücke und sperrt dort auch.
+	var ba: float = deg_to_rad(PALISADE_BARRED_GATE)
+	var gate: Node3D = AssetRegistry.instantiate("gate", AssetRegistry.height_of("gate"))
+	if gate != null:
+		gate.position = c + Vector3(cos(ba) * PALISADE_R, 0.0, sin(ba) * PALISADE_R)
+		gate.rotation.y = -ba + PI * 0.5
+		add_child(gate)
+	# Offene Durchlässe bekommen Torpfeiler, damit man sie als Tor liest und nicht als Loch.
+	for g in open_gates:
+		for side in [-PALISADE_GATE_HALF_DEG, PALISADE_GATE_HALF_DEG]:
+			var a2: float = deg_to_rad(float(g) + float(side))
+			_solid_box(Vector3(2.2, 5.4, 2.2),
+				c + Vector3(cos(a2) * PALISADE_R, 2.7, sin(a2) * PALISADE_R), Color(0.28, 0.21, 0.15))
+
+
+## Palisade aus Primitiven — der Stand vor den Modellen, bleibt als Rueckfall erhalten.
+func _build_palisade_placeholder(c: Vector3) -> void:
 	var panels: int = 120
 	for i in panels:
 		var ang_deg: float = float(i) * (360.0 / float(panels))
 		if _in_gate_gap(ang_deg, PALISADE_GATES, PALISADE_GATE_HALF_DEG):
 			continue
 		var a: float = deg_to_rad(ang_deg)
-		var pos: Vector3 = c + Vector3(cos(a) * PALISADE_R, 1.6, sin(a) * PALISADE_R)
 		var panel := MeshInstance3D.new()
 		var pm := BoxMesh.new()
-		pm.size = Vector3(1.2, 3.2, TAU * PALISADE_R / float(panels) + 0.4)   # tangential, leicht überlappend
+		pm.size = Vector3(1.2, 3.2, TAU * PALISADE_R / float(panels) + 0.4)
 		panel.mesh = pm
 		panel.material_override = _mat(Color(0.34, 0.26, 0.19))
-		panel.position = pos
+		panel.position = c + Vector3(cos(a) * PALISADE_R, 1.6, sin(a) * PALISADE_R)
 		panel.rotation.y = -a
 		add_child(panel)
-	# Torpfeiler markieren die Durchlässe (und tragen die Ring-Lücke optisch).
 	for g in PALISADE_GATES:
 		for side in [-PALISADE_GATE_HALF_DEG, PALISADE_GATE_HALF_DEG]:
 			var a2: float = deg_to_rad(float(g) + float(side))
-			var pos2: Vector3 = c + Vector3(cos(a2) * PALISADE_R, 0.0, sin(a2) * PALISADE_R)
-			_solid_box(Vector3(2.2, 5.4, 2.2), pos2 + Vector3(0.0, 2.7, 0.0), Color(0.28, 0.21, 0.15))
+			_solid_box(Vector3(2.2, 5.4, 2.2),
+				c + Vector3(cos(a2) * PALISADE_R, 2.7, sin(a2) * PALISADE_R), Color(0.28, 0.21, 0.15))
 
 
 # ── NPCs & Quests ─────────────────────────────────────────────────────────────
