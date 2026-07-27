@@ -52,6 +52,18 @@ const TOWN_SAFE_M: float = 95.0
 ## Schnellreise-Ziele (Tasten 1–5) — nur echte Hubs, passend zu GDD §1.4.
 const FAST_TRAVEL: Array = ["rustwater", "zugdepot", "fort_freedom", "rogues_landing", "sektor01"]
 
+# ── NPCs & Quests: der QuestManager ist seit Phase 2 fertig, hier zum ersten Mal
+# an die sichtbare Welt angeschlossen. Auftraggeber stehen bei ihren Gebäuden. ──
+const NPC_INTERACT_M: float = 4.5
+## giver-Id (QuestManager.QUESTS[..].giver) → Anzeigename, Winkel/Distanz um das Stadtzentrum, Farbe.
+const TOWN_NPCS: Array = [
+	["mabel", "Mamma „Rusty“ Mabel", 25.0, 22.0, Color(0.85, 0.45, 0.35)],
+	["silas", "Silas „Kupferauge“ Finch", 110.0, 21.0, Color(0.55, 0.50, 0.40)],
+	["doc", "Doktor „Doc“ Aris", 285.0, 22.0, Color(0.88, 0.88, 0.90)],
+]
+## Material-Drops beim Kill — ohne sie ist die Sammel-Quest „Baumaterial: Schrott" unlösbar.
+const DROP_TABLE: Array = [["schrott", 0.65], ["zahnrad", 0.22], ["dampfkern", 0.05]]
+
 func _in_town(pos: Vector3) -> bool:
 	return pos.distance_to(WorldManager.poi_scene_position("rustwater")) < TOWN_SAFE_M
 
@@ -63,6 +75,8 @@ var _spawn_cd: float = SPAWN_INTERVAL_SEC * 0.5   # erster Nachschub etwas früh
 var _weapon_id: String = "karabiner"
 var _enemies: Array = []             # { node, target: CombatTarget, bar: MeshInstance3D }
 var _chests: Array = []              # { node, label, pos: Vector3 }
+var _npcs: Array = []                # { giver, name, node, label, pos: Vector3 }
+var _npc_cd: float = 0.0             # Entprellung: nicht bei jedem Frame erneut ansprechen
 var _chest_spawn_cd: float = 3.0      # erste Truhe erscheint schnell
 var _hud: Label
 var _minimap: Minimap
@@ -86,6 +100,7 @@ func _ready() -> void:
 	_scatter_decor()
 	_build_player()
 	_build_hud()
+	_build_npcs()
 	_spawn_pack()
 	_spawn_chest_near(_rustwater_spawn() + Vector3(-18.0, 0.0, 14.0))
 	_hp = float(PlayerStats.max_hp())
@@ -342,6 +357,92 @@ func _build_township() -> void:
 		var ang: float = deg_to_rad(float(i) * 7.5)
 		var pos: Vector3 = c + Vector3(cos(ang) * 84.0, 0.0, sin(ang) * 84.0)
 		_box(Vector3(1.0, 3.2, 1.0), pos + Vector3(0.0, 1.6, 0.0), Color(0.34, 0.26, 0.19))
+
+
+# ── NPCs & Quests ─────────────────────────────────────────────────────────────
+
+func _build_npcs() -> void:
+	var c: Vector3 = WorldManager.poi_scene_position("rustwater")
+	for n in TOWN_NPCS:
+		var ang: float = deg_to_rad(float(n[2]))
+		var d: float = float(n[3])
+		var pos: Vector3 = c + Vector3(cos(ang) * d, 0.0, sin(ang) * d)
+		var node := Node3D.new()
+		var body := MeshInstance3D.new()
+		var cap := CapsuleMesh.new()
+		cap.radius = 0.42
+		cap.height = 1.7
+		body.mesh = cap
+		body.material_override = _mat(n[4])
+		body.position = Vector3(0.0, 0.85, 0.0)
+		node.add_child(body)
+		node.position = pos
+		add_child(node)
+		var label: Label3D = _label(pos + Vector3(0.0, 2.5, 0.0), String(n[1]), Color(0.98, 0.94, 0.82), 85, 140.0)
+		_npcs.append({ "giver": String(n[0]), "name": String(n[1]), "node": node, "label": label, "pos": pos })
+
+
+## Die (erste) Quest dieses Auftraggebers, die gerade relevant ist — offen oder aktiv.
+## Fertige Quests werden übersprungen, damit ein NPC nach Abschluss die nächste anbietet.
+func _quest_for_giver(giver: String) -> String:
+	for qid in QuestManager.QUESTS.keys():
+		var def: Dictionary = QuestManager.QUESTS[qid]
+		if String(def.get("giver", "")) != giver:
+			continue
+		var st: String = QuestManager.get_quest_state(String(qid))
+		if st != QuestManager.STATE_DONE:
+			return String(qid)
+	return ""
+
+
+## Nähe zu einem NPC = Gespräch. Annehmen, Fortschritt melden oder abgeben — die
+## Entscheidung trifft komplett der QuestManager (Kapitel-/Gilden-Gates inklusive).
+func _process_npcs(delta: float) -> void:
+	_npc_cd = maxf(0.0, _npc_cd - delta)
+	if _npc_cd > 0.0:
+		return
+	for n in _npcs:
+		if _player.position.distance_to(n["pos"]) > NPC_INTERACT_M:
+			continue
+		_npc_cd = 3.0   # nicht sofort erneut ansprechen
+		var giver: String = String(n["giver"])
+		var qid: String = _quest_for_giver(giver)
+		if qid == "":
+			_say('%s: „Nichts mehr zu tun, Fremder.“' % String(n['name']), 2.5)
+			return
+		var def: Dictionary = QuestManager.QUESTS[qid]
+		var title: String = String(def["title"])
+		var st: String = QuestManager.get_quest_state(qid)
+		if st == QuestManager.STATE_AVAILABLE:
+			if QuestManager.accept_quest(qid):
+				var goal: String = ("%d Gegner erlegen" % int(def["count"])) if String(def["kind"]) == "kill" \
+					else ("%dx %s sammeln" % [int(def["count"]), String(def["item"])])
+				_say('📜 Auftrag angenommen: „%s“ — %s' % [title, goal], 4.0)
+			else:
+				_say('🔒 „%s“ ist noch nicht verfügbar.' % title, 2.5)
+		elif QuestManager.is_quest_complete(qid):
+			var gold_before: int = GameState.gold
+			if QuestManager.complete_quest(qid):
+				_say('✅ „%s“ abgeschlossen — +%d Gold' % [title, GameState.gold - gold_before], 4.0)
+				sfx_equip()
+			else:
+				_say("Hm — die Abgabe wurde abgelehnt.", 2.5)
+		else:
+			var p: Dictionary = QuestManager.check_quest_progress(qid)
+			_say('📜 „%s“: %d/%d' % [title, int(p['current']), int(p['target'])], 3.0)
+		return
+
+
+## Zeile für den HUD-Quest-Tracker: die erste aktive Quest mit Fortschritt.
+func _active_quest_line() -> String:
+	for qid in QuestManager.QUESTS.keys():
+		if QuestManager.get_quest_state(String(qid)) != QuestManager.STATE_ACTIVE:
+			continue
+		var def: Dictionary = QuestManager.QUESTS[qid]
+		var p: Dictionary = QuestManager.check_quest_progress(String(qid))
+		var mark: String = "✔" if bool(p["complete"]) else "▸"
+		return "%s %s  %d/%d" % [mark, String(def["title"]), int(p["current"]), int(p["target"])]
+	return ""
 
 
 func _scatter_decor() -> void:
@@ -641,6 +742,7 @@ func _process(delta: float) -> void:
 	_process_hazards(delta)
 	_process_spawns(delta)
 	_process_chests(delta)
+	_process_npcs(delta)
 	_process_autosave(delta)
 	_update_hud()
 
@@ -696,9 +798,21 @@ func _process_combat(delta: float) -> void:
 		GameState.add_gold(target.gold)
 		GameState.add_kill()
 		GameState.add_xp(CombatData.xp_for_kill(target))
-		_say("☠ %s erlegt — +%d Gold" % [CombatData.ENEMY_TYPES[target.type_id]["name"], target.gold], 2.0)
+		var extra: String = _roll_material_drop()
+		_say("☠ %s erlegt — +%d Gold%s" % [CombatData.ENEMY_TYPES[target.type_id]["name"], target.gold, extra], 2.0)
 		(e["node"] as Node3D).queue_free()
 		_enemies.erase(e)
+
+
+## Material-Drop beim Kill (Schrott/Zahnrad/Dampfkern). Ohne diese Drops waeren die
+## Sammel-Quests des QuestManagers in der Overworld gar nicht erfuellbar.
+func _roll_material_drop() -> String:
+	for entry in DROP_TABLE:
+		if randf() < float(entry[1]):
+			var id: String = String(entry[0])
+			GameState.add_item(id, 1)
+			return "  +1 %s" % id
+	return ""
 
 
 func _spawn_tracer(to_pos: Vector3) -> void:
@@ -766,6 +880,11 @@ func _update_hud() -> void:
 		String(WorldManager.POIS[poi_id]["name"]), poi_d,
 		WorldManager.sector_of_pos(rel), String(biome["name"])]
 	_hud.text += "   [1-5] Schnellreise"
+	var q: String = _active_quest_line()
+	if q != "":
+		_hud.text += "\n📜 " + q
+	_hud.text += "\n🔩 %d  ⚙ %d  🔆 %d" % [
+		GameState.item_count("schrott"), GameState.item_count("zahnrad"), GameState.item_count("dampfkern")]
 	if _minimap != null:
 		_minimap.player_pos = _player.position
 		_minimap.player_dir = _player.rotation.y

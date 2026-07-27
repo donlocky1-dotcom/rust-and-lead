@@ -24,6 +24,7 @@ func _ready() -> void:
 	_test_world_scale()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
+	_test_overworld_quest_flow()
 	_test_memory_manager()
 	_test_encounter_manager()
 	_test_progression_manager()
@@ -849,3 +850,43 @@ func _test_overworld_loot_flow() -> void:
 		"name": "Testattrappe", "stat": { "key": "damage", "val": 1, "q": 0.0 }, "affixes": [] }
 	_check("Deutlich schwächeres Teil hat niedrigeren Marktwert (würde eingeschmolzen)",
 		ProgressionManager.gear_value(worse) < ProgressionManager.gear_value(gear))
+
+
+# ── Overworld-Questfluss: derselbe Weg, den OverworldView._process_npcs() geht ──
+## Prueft die Kette Auftraggeber -> annehmen -> Fortschritt -> abgeben, samt der
+## Material-Drop-Logik, ohne die 3D-Szene zu instanzieren.
+func _test_overworld_quest_flow() -> void:
+	print("· Overworld-Quests (NPC → QuestManager → Belohnung)")
+	_reset_state()
+	# Mabels Kopfgeld ist der Einstiegsauftrag (Kapitel 1, kein Gilden-Gate).
+	var qid: String = "q_bounty"
+	var def: Dictionary = QuestManager.QUESTS[qid]
+	_check("Mabel ist die Auftraggeberin von q_bounty", String(def["giver"]) == "mabel")
+	_check("Startzustand ist 'available'", QuestManager.get_quest_state(qid) == QuestManager.STATE_AVAILABLE)
+	_check("Annehmen gelingt", QuestManager.accept_quest(qid) == true)
+	_check("Zustand jetzt 'active'", QuestManager.get_quest_state(qid) == QuestManager.STATE_ACTIVE)
+	_check("Fortschritt startet bei 0", int(QuestManager.check_quest_progress(qid)["current"]) == 0)
+	_check("Vorzeitige Abgabe wird abgelehnt", QuestManager.complete_quest(qid) == false)
+	for i in int(def["count"]):
+		GameState.add_kill()
+	_check("Nach %d Kills erfuellt" % int(def["count"]), QuestManager.is_quest_complete(qid))
+	var gold_before: int = GameState.gold
+	_check("Abgabe gelingt", QuestManager.complete_quest(qid) == true)
+	_check("Goldbelohnung gutgeschrieben", GameState.gold == gold_before + int(def["reward_gold"]))
+	_check("Zustand jetzt 'done'", QuestManager.get_quest_state(qid) == QuestManager.STATE_DONE)
+	# Jeder in der Szene platzierte NPC muss auch wirklich Quests im Manager haben,
+	# sonst steht eine Figur ohne Funktion in der Stadt.
+	var givers: Array = ["mabel", "silas", "doc"]
+	var all_have_quests: bool = true
+	for g in givers:
+		var found: bool = false
+		for q in QuestManager.QUESTS.keys():
+			if String(QuestManager.QUESTS[q].get("giver", "")) == g:
+				found = true
+		if not found:
+			all_have_quests = false
+	_check("Alle drei Stadt-NPCs haben Quests", all_have_quests)
+	# Sammel-Quest braucht Material-Drops: die Drop-Tabelle muss die Quest-Items abdecken.
+	var scrap_quest: Dictionary = QuestManager.QUESTS["q_scrap"]
+	_check("Sammel-Quest fordert 'schrott' (von der Drop-Tabelle gedeckt)",
+		String(scrap_quest["item"]) == "schrott")
