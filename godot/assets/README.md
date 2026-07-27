@@ -14,7 +14,8 @@ bricht: eine Datei ablegen, fertig.
 | Format | **GLB** | Godots natives Format, Texturen eingebettet |
 | Textur / PBR | **an** (Base Color + Normal + Roughness + Metallic) | Godot liest die glTF-PBR-Maps direkt; Metallic/Roughness kommen gepackt als **ORM** an — das ist normal und richtig |
 | Texturauflösung | **2K**, für kleine Props 1K | Mobile-Ziel; 4K bringt auf dem Handy nichts außer Ladezeit |
-| Polygone / Topologie | so niedrig wie brauchbar (Charaktere ~5–15 k Tris, Props ~1–3 k) | eine Wüste voller 100-k-Modelle ruckelt auf dem Handy |
+| Topologie | **Quads** | im Spiel egal (die GPU trianguliert eh), aber Quads bleiben in Blender editier- und riggbar — Dreiecke sind eine Einbahnstraße |
+| Polygone | Charaktere ~5–15 k Tris, Props ~1–3 k | eine Wüste voller 100-k-Modelle ruckelt auf dem Handy. **Achtung:** 1 Quad = 2 Dreiecke, das Budget zählt in Dreiecken |
 | Y-up | **an** (glTF-Standard) | Godot ist Y-up |
 
 **Nicht** FBX (Texturen hängen je nach Exporter außen dran, Godot importiert es nur über einen
