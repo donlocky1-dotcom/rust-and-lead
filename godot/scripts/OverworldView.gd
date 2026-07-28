@@ -205,7 +205,8 @@ var _weapon_id: String = "karabiner"
 var _enemies: Array = []             # { node, target: CombatTarget, bar: MeshInstance3D }
 var _chests: Array = []              # { node, label, pos: Vector3 }
 var _npcs: Array = []                # { giver, name, node, label, pos: Vector3 }
-var _npc_cd: float = 0.0             # Entprellung: nicht bei jedem Frame erneut ansprechen
+var _actions: VBoxContainer          # Aktionsleiste unten (Sprechen, Bahnreise)
+var _ctx: String = ""                # was gerade in Reichweite ist ("npc:silas", "station:…")
 var _chest_spawn_cd: float = 3.0      # erste Truhe erscheint schnell
 var _hud: Label
 var _minimap: Minimap
@@ -825,40 +826,134 @@ func _quest_for_giver(giver: String) -> String:
 
 ## Nähe zu einem NPC = Gespräch. Annehmen, Fortschritt melden oder abgeben — die
 ## Entscheidung trifft komplett der QuestManager (Kapitel-/Gilden-Gates inklusive).
-func _process_npcs(delta: float) -> void:
-	_npc_cd = maxf(0.0, _npc_cd - delta)
-	if _npc_cd > 0.0:
+## Bestimmt, was gerade in Reichweite ist, und baut die Aktionsleiste danach auf. Neu gebaut
+## wird nur bei WECHSEL des Kontexts — sonst wuerde die Leiste sechzigmal pro Sekunde entstehen
+## und waere nicht anklickbar.
+func _process_interactions(_delta: float) -> void:
+	var ctx: String = ""
+	var npc: Dictionary = _npc_in_range()
+	var station: String = _station_at_player()
+	if not npc.is_empty():
+		ctx = "npc:" + String(npc["giver"])
+	elif station != "":
+		ctx = "station:" + station
+	if ctx == _ctx:
 		return
+	_ctx = ctx
+	# Erst aus dem Baum nehmen, dann freigeben: `queue_free` allein wirkt erst am Frame-Ende,
+	# die alten Knöpfe stuenden also noch unter den neuen.
+	for child in _actions.get_children():
+		_actions.remove_child(child)
+		child.queue_free()
+	if ctx.begins_with("npc:"):
+		_add_action("🗣  %s ansprechen   [E]" % String(npc["name"]),
+			_talk_to.bind(String(npc["giver"])))
+	elif ctx.begins_with("station:"):
+		_add_action("🚂  Iron Rail — Ziel wählen", Callable())
+		for i in FAST_TRAVEL.size():
+			var id: String = String(FAST_TRAVEL[i])
+			if id == station:
+				continue
+			_add_action("   %d  %s" % [i + 1, String(WorldManager.poi(id)["name"])],
+				_fast_travel.bind(i))
+
+
+## Naechster NPC in Gespraechsreichweite ({} = keiner).
+func _npc_in_range() -> Dictionary:
+	var best: Dictionary = {}
+	var best_d: float = NPC_INTERACT_M
 	for n in _npcs:
-		if _player.position.distance_to(n["pos"]) > NPC_INTERACT_M:
-			continue
-		_npc_cd = 3.0   # nicht sofort erneut ansprechen
-		var giver: String = String(n["giver"])
-		var qid: String = _quest_for_giver(giver)
-		if qid == "":
-			_say('%s: „Nichts mehr zu tun, Fremder.“' % String(n['name']), 2.5)
-			return
-		var def: Dictionary = QuestManager.QUESTS[qid]
-		var title: String = String(def["title"])
-		var st: String = QuestManager.get_quest_state(qid)
-		if st == QuestManager.STATE_AVAILABLE:
-			if QuestManager.accept_quest(qid):
-				var goal: String = ("%d Gegner erlegen" % int(def["count"])) if String(def["kind"]) == "kill" \
-					else ("%dx %s sammeln" % [int(def["count"]), String(def["item"])])
-				_say('📜 Auftrag angenommen: „%s“ — %s' % [title, goal], 4.0)
-			else:
-				_say('🔒 „%s“ ist noch nicht verfügbar.' % title, 2.5)
-		elif QuestManager.is_quest_complete(qid):
-			var gold_before: int = GameState.gold
-			if QuestManager.complete_quest(qid):
-				_say('✅ „%s“ abgeschlossen — +%d Gold' % [title, GameState.gold - gold_before], 4.0)
-				sfx_equip()
-			else:
-				_say("Hm — die Abgabe wurde abgelehnt.", 2.5)
-		else:
-			var p: Dictionary = QuestManager.check_quest_progress(qid)
-			_say('📜 „%s“: %d/%d' % [title, int(p['current']), int(p['target'])], 3.0)
+		var d: float = _player.position.distance_to(n["pos"])
+		if d < best_d:
+			best_d = d
+			best = n
+	return best
+
+
+## Eine Schaltflaeche in der Aktionsleiste. Ohne `action` ist es nur eine Ueberschrift.
+func _add_action(text: String, action: Callable) -> void:
+	if not action.is_valid():
+		var head := Label.new()
+		head.text = text
+		head.add_theme_font_size_override("font_size", 15)
+		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_actions.add_child(head)
 		return
+	var btn := Button.new()
+	btn.text = text
+	btn.custom_minimum_size = Vector2(0.0, 38.0)   # Daumengroesse, nicht Mausgroesse
+	btn.add_theme_font_size_override("font_size", 15)
+	btn.pressed.connect(action)
+	_actions.add_child(btn)
+
+
+## Ein Gespraech. Vorher lief das AUTOMATISCH beim Vorbeilaufen — man wurde angequatscht, statt
+## zu entscheiden. Jetzt braucht es den Knopf (oder [E]).
+func _talk_to(giver: String) -> void:
+	var npc: Dictionary = {}
+	for n in _npcs:
+		if String(n["giver"]) == giver:
+			npc = n
+	if npc.is_empty():
+		return
+	var qid: String = _quest_for_giver(giver)
+	if qid == "":
+		_say("%s: %s" % [String(npc["name"]), _npc_line(giver, "idle")], 3.5)
+		return
+	var def: Dictionary = QuestManager.QUESTS[qid]
+	var title: String = String(def["title"])
+	var st: String = QuestManager.get_quest_state(qid)
+	if st == QuestManager.STATE_AVAILABLE:
+		if QuestManager.accept_quest(qid):
+			var goal: String = ("%d Gegner erlegen" % int(def["count"])) if String(def["kind"]) == "kill" \
+				else ("%dx %s sammeln" % [int(def["count"]), String(def["item"])])
+			_say("%s: %s\n📜 „%s“ — %s" % [String(npc["name"]), _npc_line(giver, "offer"), title, goal], 5.0)
+		else:
+			_say("🔒 „%s“ ist noch nicht verfügbar." % title, 2.5)
+	elif QuestManager.is_quest_complete(qid):
+		var gold_before: int = GameState.gold
+		if QuestManager.complete_quest(qid):
+			_say("%s: %s\n✅ „%s“ — +%d Gold" % [String(npc["name"]), _npc_line(giver, "done"),
+				title, GameState.gold - gold_before], 5.0)
+			sfx_equip()
+		else:
+			_say("Hm — die Abgabe wurde abgelehnt.", 2.5)
+	else:
+		var p: Dictionary = QuestManager.check_quest_progress(qid)
+		_say("%s: %s\n📜 „%s“: %d/%d" % [String(npc["name"]), _npc_line(giver, "wait"),
+			title, int(p["current"]), int(p["target"])], 4.0)
+
+
+## Die Stimmen aus der Story-Bibel (GDD §4). Nach dem Reveal reden alle drei anders mit einem —
+## sie wissen dann, dass unter dem Mantel ein Automat steckt.
+func _npc_line(giver: String, kind: String) -> String:
+	var revealed: bool = GameState.is_revealed
+	match giver:
+		"mabel":
+			if kind == "offer":
+				return "„Setz dich, Kind. Aber vorher…“" if not revealed else "„Für dich hab ich Schmieröl statt Schnaps.“"
+			if kind == "done":
+				return "„Du bist zäher, als du aussiehst.“"
+			if kind == "wait":
+				return "„Die Wüste frisst Leute wie dich zum Frühstück.“"
+			return "„Trink was, Fremder. Geht aufs Haus.“"
+		"silas":
+			if kind == "offer":
+				return "„Diese Stadt frisst Material.“"
+			if kind == "done":
+				return "„Gute Arbeit. Das hält.“"
+			if kind == "wait":
+				return "„Ohne Schrott keine Mauer.“"
+			return "„Mein Auge sieht mehr als deins, Fremder.“" if not revealed else "„Chassis-Platten? Für dich zum Selbstkostenpreis.“"
+		"doc":
+			if kind == "offer":
+				return "„Die Viecher kommen aus den Rohren.“"
+			if kind == "done":
+				return "„Eine Plage weniger.“"
+			if kind == "wait":
+				return "„Zähl die Kadaver, nicht die Stunden.“"
+			return "„Halt dich von den Ratten fern.“" if not revealed else "„Bei dir spar ich mir das Verarzten.“"
+	return "„…“"
 
 
 ## Zeile für den HUD-Quest-Tracker: die erste aktive Quest mit Fortschritt.
@@ -1014,6 +1109,15 @@ func _build_hud() -> void:
 	_stick = VirtualStick.new()
 	_stick.radius = STICK_RADIUS
 	layer.add_child(_stick)
+	# Aktionsleiste unten Mitte: erscheint nur, wenn etwas in Reichweite ist. Ohne sie gäbe es
+	# auf dem Handy keinen Weg, jemanden anzusprechen oder die Bahn zu nehmen — das ging bisher
+	# nur über die Tastatur, also ausgerechnet nicht auf der Zielplattform.
+	_actions = VBoxContainer.new()
+	_actions.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_actions.position = Vector2(-140.0, -168.0)
+	_actions.custom_minimum_size = Vector2(280.0, 0.0)
+	_actions.add_theme_constant_override("separation", 6)
+	layer.add_child(_actions)
 
 
 ## Baut einen Gegner-Node (Modell oder Primitive + Lebensleiste), fügt ihn NICHT in die Szene
@@ -1240,6 +1344,10 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
 			_cycle_weapon()
+		elif event.keycode == KEY_E:
+			var npc: Dictionary = _npc_in_range()
+			if not npc.is_empty():
+				_talk_to(String(npc["giver"]))
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
 			_fast_travel(event.keycode - KEY_1)
 
@@ -1341,7 +1449,7 @@ func _process(delta: float) -> void:
 	_process_hazards(delta)
 	_process_spawns(delta)
 	_process_chests(delta)
-	_process_npcs(delta)
+	_process_interactions(delta)
 	_process_autosave(delta)
 	_update_hud()
 

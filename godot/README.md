@@ -14,8 +14,10 @@ automatisch beschossen. Erster Import dauert wegen der 3D-Assets etwas.
 ziehen, der virtuelle Joystick erscheint am Aufsetzpunkt und die Figur dreht sich in die
 gezogene Richtung. Damit testet man dieselbe Steuerung, die auf dem Handy läuft, statt einer
 zweiten, abweichenden. Pfeiltasten gehen weiterhin.
-Tastatur: `[Tab]` wechselt die Waffe, `[1]`–`[5]` fahren mit der **Iron Rail** — aber nur,
-wenn man an einem Bahnsteig steht (GDD §1.4a).
+**Interaktion:** Kommt man an einen NPC oder einen Bahnsteig heran, erscheint unten eine
+**Aktionsleiste** — antippen genügt. Reden ist dadurch eine Entscheidung, kein Zufall des
+Vorbeilaufens, und die Bahn ist ohne Tastatur benutzbar.
+Tastatur: `[Tab]` Waffe, `[E]` ansprechen, `[1]`–`[5]` Iron Rail (nur am Bahnsteig, GDD §1.4a).
 
 ## Die Stadt im Editor bearbeiten
 
