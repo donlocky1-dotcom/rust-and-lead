@@ -17,7 +17,12 @@ zweiten, abweichenden. Pfeiltasten gehen weiterhin.
 **Interaktion:** Kommt man an einen NPC oder einen Bahnsteig heran, erscheint unten eine
 **Aktionsleiste** — antippen genügt. Reden ist dadurch eine Entscheidung, kein Zufall des
 Vorbeilaufens, und die Bahn ist ohne Tastatur benutzbar.
-Tastatur: `[Tab]` Waffe, `[E]` ansprechen, `[1]`–`[5]` Iron Rail (nur am Bahnsteig, GDD §1.4a).
+**Karte:** Oben rechts liegt die Nahansicht — ein Umkreis von **200 m** um die Figur, fein genug,
+dass Gegner, Straße und Laufrichtung tatsächlich lesbar sind. **Antippen öffnet die Weltkarte**
+mit dem ganzen 5000-m-Krater: alle Orte mit Namen, Sektorgrenzen, Biome, Iron-Rail-Trasse. Noch
+ein Tipp schließt sie. Solange sie offen ist, steht die Figur.
+Tastatur: `[Tab]` Waffe, `[E]` ansprechen, `[M]` Karte, `[1]`–`[5]` Iron Rail (nur am Bahnsteig,
+GDD §1.4a).
 
 ## Die Stadt im Editor bearbeiten
 

@@ -212,7 +212,9 @@ var _actions: VBoxContainer          # Aktionsleiste unten (Sprechen, Bahnreise)
 var _ctx: String = ""                # was gerade in Reichweite ist ("npc:silas", "station:…")
 var _chest_spawn_cd: float = 3.0      # erste Truhe erscheint schnell
 var _hud: Label
-var _minimap: Minimap
+var _minimap: Minimap            # Nahansicht oben rechts (200-m-Umkreis)
+var _world_map: Minimap          # dieselbe Klasse im Vollbild-Modus
+var _map_overlay: Control        # Abdunklung + Weltkarte; unsichtbar, solange sie zu ist
 var _stick: VirtualStick
 var _toast: Label
 var _toast_until: float = 0.0
@@ -1163,7 +1165,7 @@ func _build_hud() -> void:
 	_toast.add_theme_font_size_override("font_size", 16)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer.add_child(_toast)
-	# Minikarte oben rechts — Orientierung im 5000-m-Becken.
+	# Minikarte oben rechts — Nahansicht im 200-m-Umkreis (Minimap.LOCAL_RADIUS_M).
 	_minimap = Minimap.new()
 	_minimap.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_minimap.position = Vector2(-Minimap.MAP_PX - 14.0, 12.0)
@@ -1181,6 +1183,79 @@ func _build_hud() -> void:
 	_actions.custom_minimum_size = Vector2(280.0, 0.0)
 	_actions.add_theme_constant_override("separation", 6)
 	layer.add_child(_actions)
+	# Weltkarte ZULETZT: In einem CanvasLayer ist die Kindreihenfolge die Zeichenreihenfolge,
+	# und eine Vollbildkarte, unter der die Aktionsleiste hervorlugt, ist keine.
+	_build_world_map(layer)
+
+
+## Vollbild-Weltkarte: liegt fertig gebaut, aber unsichtbar über allem und geht per Tippen auf
+## die Minikarte auf (oder mit M). Bewusst NICHT bei jedem Öffnen neu gebaut — die Karte zeichnet
+## sich ohnehin bei jedem Frame neu, und ein Aufbau pro Öffnen wäre ein Ruckler ohne Gegenwert.
+func _build_world_map(layer: CanvasLayer) -> void:
+	_map_overlay = Control.new()
+	_map_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_overlay.visible = false
+	layer.add_child(_map_overlay)
+	var dim := ColorRect.new()
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0.03, 0.03, 0.04, 0.88)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_overlay.add_child(dim)
+	_world_map = Minimap.new()
+	_world_map.full_world = true   # vor add_child: `_ready` wertet das Flag aus
+	_map_overlay.add_child(_world_map)
+	var hint := Label.new()
+	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	hint.position = Vector2(-180.0, -46.0)
+	hint.custom_minimum_size = Vector2(360.0, 0.0)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 14)
+	hint.text = "Tippen oder M schließt die Karte"
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_overlay.add_child(hint)
+
+
+func _map_is_open() -> bool:
+	return _map_overlay != null and _map_overlay.visible
+
+
+## Beide Karten bekommen denselben Stand — die Nahansicht und die Weltkarte sind dieselbe
+## Klasse und unterscheiden sich nur in Mittelpunkt und Maßstab.
+func _feed_map(map: Minimap, enemies: Array) -> void:
+	if map == null:
+		return
+	map.player_pos = _player.position
+	map.player_dir = _player.rotation.y
+	map.enemy_positions = enemies
+	map.queue_redraw()
+
+
+## Öffnet die Weltkarte und misst sie dabei auf den aktuellen Bildschirm ein. Die Messung
+## gehört hierher und nicht in den Aufbau: Auf dem Handy dreht sich das Gerät, und eine beim
+## Start berechnete Größe wäre nach dem ersten Drehen falsch.
+func _open_world_map() -> void:
+	if _map_overlay == null:
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var s: float = minf(vp.x, vp.y) * 0.82
+	_world_map.size = Vector2(s, s)
+	_world_map.position = (vp - Vector2(s, s)) * 0.5
+	_map_overlay.visible = true
+	# Der Joystick darf nicht mit gedrücktem Daumen hängenbleiben, sonst läuft die Figur unter
+	# der offenen Karte weiter.
+	_end_stick()
+	# Die Aktionsleiste zeichnet trotz Zeichenreihenfolge weiter ihre Knöpfe: Sie ist ein
+	# eigenes Control und würde als Streifen über der Karte stehenbleiben.
+	if _actions != null:
+		_actions.visible = false
+
+
+func _close_world_map() -> void:
+	if _map_overlay != null:
+		_map_overlay.visible = false
+	if _actions != null:
+		_actions.visible = true
 
 
 ## Baut einen Gegner-Node (Modell oder Primitive + Lebensleiste), fügt ihn NICHT in die Szene
@@ -1390,6 +1465,9 @@ func sfx_equip() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed and _touch_id == -1:
+			if _handle_map_tap(event.position):
+				get_viewport().set_input_as_handled()
+				return
 			_begin_stick(event.position, event.index)
 		elif not event.pressed and event.index == _touch_id:
 			_end_stick()
@@ -1399,13 +1477,23 @@ func _input(event: InputEvent) -> void:
 	# testet, was auf dem Handy auch passiert (statt einer zweiten, abweichenden Steuerung).
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed and _touch_id == -1:
+			if _handle_map_tap(event.position):
+				get_viewport().set_input_as_handled()
+				return
 			_begin_stick(event.position, MOUSE_STICK_ID)
 		elif not event.pressed and _touch_id == MOUSE_STICK_ID:
 			_end_stick()
 	elif event is InputEventMouseMotion and _touch_id == MOUSE_STICK_ID:
 		_drag_stick(event.position)
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_TAB:
+		if event.keycode == KEY_M or (event.keycode == KEY_ESCAPE and _map_is_open()):
+			if _map_is_open():
+				_close_world_map()
+			else:
+				_open_world_map()
+		elif _map_is_open():
+			pass   # bei offener Karte schluckt sie die restlichen Tasten
+		elif event.keycode == KEY_TAB:
 			_cycle_weapon()
 		elif event.keycode == KEY_E:
 			var npc: Dictionary = _npc_in_range()
@@ -1413,6 +1501,27 @@ func _input(event: InputEvent) -> void:
 				_talk_to(String(npc["giver"]))
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
 			_fast_travel(event.keycode - KEY_1)
+
+
+## Tippen auf die Minikarte öffnet die Weltkarte, Tippen auf die offene Weltkarte schließt sie.
+## Liefert `true`, wenn der Tipp verbraucht wurde.
+##
+## Warum das hier steht und nicht als `_gui_input` in der Karte selbst: `_input` läuft VOR der
+## GUI-Verarbeitung. Ein Tipp auf die Karte würde also erst den Joystick starten und danach die
+## Karte öffnen — die Figur liefe los, während man nur nachsehen wollte. Nur an dieser einen
+## Stelle abzufangen ist die einzige Reihenfolge, die beides sauber trennt.
+##
+## Der Aufrufer muss das Ereignis danach mit `set_input_as_handled()` verbrauchen: `_input`
+## allein hält es nicht auf, ein Tipp auf die offene Karte würde sonst zusätzlich den Knopf
+## drücken, der darunter liegt.
+func _handle_map_tap(at: Vector2) -> bool:
+	if _map_is_open():
+		_close_world_map()
+		return true
+	if _minimap != null and _minimap.get_global_rect().has_point(at):
+		_open_world_map()
+		return true
+	return false
 
 
 ## Der Joystick erscheint dort, wo man aufsetzt (dynamischer Stick, GDD §1.5) — er hat keine
@@ -1488,6 +1597,10 @@ func _cycle_weapon() -> void:
 
 
 func _move_vector() -> Vector2:
+	# Bei offener Weltkarte steht die Figur. Sie ist verdeckt, also wäre jede Bewegung blind —
+	# und man würde beim Kartenlesen ungewollt in eine Gegnergruppe laufen.
+	if _map_is_open():
+		return Vector2.ZERO
 	var kb: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	return kb if kb.length() > 0.05 else _touch_vec
 
@@ -1740,12 +1853,13 @@ func _update_hud() -> void:
 	_hud.text += "\n🔩 %d  ⚙ %d  🔆 %d" % [
 		GameState.item_count("schrott"), GameState.item_count("zahnrad"), GameState.item_count("dampfkern")]
 	if _minimap != null:
-		_minimap.player_pos = _player.position
-		_minimap.player_dir = _player.rotation.y
 		var ep: Array = []
 		for e in _enemies:
 			ep.append((e["node"] as Node3D).position)
-		_minimap.enemy_positions = ep
-		_minimap.queue_redraw()
+		_feed_map(_minimap, ep)
+		# Die Weltkarte nur füttern, solange sie offen ist — sonst zeichnet ein unsichtbares
+		# Control jeden Frame den ganzen Krater mit elf Ortsnamen neu.
+		if _map_is_open():
+			_feed_map(_world_map, ep)
 	if Time.get_ticks_msec() / 1000.0 > _toast_until:
 		_toast.text = ""
