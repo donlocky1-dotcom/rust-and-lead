@@ -212,6 +212,14 @@ var _actions: VBoxContainer          # Aktionsleiste unten (Sprechen, Bahnreise)
 var _ctx: String = ""                # was gerade in Reichweite ist ("npc:silas", "station:…")
 var _chest_spawn_cd: float = 3.0      # erste Truhe erscheint schnell
 var _hud: Label
+var _fire_btn: FireButton        # Schuss-Knopf unten rechts
+# Der Abzug hat drei Quellen, die sich nicht gegenseitig ausschliessen duerfen: Auf dem Handy
+# liegt EIN Finger auf dem Joystick und ein ZWEITER auf dem Knopf, am Rechner haelt man die
+# Leertaste und zieht gleichzeitig mit der Maus. Deshalb je ein eigener Zustand statt eines
+# gemeinsamen Flags — sonst loescht das Loslassen der einen Quelle die andere mit.
+var _fire_key: bool = false      # Leertaste
+var _fire_mouse: bool = false    # rechte Maustaste (links ist der Joystick)
+var _fire_touch_id: int = -1     # Finger auf dem Knopf (-1 = keiner)
 var _minimap: Minimap            # Nahansicht oben rechts (200-m-Umkreis)
 var _world_map: Minimap          # dieselbe Klasse im Vollbild-Modus
 var _map_overlay: Control        # Abdunklung + Weltkarte; unsichtbar, solange sie zu ist
@@ -1174,6 +1182,9 @@ func _build_hud() -> void:
 	_stick = VirtualStick.new()
 	_stick.radius = STICK_RADIUS
 	layer.add_child(_stick)
+	# Schuss-Knopf unten rechts — die Gegenhand zum Joystick unten links.
+	_fire_btn = FireButton.new()
+	layer.add_child(_fire_btn)
 	# Aktionsleiste unten Mitte: erscheint nur, wenn etwas in Reichweite ist. Ohne sie gäbe es
 	# auf dem Handy keinen Weg, jemanden anzusprechen oder die Bahn zu nehmen — das ging bisher
 	# nur über die Tastatur, also ausgerechnet nicht auf der Zielplattform.
@@ -1246,9 +1257,12 @@ func _open_world_map() -> void:
 	# der offenen Karte weiter.
 	_end_stick()
 	# Die Aktionsleiste zeichnet trotz Zeichenreihenfolge weiter ihre Knöpfe: Sie ist ein
-	# eigenes Control und würde als Streifen über der Karte stehenbleiben.
+	# eigenes Control und würde als Streifen über der Karte stehenbleiben. Der Schuss-Knopf
+	# genauso — und ein sichtbarer Abzug, der nichts auslöst, sieht nach Fehler aus.
 	if _actions != null:
 		_actions.visible = false
+	if _fire_btn != null:
+		_fire_btn.visible = false
 
 
 func _close_world_map() -> void:
@@ -1256,6 +1270,8 @@ func _close_world_map() -> void:
 		_map_overlay.visible = false
 	if _actions != null:
 		_actions.visible = true
+	if _fire_btn != null:
+		_fire_btn.visible = true
 
 
 ## Baut einen Gegner-Node (Modell oder Primitive + Lebensleiste), fügt ihn NICHT in die Szene
@@ -1460,17 +1476,29 @@ func sfx_equip() -> void:
 	get_tree().create_timer(0.25).timeout.connect(flash.queue_free)
 
 
-# ── Eingabe: virtueller Joystick (Touch) + Tastatur ───────────────────────────
+# ── Eingabe: virtueller Joystick (Touch) + Schuss-Knopf + Tastatur ────────────
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
-		if event.pressed and _touch_id == -1:
+		if event.pressed:
+			# Reihenfolge ist hier alles: Karte, dann Schuss-Knopf, dann erst der Joystick.
+			# Der Joystick beansprucht sonst jeden Finger, der irgendwo aufsetzt.
 			if _handle_map_tap(event.position):
 				get_viewport().set_input_as_handled()
 				return
-			_begin_stick(event.position, event.index)
-		elif not event.pressed and event.index == _touch_id:
-			_end_stick()
+			if _fire_touch_id == -1 and _fire_btn != null and _fire_btn.hits(event.position):
+				_fire_touch_id = event.index
+				get_viewport().set_input_as_handled()
+				return
+			if _touch_id == -1:
+				_begin_stick(event.position, event.index)
+		else:
+			# Beide Finger einzeln freigeben — der Daumen auf dem Knopf geht hoch, ohne dass
+			# der auf dem Joystick etwas davon merkt.
+			if event.index == _fire_touch_id:
+				_fire_touch_id = -1
+			if event.index == _touch_id:
+				_end_stick()
 	elif event is InputEventScreenDrag and event.index == _touch_id:
 		_drag_stick(event.position)
 	# Maus verhält sich exakt wie ein Finger — derselbe Joystick, damit man am Rechner das
@@ -1480,11 +1508,26 @@ func _input(event: InputEvent) -> void:
 			if _handle_map_tap(event.position):
 				get_viewport().set_input_as_handled()
 				return
+			# Auch mit der Maus muss der Knopf anklickbar sein: Was auf dem Handy geht, muss
+			# am Rechner nachstellbar sein, sonst testet man eine andere Steuerung.
+			if _fire_btn != null and _fire_btn.hits(event.position):
+				_fire_mouse = true
+				get_viewport().set_input_as_handled()
+				return
 			_begin_stick(event.position, MOUSE_STICK_ID)
-		elif not event.pressed and _touch_id == MOUSE_STICK_ID:
-			_end_stick()
+		elif not event.pressed:
+			_fire_mouse = false
+			if _touch_id == MOUSE_STICK_ID:
+				_end_stick()
+	# Rechte Maustaste feuert direkt — links ist mit dem Joystick belegt.
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		_fire_mouse = event.pressed
 	elif event is InputEventMouseMotion and _touch_id == MOUSE_STICK_ID:
 		_drag_stick(event.position)
+	# Leertaste: Halten feuert. Sie braucht auch das LOSLASSEN, deshalb steht sie vor dem
+	# `pressed`-Filter der uebrigen Tasten.
+	elif event is InputEventKey and event.keycode == KEY_SPACE and not event.echo:
+		_fire_key = event.pressed
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_M or (event.keycode == KEY_ESCAPE and _map_is_open()):
 			if _map_is_open():
@@ -1635,8 +1678,15 @@ func _process_movement(delta: float) -> void:
 	var moving: bool = mv.length() >= 0.05
 	# Animation folgt der Bewegung, sobald ein animiertes Modell da ist. Kennt das Modell den
 	# Clip nicht (oder ist es der Kapsel-Platzhalter), passiert schlicht nichts.
-	AssetRegistry.play_clip(_player_model,
-		_gait(WorldManager.PLAYER_SPEED_MS) if moving else "idle")
+	#
+	# Der Schuss-Clip des Rigs heisst `Run_and_Shoot` — er zeigt eine RENNENDE Figur, die
+	# feuert. Deshalb kommt er nur zum Zug, wenn auch tatsaechlich gelaufen wird. Im Stand
+	# waere er genau der Rutsch-Effekt, den die Gangart-Regel gerade beseitigt hat; dafuer
+	# fehlt dem Rig schlicht ein Clip fuers Schiessen aus dem Stand.
+	var clip: String = "idle"
+	if moving:
+		clip = "attack" if _fire_wanted() else _gait(WorldManager.PLAYER_SPEED_MS)
+	AssetRegistry.play_clip(_player_model, clip)
 	if not moving:
 		return
 	# Eingabe ist bildschirmbezogen: um die Kamera-Gierung zurückdrehen, damit „nach oben
@@ -1687,12 +1737,28 @@ func _nearest_enemy(max_dist: float) -> Dictionary:
 	return best
 
 
+## Liegt der Abzug an? Halten feuert dauerhaft im Waffentakt — bei 3 Schuss pro Sekunde waere
+## Einzeltippen auf einem Touchscreen keine Steuerung, sondern eine Zumutung.
+func _fire_wanted() -> bool:
+	return (_fire_key or _fire_mouse or _fire_touch_id != -1) and not _map_is_open()
+
+
+## Kampf. Gezielt wird automatisch auf den naechsten Gegner in Reichweite — es gibt keinen
+## zweiten Stick zum Zielen, und den gaebe es auf dem Handy auch nicht sinnvoll. GESCHOSSEN
+## wird aber nur auf Befehl: Vorher feuerte die Figur von selbst, sobald irgendetwas in die
+## 11-m-Reichweite geriet. Damit war jeder Gegner tot, bevor man ihn ueberhaupt gesehen hatte,
+## und der Kampf bestand darin, in die richtige Richtung zu laufen.
 func _process_combat(delta: float) -> void:
-	_fire_cd -= delta
-	if _fire_cd > 0.0:
-		return
+	# Nach unten begrenzt, damit der Wert in langen Feuerpausen nicht ins Bodenlose laeuft.
+	# Bei -1 s ist der naechste Druck ohnehin sofort ein Schuss.
+	_fire_cd = maxf(_fire_cd - delta, -1.0)
 	var e: Dictionary = _nearest_enemy(SHOOT_RANGE_M)
-	if e.is_empty():
+	var wants: bool = _fire_wanted()
+	# Der Knopf zeigt beides an: dass gedrueckt ist UND ob ueberhaupt jemand in Reichweite ist.
+	# Ohne die zweite Anzeige waere „nichts passiert" nicht von „kaputt" zu unterscheiden.
+	if _fire_btn != null:
+		_fire_btn.set_state(wants, not e.is_empty())
+	if not wants or e.is_empty() or _fire_cd > 0.0:
 		return
 	_fire_cd = float(PlayerStats.fire_ms(_weapon_id)) / 1000.0
 	var target: CombatTarget = e["target"]

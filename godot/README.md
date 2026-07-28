@@ -21,8 +21,13 @@ Vorbeilaufens, und die Bahn ist ohne Tastatur benutzbar.
 dass Gegner, Straße und Laufrichtung tatsächlich lesbar sind. **Antippen öffnet die Weltkarte**
 mit dem ganzen 5000-m-Krater: alle Orte mit Namen, Sektorgrenzen, Biome, Iron-Rail-Trasse. Noch
 ein Tipp schließt sie. Solange sie offen ist, steht die Figur.
-Tastatur: `[Tab]` Waffe, `[E]` ansprechen, `[M]` Karte, `[1]`–`[5]` Iron Rail (nur am Bahnsteig,
-GDD §1.4a).
+**Schießen:** Unten rechts liegt der **Schuss-Knopf** — die Gegenhand zum Joystick unten links.
+Halten feuert dauerhaft im Waffentakt. Gezielt wird weiterhin automatisch auf den nächsten
+Gegner in Reichweite (es gibt keinen zweiten Stick zum Zielen), aber **abgedrückt wird nur von
+Hand**. Der Knopf leuchtet auf, sobald jemand in Reichweite ist; ohne Ziel passiert beim Drücken
+nichts. Am Rechner: **Leertaste** oder **rechte Maustaste** (links ist der Joystick).
+Tastatur: `[Leertaste]` schießen, `[Tab]` Waffe, `[E]` ansprechen, `[M]` Karte, `[1]`–`[5]` Iron
+Rail (nur am Bahnsteig, GDD §1.4a).
 
 ## Die Stadt im Editor bearbeiten
 

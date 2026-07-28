@@ -25,6 +25,7 @@ func _ready() -> void:
 	_test_world_scale()
 	_test_walkable_zones()
 	_test_minimap()
+	_test_fire_control()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
 	_test_overworld_quest_flow()
@@ -786,6 +787,49 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+## Abzug: geschossen wird NUR auf Befehl.
+##
+## Die wichtigste Zeile ist die erste Pruefung. Vorher feuerte die Figur von allein, sobald
+## irgendetwas in die 11-m-Reichweite geriet — Gegner starben, bevor man sie gesehen hatte.
+## Genau dieser Zustand darf nicht zurueckkommen.
+##
+## `OverworldView.new()` ohne Szenenbaum reicht dafuer: `_fire_wanted()` liest nur eigene
+## Felder, und `_map_is_open()` ist null-sicher. So bleibt die Regel geprueft, ohne die 3D-Welt
+## mit ihren 589 Knoten hochzufahren.
+func _test_fire_control() -> void:
+	print("· Abzug (kein Auto-Feuer)")
+	var ow := OverworldView.new()
+	_check("Ohne Eingabe wird NICHT geschossen", not ow._fire_wanted())
+	ow._fire_key = true
+	_check("Leertaste feuert", ow._fire_wanted())
+	ow._fire_key = false
+	ow._fire_mouse = true
+	_check("Rechte Maustaste feuert", ow._fire_wanted())
+	ow._fire_mouse = false
+	ow._fire_touch_id = 3
+	_check("Finger auf dem Schuss-Knopf feuert", ow._fire_wanted())
+	# Die drei Quellen duerfen sich nicht gegenseitig loeschen: auf dem Handy liegt ein Finger
+	# auf dem Joystick und einer auf dem Knopf, am Rechner haelt man Leertaste UND zieht.
+	ow._fire_key = true
+	ow._fire_touch_id = -1
+	_check("Finger loslassen beendet das Feuern nicht, solange die Taste liegt",
+		ow._fire_wanted())
+	ow._fire_key = false
+	_check("Letzte Quelle losgelassen → Feuer aus", not ow._fire_wanted())
+	ow.free()
+
+	# Der Knopf sieht rund aus, also muss er sich auch rund anfassen lassen.
+	var btn := FireButton.new()
+	btn.size = Vector2(FireButton.RADIUS, FireButton.RADIUS) * 2.0
+	var c: Vector2 = btn.center()
+	_check("Schuss-Knopf: Mitte trifft", btn.hits(c))
+	_check("Schuss-Knopf: knapp innerhalb trifft", btn.hits(c + Vector2(FireButton.RADIUS - 4.0, 0.0)))
+	_check("Schuss-Knopf: Ecke des Rahmens trifft NICHT (rund, nicht eckig)",
+		not btn.hits(Vector2.ZERO))
+	_check("Schuss-Knopf: weit daneben trifft nicht", not btn.hits(c + Vector2(300.0, 0.0)))
+	btn.free()
 
 
 ## Minikarte: Ausrichtung gegen die WELT prüfen, nicht gegen sich selbst.
