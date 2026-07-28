@@ -168,6 +168,9 @@ const TOWER_SPOT: Vector2 = Vector2(-14.0, -18.0)
 ## Hüttenplätze: zwei Reihen an der Straße, zwei Zeilen hinter den Kernbauten.
 ## Die editierbare Stadt-Szene. Liegt sie vor, wird sie geladen statt gebaut.
 const TOWN_SCENE: String = "res://scenes/Rustwater.tscn"
+## Radius des festen Stadtbodens — reicht bis knapp hinter die Palisade, damit die Mauer auf
+## dem Platz steht und nicht auf der Kante zwischen zwei Böden.
+const TOWN_GROUND_R: float = PALISADE_R + 7.0
 const SHACK_SPOTS: Array = [
 	Vector2(-11.0, 28.0), Vector2(11.0, 28.0),
 	Vector2(-11.0, 36.0), Vector2(11.0, 36.0),
@@ -480,6 +483,11 @@ func _build_pois() -> void:
 			_solid_box(Vector3(120.0, 420.0, 120.0), pos + Vector3(0.0, 210.0, 0.0), Color(0.15, 0.13, 0.14))
 			_label(pos + Vector3(0.0, 445.0, 0.0), "🖤 " + String(p["name"]), Color(1.0, 0.45, 0.35), 220, 900.0)
 			continue
+		# Wo eine gebaute Stadt steht, ist SIE die Landmarke — eine 36-m-Saeule mitten auf dem
+		# Marktplatz war der letzte Platzhalter innerhalb der Mauern.
+		if String(id) == "rustwater" and ResourceLoader.exists(TOWN_SCENE):
+			_label(pos + Vector3(0.0, 26.0, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
+			continue
 		var pillar := MeshInstance3D.new()
 		var cyl := CylinderMesh.new()
 		cyl.top_radius = 4.0
@@ -499,8 +507,12 @@ func _build_pois() -> void:
 func _build_roads() -> void:
 	var road_col := Color(0.56, 0.46, 0.32)   # festgefahrener, hellerer Staub
 	for r in WorldManager.ROUTES:
-		var a: Vector3 = WorldManager.poi_scene_position(String(r[0]))
-		var b: Vector3 = WorldManager.poi_scene_position(String(r[1]))
+		var pair: Array = _trim_at_town(WorldManager.poi_scene_position(String(r[0])),
+			WorldManager.poi_scene_position(String(r[1])), String(r[0]), String(r[1]))
+		var a: Vector3 = pair[0]
+		var b: Vector3 = pair[1]
+		if a.distance_to(b) < 1.0:
+			continue
 		var seg := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = Vector3(WorldManager.CORRIDOR_HALF_W * 2.0 * WorldManager.METERS_PER_UNIT, 0.12, a.distance_to(b))
@@ -511,6 +523,21 @@ func _build_roads() -> void:
 		add_child(seg)
 
 
+## Kuerzt eine Strecke an den Enden, die in einer bebauten Stadt liegen. Ohne das laufen Piste
+## und Bahntrasse quer ueber den Marktplatz und durch die Haeuser — sie verbinden ja die
+## MITTELPUNKTE der Orte. Gekuerzt wird bis knapp hinter den Stadtboden.
+func _trim_at_town(a: Vector3, b: Vector3, id_a: String, id_b: String) -> Array:
+	var dir: Vector3 = (b - a).normalized()
+	var start: Vector3 = a + dir * TOWN_GROUND_R if _is_built_town(id_a) else a
+	var end: Vector3 = b - dir * TOWN_GROUND_R if _is_built_town(id_b) else b
+	return [start, end]
+
+
+## Ist an diesem Ort eine gebaute Stadt (mit eigenem Boden und Mauer)?
+func _is_built_town(poi_id: String) -> bool:
+	return poi_id == "rustwater" and ResourceLoader.exists(TOWN_SCENE)
+
+
 ## Die Iron Rail (GDD §1.4a): Schotterbett mit Schwellen + zwei Schienen auf den Routen
 ## zwischen den Bahnhoefen, dazu an jedem Knoten ein Bahnsteig. Der lange Fussmarsch durch die
 ## Wueste bleibt moeglich — spaeter faehrt man ihn. Fahren darf man nur AM Bahnsteig
@@ -519,8 +546,12 @@ func _build_railway() -> void:
 	var steel := Color(0.62, 0.60, 0.58)
 	var bed_shader: Shader = load("res://shaders/rail_bed.gdshader") as Shader
 	for seg_ids in WorldManager.rail_segments():
-		var a: Vector3 = WorldManager.poi_scene_position(String(seg_ids[0]))
-		var b: Vector3 = WorldManager.poi_scene_position(String(seg_ids[1]))
+		# Auch die Trasse endet vor der Stadt statt ueber den Marktplatz zu laufen.
+		var pair: Array = _trim_at_town(WorldManager.poi_scene_position(String(seg_ids[0])),
+			WorldManager.poi_scene_position(String(seg_ids[1])),
+			String(seg_ids[0]), String(seg_ids[1]))
+		var a: Vector3 = pair[0]
+		var b: Vector3 = pair[1]
 		var mid: Vector3 = (a + b) / 2.0
 		var length: float = a.distance_to(b)
 		# Schotterbett und beide Schienen liegen im selben gedrehten Knoten — dann muss die
@@ -625,6 +656,7 @@ func _child_box(parent: Node3D, size: Vector3, local_pos: Vector3, color: Color)
 ## Szene einmal erzeugt wurde.
 func _build_township() -> void:
 	var c: Vector3 = WorldManager.poi_scene_position("rustwater")
+	_build_town_ground(c)
 	if ResourceLoader.exists(TOWN_SCENE):
 		var town: Node3D = (load(TOWN_SCENE) as PackedScene).instantiate()
 		town.position = c
@@ -635,6 +667,40 @@ func _build_township() -> void:
 	_label(c + Vector3(TOWER_SPOT.x, 21.0, TOWER_SPOT.y), "RUSTWATER",
 		Color(0.95, 0.82, 0.55), 120, 350.0)
 	_build_palisade(c)
+
+
+## Fester, heller Platz unter der ganzen Stadt — ein plattgetretener Lehmboden, der bis knapp
+## hinter die Palisade reicht. Ohne ihn steht Rustwater auf derselben Wuestenduene wie das
+## Umland, und die Stadt wirkt wie hingewuerfelt statt gebaut.
+##
+## Die Scheibe liegt 4 cm ueber dem Weltboden. Das reicht gegen Z-Fighting und ist aus
+## Spielerhoehe nicht zu sehen.
+func _build_town_ground(c: Vector3) -> void:
+	var disc := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = TOWN_GROUND_R
+	mesh.bottom_radius = TOWN_GROUND_R
+	mesh.height = 0.08
+	mesh.radial_segments = 64
+	mesh.rings = 1
+	disc.mesh = mesh
+	disc.position = c + Vector3(0.0, 0.04, 0.0)
+	var shader: Shader = load("res://shaders/town_ground.gdshader") as Shader
+	if shader != null:
+		var mat := ShaderMaterial.new()
+		mat.shader = shader
+		# Feinstruktur aus der vorhandenen Sand-PBR-Textur uebernehmen, Farbe kommt vom Shader.
+		var src: BaseMaterial3D = AssetRegistry.material_from_model("ground_sand")
+		if src != null and src.albedo_texture != null:
+			mat.set_shader_parameter("albedo_tex", src.albedo_texture)
+			mat.set_shader_parameter("has_tex", true)
+			if src.normal_texture != null:
+				mat.set_shader_parameter("normal_tex", src.normal_texture)
+				mat.set_shader_parameter("has_normal", true)
+		disc.material_override = mat
+	else:
+		disc.material_override = _mat(Color(0.80, 0.71, 0.54))
+	add_child(disc)
 
 
 ## Traegt Kollision und Beschriftung fuer alles ein, was in der Stadt-Szene steht — egal ob es
@@ -748,12 +814,9 @@ func _build_palisade(c: Vector3) -> void:
 		gate.position = c + Vector3(cos(ba) * PALISADE_R, 0.0, sin(ba) * PALISADE_R)
 		gate.rotation.y = -ba + PI * 0.5
 		add_child(gate)
-	# Offene Durchlässe bekommen Torpfeiler, damit man sie als Tor liest und nicht als Loch.
-	for g in open_gates:
-		for side in [-PALISADE_GATE_HALF_DEG, PALISADE_GATE_HALF_DEG]:
-			var a2: float = deg_to_rad(float(g) + float(side))
-			_solid_box(Vector3(2.2, 5.4, 2.2),
-				c + Vector3(cos(a2) * PALISADE_R, 2.7, sin(a2) * PALISADE_R), Color(0.28, 0.21, 0.15))
+	# Die offenen Durchlässe bleiben Lücken in der Wand. Vorher standen dort sechs graue Boxen
+	# als Torpfeiler — Platzhalter, die schlechter aussahen als die Öffnung selbst. Sobald ein
+	# Torbogen-Modell vorliegt, kommt es hierher.
 
 
 ## Palisade aus Primitiven — der Stand vor den Modellen, bleibt als Rueckfall erhalten.
