@@ -169,10 +169,14 @@ const SHACK_SPOTS: Array = [
 	Vector2(-24.0, 8.0), Vector2(24.0, 8.0),
 	Vector2(-24.0, -8.0), Vector2(24.0, -8.0),
 ]
-## Das Nordtor ist **verriegelt** — dort steht das geschlossene Torblatt, und dort sperrt die
+## Das **Westtor** ist verriegelt — dort steht das geschlossene Torblatt, und dort sperrt die
 ## Mauer auch wirklich. Ein Tor, das zu aussieht und durch das man trotzdem spaziert, ist der
 ## schlimmere Fehler; so ergibt dasselbe Modell eine glaubwürdige Stadt mit drei Durchlässen.
-const PALISADE_BARRED_GATE: float = 270.0
+##
+## Warum ausgerechnet West: die Trasse verlässt Rustwater nach Norden (288°, also durchs
+## Nordtor), Hauptstraße und Weg in die Wildnis gehen nach Süden. Nach Westen führt nichts —
+## genau dort darf ein Tor zu sein, ohne jemanden auszusperren.
+const PALISADE_BARRED_GATE: float = 180.0
 ## Gebäude-Kollision etwas kleiner als die Bounding-Box: Vordächer, Schornsteine und Anbauten
 ## stecken darin, und man soll am Haus entlanglaufen können, nicht an dessen Luftraum.
 const BUILDING_COLLISION_SHRINK: float = 0.82
@@ -500,13 +504,13 @@ func _build_roads() -> void:
 		add_child(seg)
 
 
-## Die Iron Rail (GDD §1.4a): Schotterbett + zwei Schienen auf den Routen zwischen den
-## Bahnhöfen, dazu an jedem Knoten ein Bahnsteig mit Depot. Der lange Fußmarsch durch die
-## Wüste bleibt möglich — später fährt man ihn. Fahren darf man nur AM Bahnsteig
-## (`_fast_travel`), damit Schnellreise ein Ort in der Welt ist und kein Menüpunkt.
+## Die Iron Rail (GDD §1.4a): Schotterbett mit Schwellen + zwei Schienen auf den Routen
+## zwischen den Bahnhoefen, dazu an jedem Knoten ein Bahnsteig. Der lange Fussmarsch durch die
+## Wueste bleibt moeglich — spaeter faehrt man ihn. Fahren darf man nur AM Bahnsteig
+## (`_fast_travel`), damit Schnellreise ein Ort in der Welt ist und kein Menuepunkt.
 func _build_railway() -> void:
-	var ballast := Color(0.30, 0.27, 0.24)
 	var steel := Color(0.62, 0.60, 0.58)
+	var bed_shader: Shader = load("res://shaders/rail_bed.gdshader") as Shader
 	for seg_ids in WorldManager.rail_segments():
 		var a: Vector3 = WorldManager.poi_scene_position(String(seg_ids[0]))
 		var b: Vector3 = WorldManager.poi_scene_position(String(seg_ids[1]))
@@ -516,18 +520,27 @@ func _build_railway() -> void:
 		# Ausrichtung nur einmal berechnet werden und die Spurweite stimmt garantiert.
 		var track := Node3D.new()
 		add_child(track)
-		track.position = mid + Vector3(0.0, 0.2, 0.0)
+		track.position = mid + Vector3(0.0, 0.18, 0.0)
 		track.look_at(Vector3(b.x, track.position.y, b.z), Vector3.UP)
+		# Schotterbett: die Schwellen zeichnet der Shader aus der Position im Balken. Bei
+		# 1186 m allein zwischen Rustwater und Zugdepot waeren es sonst tausende Einzelteile.
 		var bed := MeshInstance3D.new()
 		var bm := BoxMesh.new()
-		bm.size = Vector3(RAIL_GAUGE_M + 2.4, 0.3, length)
+		bm.size = Vector3(RAIL_GAUGE_M + 3.0, 0.36, length)
 		bed.mesh = bm
-		bed.material_override = _mat(ballast)
+		if bed_shader != null:
+			var mat := ShaderMaterial.new()
+			mat.shader = bed_shader
+			mat.set_shader_parameter("sleeper_reach", RAIL_GAUGE_M * 0.5 + 0.55)
+			bed.material_override = mat
+		else:
+			bed.material_override = _mat(Color(0.30, 0.27, 0.24))
 		track.add_child(bed)
+		# Schienen sitzen OBEN auf dem Bett, nicht darin — sonst sieht man nur zwei Striche.
 		for side in [-1.0, 1.0]:
 			var rail := MeshInstance3D.new()
 			var rm := BoxMesh.new()
-			rm.size = Vector3(0.22, 0.24, length)
+			rm.size = Vector3(0.16, 0.18, length)
 			rail.mesh = rm
 			rail.material_override = _mat(steel)
 			rail.position = Vector3(side * RAIL_GAUGE_M * 0.5, 0.27, 0.0)
@@ -536,21 +549,62 @@ func _build_railway() -> void:
 		_build_station(String(id))
 
 
-## Bahnsteig + Depot an einem Knoten. Der Bahnsteig selbst sperrt nicht (man steht darauf),
-## das Depot schon — es ist Teil der baulichen Begrenzung des Ortes.
+## Richtung, in die die Trasse einen Knoten verlaesst (Einheitsvektor, XZ-Ebene).
+## Ohne Nachbarn: nach Sueden, damit der Bahnsteig nicht in der Landschaft verschwindet.
+func _rail_exit_dir(poi_id: String) -> Vector3:
+	for seg in WorldManager.rail_segments():
+		var other: String = ""
+		if String(seg[0]) == poi_id:
+			other = String(seg[1])
+		elif String(seg[1]) == poi_id:
+			other = String(seg[0])
+		if other != "":
+			var d: Vector3 = WorldManager.poi_scene_position(other) - WorldManager.poi_scene_position(poi_id)
+			return Vector3(d.x, 0.0, d.z).normalized()
+	return Vector3(0.0, 0.0, 1.0)
+
+
+## Bahnsteig an einem Knoten — **auf der Trasse und vor den Toren**.
+##
+## Vorher lag er stur 14 m suedlich des Ortsmittelpunkts. Bei Rustwater verlaesst die Strecke
+## den Ort aber nach Norden: der Bahnsteig stand 162° neben den eigenen Gleisen, und seit dem
+## engen Stadtplan zusaetzlich mitten in der Stadt. Jetzt sitzt er dort, wo die Schienen
+## wirklich verlaufen, ausserhalb der Palisade, und ist wie sie ausgerichtet.
 func _build_station(poi_id: String) -> void:
 	var c: Vector3 = WorldManager.poi_scene_position(poi_id)
-	# Der Bahnhof liegt VOR den Toren, nicht auf dem Marktplatz: Rustwaters Stadtplan reicht
-	# jetzt bis dicht an die Palisade, ein Bahnsteig mittendrin stünde in der Gasse.
-	var platform: Vector3 = c + Vector3(0.0, 0.0, STATION_OFFSET_M)
-	_box(Vector3(26.0, 0.9, 8.0), platform + Vector3(0.0, 0.45, 0.0), Color(0.44, 0.38, 0.30))
-	for x in [-11.0, 0.0, 11.0]:
-		_box(Vector3(0.5, 3.4, 0.5), platform + Vector3(x, 2.6, 3.2), Color(0.30, 0.26, 0.22))
-	_box(Vector3(26.0, 0.4, 7.0), platform + Vector3(0.0, 4.5, 1.2), Color(0.34, 0.28, 0.22))   # Vordach
-	_solid_box(Vector3(9.0, 5.0, 6.0), platform + Vector3(-18.0, 2.5, 2.0), Color(0.38, 0.31, 0.24))  # Depot
-	_label(platform + Vector3(0.0, 6.4, 0.0), "🚂 Bahnhof " + String(WorldManager.poi(poi_id)["name"]),
+	var dir: Vector3 = _rail_exit_dir(poi_id)
+	var platform: Vector3 = c + dir * STATION_OFFSET_M
+	var station := Node3D.new()
+	add_child(station)
+	station.position = platform
+	station.look_at(platform + dir, Vector3.UP)   # Laengsachse parallel zum Gleis
+	# Bahnsteig NEBEN dem Gleis, nicht darauf: Versatz quer zur Fahrtrichtung.
+	var side: float = RAIL_GAUGE_M * 0.5 + 4.6
+	_child_box(station, Vector3(7.0, 0.9, 26.0), Vector3(side, 0.45, 0.0), Color(0.44, 0.38, 0.30))
+	for z in [-11.0, 0.0, 11.0]:
+		_child_box(station, Vector3(0.5, 3.4, 0.5), Vector3(side + 2.6, 2.6, z), Color(0.30, 0.26, 0.22))
+	_child_box(station, Vector3(6.4, 0.4, 26.0), Vector3(side + 0.6, 4.5, 0.0), Color(0.34, 0.28, 0.22))
+	# Depot hinter dem Bahnsteig — das sperrt, der Bahnsteig selbst nicht (man steht darauf).
+	var depot_local := Vector3(side + 8.0, 2.5, 8.0)
+	_child_box(station, Vector3(9.0, 5.0, 6.0), depot_local, Color(0.38, 0.31, 0.24))
+	_solid_rect_rot(station.global_transform * depot_local, Vector2(4.5, 3.0), station.rotation.y)
+	var label_at: Vector3 = platform + Vector3(0.0, 6.4, 0.0)
+	_label(label_at, "🚂 Bahnhof " + String(WorldManager.poi(poi_id)["name"]),
 		Color(0.92, 0.86, 0.70), 100, 200.0)
 	_stations.append({ "id": poi_id, "pos": platform })
+
+
+## Box als Kind eines gedrehten Knotens (lokale Koordinaten) — fuer alles, was an einer
+## Trasse oder Fassade ausgerichtet gebaut wird.
+func _child_box(parent: Node3D, size: Vector3, local_pos: Vector3, color: Color) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mi.mesh = mesh
+	mi.material_override = _mat(color)
+	mi.position = local_pos
+	parent.add_child(mi)
+	return mi
 
 
 ## Rustwater als begehbare Township (GDD §1.6/§2.3) — **enge Strassenstadt**, kein Kreisring.
