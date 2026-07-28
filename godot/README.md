@@ -17,6 +17,28 @@ zweiten, abweichenden. Pfeiltasten gehen weiterhin.
 Tastatur: `[Tab]` wechselt die Waffe, `[1]`–`[5]` fahren mit der **Iron Rail** — aber nur,
 wenn man an einem Bahnsteig steht (GDD §1.4a).
 
+## Die Stadt im Editor bearbeiten
+
+`scenes/Rustwater.tscn` ist eine **normale, editierbare Szene**: jedes Haus ein Knoten, den man
+im 3D-Fenster anfassen, verschieben und drehen kann. Doppelklick im Dateisystem, und die Stadt
+steht sichtbar da.
+
+Beim Start lädt `OverworldView` diese Szene und leitet die **Kollision aus den tatsächlichen
+Positionen** ab — verschobene Häuser nehmen ihre Sperre mit, ohne dass im Code eine Zahl
+geändert wird. Ein neues Haus dazustellen heißt: GLB aus dem Dateisystem in die Szene ziehen,
+hinschieben, fertig.
+
+**Zwei Regeln beim Umstellen:**
+* **Fassaden zur Kamera.** Die Kamera steht immer 20° südöstlich (`CAM_YAW`) — Häuser, die
+  einander anschauen, zeigen dem Spieler die Rückseite. Alle Fronten sollten in etwa dieselbe
+  Richtung weisen, mit ein paar Grad Streuung.
+* **Unterkante auf Y = 0.** Sonst schwebt das Haus oder steckt im Sand.
+
+**Warum die Overworld-Szene im Editor leer aussieht:** Boden, Biome, Kraterrand, Straßen,
+Trasse, Palisade und Dekor entstehen zur Laufzeit aus den `WorldManager`-Daten — 5000 × 5000 m
+lassen sich nicht sinnvoll von Hand stellen. Sichtbar wird das erst mit **Play**. Nur die Stadt
+ist als echte Szene ausgelagert, weil genau dort Layout-Arbeit anfällt.
+
 ## Dateien
 - `scripts/GameState.gd` — globaler Laufzeit-Zustand (Single Source of Truth).
 - `scripts/QuestManager.gd` — Quests, Fraktions-Locking, Kapitel-Progression, Reveal.

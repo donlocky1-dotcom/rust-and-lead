@@ -140,20 +140,24 @@ const PALISADE_GATE_HALF_DEG: float = 7.0
 ## davon, Hütten in Reihen dahinter, der Wasserturm am Kopfende als Blickfang. Alle Werte sind
 ## Versätze vom Stadtzentrum in Metern: **+x Ost, +z Süd**.
 ##
-## Blickrichtung in Grad: 90 = nach Osten, 270 = nach Westen. Häuser an der Westseite schauen
-## also nach Osten auf die Straße — nicht zur Stadtmitte, sonst stünden sie schräg zur Gasse.
+## Blickrichtung in Grad: **alle Fassaden zeigen zur Kamera**, nicht zur Straße. Das ist die
+## Regel für eine feste Kamera und der Grund, warum isometrische Spiele „gestellt" wirken: Die
+## Kamera steht immer 20° südöstlich (CAM_YAW), also sieht man von jedem Haus dieselbe Seite.
+## Vorher schauten die Häuser einander an — die Schmiede stand damit 110° von der Kamera weg
+## und zeigte zwangsläufig ihre Rückseite. Kleine Abweichungen je Haus, damit es nicht wie
+## aufgereiht wirkt.
 ## Die Straße bleibt zwischen x = −6 und x = +6 frei, das sind zwölf Meter: eng genug, dass
 ## immer beide Seiten im Bild sind, breit genug für Kampf und Ausweichen.
 const STREET_HALF_W: float = 6.0
 ## [Beschriftung, Registry-Name ("" = nur Platzhalter), Versatz, Blickrichtung, Ersatzmaße, Farbe]
 const TOWN_LAYOUT: Array = [
-	["🍺 Gatling-Saloon", "saloon", Vector2(-12.0, 1.0), 90.0,
+	["🍺 Gatling-Saloon", "saloon", Vector2(-13.5, 1.0), 14.0,
 		Vector3(13.0, 8.5, 11.0), Color(0.45, 0.28, 0.16)],
-	["🔨 Eiserne Schmiede", "forge", Vector2(12.0, 1.0), 270.0,
+	["🔨 Eiserne Schmiede", "forge", Vector2(13.5, 1.0), 28.0,
 		Vector3(10.0, 7.0, 9.0), Color(0.36, 0.30, 0.27)],
-	["🥃 Destille", "", Vector2(-12.5, 17.0), 90.0,
+	["🥃 Destille", "", Vector2(-14.0, 17.0), 16.0,
 		Vector3(11.0, 6.5, 9.0), Color(0.40, 0.34, 0.20)],
-	["⚗ Alchemie-Labor", "", Vector2(12.5, 17.0), 270.0,
+	["⚗ Alchemie-Labor", "", Vector2(14.0, 17.0), 25.0,
 		Vector3(12.0, 6.0, 10.0), Color(0.30, 0.36, 0.31)],
 	["", "water_tower", Vector2(-14.0, -18.0), 180.0,
 		Vector3(9.0, 18.0, 9.0), Color(0.48, 0.38, 0.26)],
@@ -162,12 +166,14 @@ const TOWN_LAYOUT: Array = [
 ## zwölf Meter Gasse dichtmachen. Bei 18 m Höhe sieht man ihn von überall, auch von der Seite.
 const TOWER_SPOT: Vector2 = Vector2(-14.0, -18.0)
 ## Hüttenplätze: zwei Reihen an der Straße, zwei Zeilen hinter den Kernbauten.
+## Die editierbare Stadt-Szene. Liegt sie vor, wird sie geladen statt gebaut.
+const TOWN_SCENE: String = "res://scenes/Rustwater.tscn"
 const SHACK_SPOTS: Array = [
 	Vector2(-11.0, 28.0), Vector2(11.0, 28.0),
 	Vector2(-11.0, 36.0), Vector2(11.0, 36.0),
 	Vector2(-11.0, 44.0), Vector2(11.0, 44.0),
-	Vector2(-24.0, 8.0), Vector2(24.0, 8.0),
-	Vector2(-24.0, -8.0), Vector2(24.0, -8.0),
+	Vector2(-26.0, 8.0), Vector2(26.0, 8.0),
+	Vector2(-26.0, -8.0), Vector2(26.0, -8.0),
 ]
 ## Das **Westtor** ist verriegelt — dort steht das geschlossene Torblatt, und dort sperrt die
 ## Mauer auch wirklich. Ein Tor, das zu aussieht und durch das man trotzdem spaziert, ist der
@@ -607,18 +613,51 @@ func _child_box(parent: Node3D, size: Vector3, local_pos: Vector3, color: Color)
 	return mi
 
 
-## Rustwater als begehbare Township (GDD §1.6/§2.3) — **enge Strassenstadt**, kein Kreisring.
+## Rustwater. **Liegt `scenes/Rustwater.tscn` vor, ist SIE die Wahrheit** — die Stadt wird dann
+## nur noch geladen, nicht gebaut. Genau dafuer ist sie da: Im Editor sieht man jedes Haus,
+## kann es anfassen, drehen, verschieben; die Kollision wird beim Start aus den tatsaechlichen
+## Positionen abgeleitet, nicht aus Zahlen im Code. Wer ein Haus dazustellt, muss nichts
+## programmieren.
 ##
-## Der erste Entwurf verteilte alles auf Kreisen um das Zentrum. Bei 84 m Palisadenradius lagen
-## zwischen zwei Haeusern zwanzig Meter Sand: man lief durch Rustwater, ohne die Schmiede oder
-## den Wasserturm ueberhaupt zu sehen. Diablo macht das Gegenteil — enge Gassen, Haeuser fast
-## auf Tuchfuehlung, der Blick faellt immer auf etwas.
-##
-## Deshalb ein ECHTER Stadtplan: eine Hauptstrasse von Sued nach Nord, Kernbauten links und
-## rechts davon, Huetten in Reihen dahinter, der Wasserturm am Kopfende als Blickfang. Die
-## Zahlen sind Versaetze vom Stadtzentrum in Metern (+x Ost, +z Sued).
+## Fehlt die Datei, baut der Code die Stadt weiter selbst (`TOWN_LAYOUT`) — das Projekt bleibt
+## damit auch ohne die Szene lauffaehig, und der Stadtplan im Code ist die Vorlage, aus der die
+## Szene einmal erzeugt wurde.
 func _build_township() -> void:
 	var c: Vector3 = WorldManager.poi_scene_position("rustwater")
+	if ResourceLoader.exists(TOWN_SCENE):
+		var town: Node3D = (load(TOWN_SCENE) as PackedScene).instantiate()
+		town.position = c
+		add_child(town)
+		_register_town(town)
+	else:
+		_build_township_from_code(c)
+	_label(c + Vector3(TOWER_SPOT.x, 21.0, TOWER_SPOT.y), "RUSTWATER",
+		Color(0.95, 0.82, 0.55), 120, 350.0)
+	_build_palisade(c)
+
+
+## Traegt Kollision und Beschriftung fuer alles ein, was in der Stadt-Szene steht — egal ob es
+## dort seit der Erzeugung liegt oder von Hand dazugestellt wurde. Gemessen wird das MODELL,
+## gedreht wird mit seiner eigenen Drehung: verschiebt man ein Haus im Editor, wandert seine
+## Sperre mit, ohne dass hier eine Zahl steht.
+func _register_town(town: Node3D) -> void:
+	for child in town.get_children():
+		if not (child is Node3D):
+			continue
+		var node: Node3D = child
+		var b: AABB = AssetRegistry.local_bounds(node)
+		if b.size.y < 0.01:
+			continue
+		var half := Vector2(b.size.x * node.scale.x, b.size.z * node.scale.z) \
+			* 0.5 * BUILDING_COLLISION_SHRINK
+		_solid_rect_rot(node.global_position, half, node.rotation.y)
+		if node.has_meta("label"):
+			_label(node.global_position + Vector3(0.0, b.size.y * node.scale.y + 2.2, 0.0),
+				String(node.get_meta("label")), Color(0.98, 0.90, 0.72), 95, 150.0)
+
+
+## Rueckfall: Stadt aus dem Stadtplan im Code bauen (Stand vor `Rustwater.tscn`).
+func _build_township_from_code(c: Vector3) -> void:
 	for b in TOWN_LAYOUT:
 		var pos: Vector3 = c + Vector3(b[2].x, 0.0, b[2].y)
 		var size: Vector3 = _place_building(String(b[1]), pos, deg_to_rad(float(b[3])),
@@ -626,24 +665,16 @@ func _build_township() -> void:
 		if String(b[0]) != "":
 			_label(pos + Vector3(0.0, size.y + 2.2, 0.0), String(b[0]),
 				Color(0.98, 0.90, 0.72), 95, 150.0)
-	# Wohnhaeuser in zwei Reihen entlang der Strasse und zwei Zeilen dahinter. Vier Bauweisen,
-	# reihum vergeben; leichte Drehung, damit die Reihe nicht wie gestempelt wirkt.
 	var shacks: Array = []
 	for suffix in ["a", "b", "c", "d"]:
 		if AssetRegistry.has_model("shack_" + suffix):
 			shacks.append("shack_" + suffix)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 4711
 	for i in SHACK_SPOTS.size():
 		var spot: Vector2 = SHACK_SPOTS[i]
 		var pos: Vector3 = c + Vector3(spot.x, 0.0, spot.y)
-		# Haus schaut zur Strasse (x = 0), nicht zur Stadtmitte.
-		var yaw: float = (PI * 0.5 if spot.x < 0.0 else -PI * 0.5) + rng.randf_range(-0.12, 0.12)
+		var yaw: float = deg_to_rad(CAM_YAW + (7.0 if i % 2 == 0 else -9.0))
 		var asset: String = "" if shacks.is_empty() else String(shacks[i % shacks.size()])
 		_place_building(asset, pos, yaw, Vector3(6.0, 4.2, 5.0), Color(0.42, 0.33, 0.24))
-	_label(c + Vector3(TOWER_SPOT.x, 21.0, TOWER_SPOT.y), "RUSTWATER",
-		Color(0.95, 0.82, 0.55), 120, 350.0)
-	_build_palisade(c)
 
 
 ## Setzt ein Gebaeude ab und traegt seine Kollision ein. Liefert die tatsaechliche Groesse

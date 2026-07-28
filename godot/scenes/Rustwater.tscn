@@ -1,0 +1,65 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/buildings/saloon.glb" id="1_0mdfh"]
+[ext_resource type="PackedScene" path="res://assets/models/buildings/forge.glb" id="2_q6y6r"]
+[ext_resource type="PackedScene" path="res://assets/models/buildings/water_tower.glb" id="3_m1gqn"]
+[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_a.glb" id="4_7fkv1"]
+[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_b.glb" id="5_bav70"]
+[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_c.glb" id="6_8svoa"]
+[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_d.glb" id="7_6ffvv"]
+
+[node name="Rustwater" type="Node3D"]
+
+[node name="Saloon" type="Node3D" parent="." instance=ExtResource("1_0mdfh")]
+transform = Transform3D(6.82182, 0, 1.70087, 0, 7.03066, 0, -1.70087, 0, 6.82182, -13.5, 4.28167, 1)
+metadata/label = "🍺 Gatling-Saloon"
+metadata/asset = "saloon"
+
+[node name="Schmiede" type="Node3D" parent="." instance=ExtResource("2_q6y6r")]
+transform = Transform3D(4.62453, 0, 2.45891, 0, 5.23761, 0, -2.45891, 0, 4.62453, 13.5, 3.50811, 1)
+metadata/label = "🔨 Eiserne Schmiede"
+metadata/asset = "forge"
+
+[node name="Wasserturm" type="Node3D" parent="." instance=ExtResource("3_m1gqn")]
+transform = Transform3D(-9.47219, 0, -8.28085e-07, 0, 9.47219, 0, 8.28085e-07, 0, -9.47219, -14, 9.00832, -18)
+metadata/asset = "water_tower"
+
+[node name="Huette04" type="Node3D" parent="." instance=ExtResource("4_7fkv1")]
+transform = Transform3D(2.93719, 0, 1.49657, 0, 3.29648, 0, -1.49657, 0, 2.93719, -11, 2.24924, 28)
+metadata/asset = "shack_a"
+
+[node name="Huette05" type="Node3D" parent="." instance=ExtResource("5_bav70")]
+transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, 11, 2.10258, 28)
+metadata/asset = "shack_b"
+
+[node name="Huette06" type="Node3D" parent="." instance=ExtResource("6_8svoa")]
+transform = Transform3D(3.38601, 0, 1.72526, 0, 3.8002, 0, -1.72526, 0, 3.38601, -11, 2.0057, 36)
+metadata/asset = "shack_c"
+
+[node name="Huette07" type="Node3D" parent="." instance=ExtResource("7_6ffvv")]
+transform = Transform3D(2.95284, 0, 0.573975, 0, 3.00811, 0, -0.573975, 0, 2.95284, 11, 2.62953, 36)
+metadata/asset = "shack_d"
+
+[node name="Huette08" type="Node3D" parent="." instance=ExtResource("4_7fkv1")]
+transform = Transform3D(2.93719, 0, 1.49657, 0, 3.29648, 0, -1.49657, 0, 2.93719, -11, 2.24924, 44)
+metadata/asset = "shack_a"
+
+[node name="Huette09" type="Node3D" parent="." instance=ExtResource("5_bav70")]
+transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, 11, 2.10258, 44)
+metadata/asset = "shack_b"
+
+[node name="Huette10" type="Node3D" parent="." instance=ExtResource("6_8svoa")]
+transform = Transform3D(3.38601, 0, 1.72526, 0, 3.8002, 0, -1.72526, 0, 3.38601, -26, 2.0057, 8)
+metadata/asset = "shack_c"
+
+[node name="Huette11" type="Node3D" parent="." instance=ExtResource("7_6ffvv")]
+transform = Transform3D(2.95284, 0, 0.573975, 0, 3.00811, 0, -0.573975, 0, 2.95284, 26, 2.62953, 8)
+metadata/asset = "shack_d"
+
+[node name="Huette12" type="Node3D" parent="." instance=ExtResource("4_7fkv1")]
+transform = Transform3D(2.93719, 0, 1.49657, 0, 3.29648, 0, -1.49657, 0, 2.93719, -26, 2.24924, -8)
+metadata/asset = "shack_a"
+
+[node name="Huette13" type="Node3D" parent="." instance=ExtResource("5_bav70")]
+transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, 26, 2.10258, -8)
+metadata/asset = "shack_b"
