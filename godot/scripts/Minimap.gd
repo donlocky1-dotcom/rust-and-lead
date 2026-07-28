@@ -26,11 +26,28 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE   # blockiert den Touch-Joystick nicht
 
 
-## Szenenposition (Meter) → Pixel auf der Karte. X wächst nach Osten, −Z nach Norden;
-## auf der Karte zeigt Norden nach oben, deshalb wird Z gespiegelt.
+## Szenenposition (Meter) → Pixel auf der Karte. X wächst nach Osten, −Z nach Norden.
+##
+## Zwei Vorzeichen treffen hier aufeinander und heben sich leicht gegenseitig auf: Norden ist
+## in der Szene −Z, aber in Godots Zeichenfläche wächst Y nach UNTEN. Norden oben heißt also
+## NICHT „Z spiegeln" (das dreht die Karte auf den Kopf), sondern nur verschieben: Der Nordrand
+## liegt bei z = −5000 und muss auf y = 0 fallen, der Südrand bei z = 0 auf y = MAP_PX.
 func world_to_map(p: Vector3) -> Vector2:
 	var w: float = WorldManager.WORLD_METERS
-	return Vector2(clampf(p.x / w, 0.0, 1.0) * MAP_PX, clampf(-p.z / w, 0.0, 1.0) * MAP_PX)
+	return Vector2(clampf(p.x / w, 0.0, 1.0), clampf(1.0 + p.z / w, 0.0, 1.0)) * MAP_PX
+
+
+## Blickrichtung des Spielers als Richtungsvektor auf der Karte (Länge 1).
+##
+## Bewusst eine eigene Methode und nicht inline in `_draw`: So prüft die Test-Suite exakt die
+## Rechnung, die auch gezeichnet wird. Der alte Fehler war nämlich, dass Karte UND Strich
+## gemeinsam verdreht waren — untereinander stimmig, gegenüber der Welt beide falsch.
+func facing_on_map() -> Vector2:
+	# Node3D-Rotation um Y: die Blickrichtung ist (−sin, −cos) in der XZ-Ebene — gemessen, nicht
+	# geraten (`rotation.y = atan2(-step.x, -step.z)` in OverworldView macht die Figur exakt zum
+	# Laufvektor schauen). Dieselbe Umrechnung wie in `world_to_map`: die Z-Komponente wandert
+	# UNVERÄNDERT in die Karten-Y, weil Norden (−Z) auf „oben" (−Y der Zeichenfläche) fällt.
+	return Vector2(-sin(player_dir), -cos(player_dir))
 
 
 func _draw() -> void:
@@ -47,7 +64,8 @@ func _draw() -> void:
 		var b: Dictionary = WorldManager.BIOMES[id]
 		var c: Vector2 = world_to_map(WorldManager.world_to_scene(Vector2(float(b["cx"]), float(b["cy"]))))
 		draw_circle(c, float(b["radius"]) * m / w * MAP_PX, tint[id])
-	# Smog-Senke: alles nördlich der Smog-Linie.
+	# Smog-Senke: alles nördlich der Smog-Linie — also alles ÜBER ihr, vom oberen Rand bis zur
+	# Linie. Das stimmt nur, solange Norden oben liegt (siehe `world_to_map`).
 	var smog_y: float = world_to_map(Vector3(0.0, 0.0, -float(WorldManager.SMOG_LINE_Y) * m)).y
 	draw_rect(Rect2(Vector2(0.0, 0.0), Vector2(MAP_PX, smog_y)), Color(0.35, 0.72, 0.30, 0.30))
 	# Sektorgrenzen als Linien.
@@ -85,7 +103,4 @@ func _draw() -> void:
 	var me: Vector2 = world_to_map(player_pos)
 	draw_circle(me, DOT_PLAYER, Color(0.30, 0.62, 1.0))
 	draw_arc(me, DOT_PLAYER + 1.0, 0.0, TAU, 16, Color(1.0, 1.0, 1.0, 0.9), 1.2)
-	# Node3D-Rotation um Y: Blickrichtung ist (−sin, −cos) in der XZ-Ebene; auf der Karte
-	# entspricht −Z „oben", daher wird die Y-Komponente gespiegelt.
-	var dir := Vector2(-sin(player_dir), cos(player_dir))
-	draw_line(me, me + dir * (DOT_PLAYER + 7.0), Color(1.0, 1.0, 1.0, 0.95), 1.6)
+	draw_line(me, me + facing_on_map() * (DOT_PLAYER + 7.0), Color(1.0, 1.0, 1.0, 0.95), 1.6)

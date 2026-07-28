@@ -24,6 +24,7 @@ func _ready() -> void:
 	_test_world_manager()
 	_test_world_scale()
 	_test_walkable_zones()
+	_test_minimap()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
 	_test_overworld_quest_flow()
@@ -785,6 +786,50 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+## Minikarte: Ausrichtung gegen die WELT prüfen, nicht gegen sich selbst.
+##
+## Der behobene Fehler war heimtückisch, weil die Karte in sich stimmig war: Projektion und
+## Richtungsstrich waren beide auf der Nord-Süd-Achse gespiegelt, also passten sie zueinander.
+## Aufgefallen ist es erst beim Vergleich mit der Figur auf dem Bildschirm. Deshalb hier zuerst
+## Ankerpunkte gegen echte POI-Daten (Norden oben, Osten rechts) und danach die Bindung des
+## Strichs an die Karte.
+func _test_minimap() -> void:
+	print("· Minikarte (Ausrichtung zur Welt)")
+	var map := Minimap.new()
+	var south: Vector2 = map.world_to_map(WorldManager.poi_scene_position("rustwater"))
+	var north: Vector2 = map.world_to_map(WorldManager.poi_scene_position("eisernes_herz"))
+	# Rustwater liegt bei y=300, das Eiserne Herz bei y=1950 — der Norden muss also oben
+	# landen, und „oben" heißt in Godots Zeichenfläche KLEINERES y.
+	_check("Norden oben: Eisernes Herz über Rustwater",
+		north.y < south.y, "Herz y=%.1f, Rustwater y=%.1f" % [north.y, south.y])
+	var west: Vector2 = map.world_to_map(WorldManager.poi_scene_position("fort_freedom"))
+	var east: Vector2 = map.world_to_map(WorldManager.poi_scene_position("sektor01"))
+	_check("Osten rechts: Sektor 01 rechts von Fort Freedom",
+		east.x > west.x, "Sektor01 x=%.1f, Fort x=%.1f" % [east.x, west.x])
+	_check("Nordrand auf y = 0",
+		is_zero_approx(map.world_to_map(Vector3(0.0, 0.0, -WorldManager.WORLD_METERS)).y))
+	_check("Südrand auf y = MAP_PX",
+		is_equal_approx(map.world_to_map(Vector3.ZERO).y, Minimap.MAP_PX))
+
+	# Der Strich muss dahin zeigen, wohin der Punkt WANDERT. Beides wird unabhängig gerechnet:
+	# der Strich aus `facing_on_map()`, die Wanderung aus zwei echten Kartenpositionen.
+	var origin := Vector3(2500.0, 0.0, -2500.0)   # Kratermitte, weit weg von jeder Klemmung
+	for c in [["Osten", Vector3(1, 0, 0)], ["Norden", Vector3(0, 0, -1)],
+			["Westen", Vector3(-1, 0, 0)], ["Sueden", Vector3(0, 0, 1)]]:
+		var step: Vector3 = c[1]
+		map.player_dir = atan2(-step.x, -step.z)   # dieselbe Formel wie in OverworldView
+		var moved: Vector2 = (map.world_to_map(origin + step * 100.0)
+			- map.world_to_map(origin)).normalized()
+		_check("Richtungsstrich zeigt nach %s wie der Punkt laeuft" % c[0],
+			map.facing_on_map().distance_to(moved) < 0.001,
+			"Strich %s, Bewegung %s" % [map.facing_on_map(), moved])
+	# Und einmal absolut: nach Norden laufen heisst auf der Karte nach oben.
+	map.player_dir = atan2(0.0, 1.0)
+	_check("Nach Norden laufen → Strich zeigt nach oben",
+		map.facing_on_map().y < -0.99, "Strich %s" % map.facing_on_map())
+	map.free()
 
 
 func _test_asset_registry() -> void:
