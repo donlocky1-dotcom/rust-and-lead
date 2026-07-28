@@ -1522,7 +1522,8 @@ func _process_movement(delta: float) -> void:
 	var moving: bool = mv.length() >= 0.05
 	# Animation folgt der Bewegung, sobald ein animiertes Modell da ist. Kennt das Modell den
 	# Clip nicht (oder ist es der Kapsel-Platzhalter), passiert schlicht nichts.
-	AssetRegistry.play_clip(_player_model, "walk" if moving else "idle")
+	AssetRegistry.play_clip(_player_model,
+		_gait(WorldManager.PLAYER_SPEED_MS) if moving else "idle")
 	if not moving:
 		return
 	# Eingabe ist bildschirmbezogen: um die Kamera-Gierung zurückdrehen, damit „nach oben
@@ -1635,7 +1636,7 @@ func _process_enemies(delta: float) -> void:
 			var dir: Vector3 = (_player.position - node.position).normalized()
 			node.position += dir * _enemy_speed(e) * delta
 			node.rotation.y = atan2(-dir.x, -dir.z)   # Gegner schaut, wohin er läuft
-			AssetRegistry.play_clip(e["model"], "walk")
+			AssetRegistry.play_clip(e["model"], _gait(_enemy_speed(e)))
 			_scurry(e, true)
 		else:
 			AssetRegistry.play_clip(e["model"], "attack")
@@ -1645,6 +1646,16 @@ func _process_enemies(delta: float) -> void:
 			if _hp <= 0.0:
 				_respawn()
 				return
+
+
+## Gangart zur Geschwindigkeit. Eine Geh-Animation bei 4,7 m/s (knapp 17 km/h) sieht aus, als
+## rutsche die Figur ueber den Boden — der Fusskontakt passt schlicht nicht zum Tempo. Ab
+## Laufgeschwindigkeit wird deshalb der Renn-Clip gespielt, darunter der Geh-Clip. Fehlt dem
+## Modell die Rolle, faellt `play_clip` von selbst zurueck.
+const RUN_THRESHOLD_MS: float = 2.6
+
+func _gait(speed: float) -> String:
+	return "run" if speed >= RUN_THRESHOLD_MS else "walk"
 
 
 ## Tempo eines Gegners aus seinen echten Werten (CombatData `speed`, 100 = Referenz) statt
