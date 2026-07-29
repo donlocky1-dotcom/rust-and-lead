@@ -133,6 +133,13 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   liegt unter einem Teppich aus 128 Schrottstücken in drei Lagen, jedes gedreht, gekippt und
   teilweise eingesunken; in der Mitte steht eine Lache. Bildvorlage und die fehlenden
   Modelle: `docs/PROMPTS_SCHROTTGRUBE.md`.
+* **Die Schrottgrube** (Schrott-Minen, Sektor 1) — der Ort, an dem der Held erwacht. 30 m
+  Durchmesser, Grund 2,9 m unter der Wüste, aufgeworfener Kranz 1,0 m darüber, steilste Stelle
+  43°. Sie ist die erste Geländeform, die aus einem **Modell** kommt statt aus einer Formel:
+  `environment/schrottgrube.glb` bringt die Grube samt Schrottfüllung mit.
+  `tools/bake_heightfield.py` rastert seine Oberseite in ein Höhenfeld
+  (`assets/terrain/schrottgrube.hf`), und `WorldManager.height_at` liest daraus — Bild und
+  Kollision aus derselben Quelle, dieselbe Regel wie bei den Formeln.
 * **Das Wellenmeer** (Sektor 1, östlich von Rustwater) — ein Dünenfeld von 320 m Breite,
   Kämme 5 m hoch im Abstand von 42 m, flach angeweht und steil abfallend (13° gegen 30°).
   Es hängt an keinem Ort, sondern an freien Koordinaten: Es IST die Landmarke. Zweck ist

@@ -48,7 +48,19 @@ static func poi_scene_position(poi_id: String) -> Vector3:
 ## 15 Megapixel und ließe sich nicht kacheln. Eine Formel kostet null Byte, ist überall exakt
 ## und in beide Richtungen ableitbar (Normalen ohne Nachbarschaftssuche).
 
-## Geländeformen. `poi` verankert sie an einem Ort, alle Maße in METERN.
+## Geländeformen. Verankert an einem Ort (`poi`) oder an freien Koordinaten (`x`/`y`); alle
+## Maße in METERN. Drei Arten (`kind`):
+##
+##  • **crater**    — Senke als Formel: `radius`, `depth`, `rim`, `rim_width`, `floor`,
+##                    `ramp_deg`, `ramp_span`. Kostet null Byte und ist überall exakt.
+##  • **dunes**     — Wellenfeld als Formel: `radius`, `amp`, `wave`, `skew`, `dir_deg`.
+##  • **heightmap** — gebackenes Höhenfeld aus einem MODELL: `field` (Datei), `diameter`,
+##                    `model` (Name in `AssetRegistry` für das sichtbare Netz). Der Weg für
+##                    alles, was von Hand modelliert ist; erzeugt mit
+##                    `tools/bake_heightfield.py`.
+##
+## `step` gilt für alle drei und setzt die Netzauflösung des Geländeflickens.
+##
 ##  • `radius`      Rand der Senke — dort ist die Höhe wieder 0
 ##  • `depth`       Tiefe des Grundes
 ##  • `rim`         Höhe des Auswurfwalls direkt außerhalb
@@ -58,20 +70,20 @@ static func poi_scene_position(poi_id: String) -> Vector3:
 ##  • `ramp_deg`    Richtung der Rampe (0° = Osten, 90° = Norden) — dort bleibt die Wand weg
 ##  • `ramp_span`   Öffnungswinkel der Rampe in Grad (Gesamtbreite, nicht halbe)
 const TERRAIN: Array = [
-	# Die Schrotthalde: die Grube, in der der Held erwacht. 30 m Durchmesser — groß genug für
-	# eine Szene, klein genug, dass man den Rand von der Mitte aus sieht.
+	# Die Schrotthalde: der Ort, an dem der Held erwacht. Seit es ein Modell dafuer gibt
+	# (`environment/schrottgrube.glb`, vom Auftraggeber erstellt), ist die Form nicht mehr eine
+	# Formel, sondern ein GEBACKENES HOEHENFELD aus genau diesem Modell.
 	#
-	# Kein Trichter mehr, sondern ein LOCH: flacher Grund, steile ausgewaschene Erdwände, eine
-	# aufgeworfene Lippe. Eine Schüssel liest sich aus der Iso-Perspektive als sanfte Delle;
-	# erst die Wand macht daraus einen Ort, in den man hinabsteigt und aus dem man nicht
-	# einfach in jede Richtung herausläuft.
+	# Warum ueberhaupt gebacken: `height_at` ist die einzige Wahrheit fuer die Bodenhoehe —
+	# daraus kommt die Hoehe von Spieler, Gegnern und Beute. Ein Modell hat diese Funktion
+	# nicht. `tools/bake_heightfield.py` rastert deshalb seine Oberseite in ein Feld, und
+	# `_field_height` beantwortet daraus dieselbe Frage. Bild und Kollision aus einer Quelle.
 	#
-	# Die Rampe im Nordosten ist die einzige Stelle, an der die Wand fehlt — dort geht man
-	# hinein und hinaus. Ohne sie wäre die Grube entweder ein Käfig oder man liefe eine
-	# senkrechte Wand hoch wie eine Fliege.
-	{ "id": "schrotthalde", "kind": "crater", "poi": "schrott_minen",
-		"radius": 15.0, "depth": 5.0, "rim": 1.0, "rim_width": 0.36,
-		"floor": 0.78, "ramp_deg": 55.0, "ramp_span": 70.0 },
+	# Gemessen: 30 m Durchmesser, Grund bei -2,90 m, Kranz +1,16 m, steilste Stelle 44,7°.
+	# Keine Rampe noetig — mit 45° kommt man ueberall heraus.
+	{ "id": "schrotthalde", "kind": "heightmap", "poi": "schrott_minen",
+		"field": "res://assets/terrain/schrottgrube.hf", "diameter": 30.0,
+		"model": "schrottgrube" },
 	# Das Wellenmeer: ein Dünenfeld östlich von Rustwater, 220 m breit. Nicht an einem Ort
 	# verankert, sondern frei auf der Karte — es IST die Landmarke.
 	#
@@ -121,8 +133,11 @@ static func height_at(x: float, z: float) -> float:
 ## Abschnitt 1 weg und Abschnitt 2 zieht sich über den ganzen Radius. Das ist exakt das alte
 ## Schüsselprofil (höchstens 27° bei 5 m Tiefe), nur eben nicht mehr rundum.
 static func _feature_height(f: Dictionary, off: Vector2) -> float:
-	if String(f.get("kind", "crater")) == "dunes":
+	var art: String = String(f.get("kind", "crater"))
+	if art == "dunes":
 		return _dune_height(f, off)
+	if art == "heightmap":
+		return _field_height(f, off)
 	var radius: float = float(f["radius"])
 	var t: float = off.length() / radius
 	var w: float = float(f["rim_width"])
@@ -136,6 +151,67 @@ static func _feature_height(f: Dictionary, off: Vector2) -> float:
 		return -float(f["depth"])
 	var u: float = (t - boden) / maxf(1.0 - boden, 0.0001)
 	return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, u))
+
+
+## Geladene Höhenfelder: Dateipfad → { size, diameter, data }. Einmal je Lauf.
+static var _felder: Dictionary = {}
+
+
+## Höhenfeld einer Form (leer, wenn die Datei fehlt — dann bleibt der Boden flach).
+##
+## Gelesen wird mit `FileAccess`, nicht als Bild. Ein PNG würde Godot durch den Import schicken
+## und in eine komprimierte Textur verwandeln; die Quelldatei landet dann nicht im Export.
+## Eine Datei mit unbekannter Endung wird durchgereicht und lässt sich roh lesen.
+static func _feld(f: Dictionary) -> Dictionary:
+	var pfad: String = String(f["field"])
+	if _felder.has(pfad):
+		return _felder[pfad]
+	var eintrag: Dictionary = {}
+	var datei: FileAccess = FileAccess.open(pfad, FileAccess.READ)
+	if datei != null:
+		var n: int = datei.get_32()
+		datei.get_32()                        # reserviert
+		var durchmesser: float = datei.get_float()
+		datei.get_float()                     # reserviert
+		var roh: PackedByteArray = datei.get_buffer(n * n * 4)
+		datei.close()
+		if n > 1 and roh.size() == n * n * 4:
+			eintrag = { "size": n, "diameter": durchmesser, "data": roh.to_float32_array() }
+	_felder[pfad] = eintrag
+	return eintrag
+
+
+## Höhe aus einem gebackenen Feld, bilinear zwischen den Zellen.
+##
+## Bilinear und nicht die nächste Zelle: Bei 23 cm Rasterweite wären Stufen von bis zu 10 cm
+## zwischen zwei Zellen sichtbar — die Figur würde beim Laufen zappeln. Zwischen vier Werten zu
+## mischen kostet drei Multiplikationen und macht daraus eine glatte Fläche.
+##
+## Die Zeilen liegen in Modell-z-Richtung, die Spalten in x — genau so, wie `bake_heightfield`
+## sie geschrieben hat. Wer das Modell dreht, muss `off` vorher mitdrehen.
+static func _field_height(f: Dictionary, off: Vector2) -> float:
+	var e: Dictionary = _feld(f)
+	if e.is_empty():
+		return 0.0
+	var n: int = int(e["size"])
+	var d: float = float(e["diameter"])
+	var halb: float = d * 0.5
+	if absf(off.x) >= halb or absf(off.y) >= halb:
+		return 0.0
+	var daten: PackedFloat32Array = e["data"]
+	var u: float = (off.x + halb) / d * float(n) - 0.5
+	var v: float = (off.y + halb) / d * float(n) - 0.5
+	var u0: int = clampi(int(floor(u)), 0, n - 1)
+	var v0: int = clampi(int(floor(v)), 0, n - 1)
+	var u1: int = mini(u0 + 1, n - 1)
+	var v1: int = mini(v0 + 1, n - 1)
+	var fu: float = clampf(u - float(u0), 0.0, 1.0)
+	var fv: float = clampf(v - float(v0), 0.0, 1.0)
+	var a: float = daten[v0 * n + u0]
+	var b: float = daten[v0 * n + u1]
+	var c: float = daten[v1 * n + u0]
+	var dd: float = daten[v1 * n + u1]
+	return (a * (1.0 - fu) + b * fu) * (1.0 - fv) + (c * (1.0 - fu) + dd * fu) * fv
 
 
 ## Höhenprofil eines Dünenfelds. Zwei überlagerte Wellen und ein weicher Rand.
@@ -195,8 +271,11 @@ static func normal_at(x: float, z: float, eps: float = 0.25) -> Vector3:
 
 ## Aussenradius einer Form inklusive Wall — bis hierhin muss ein Geländeflicken reichen.
 static func feature_reach(f: Dictionary) -> float:
-	if String(f.get("kind", "crater")) == "dunes":
+	var art: String = String(f.get("kind", "crater"))
+	if art == "dunes":
 		return float(f["radius"])
+	if art == "heightmap":
+		return float(f["diameter"]) * 0.5
 	return float(f["radius"]) * (1.0 + float(f["rim_width"]))
 
 

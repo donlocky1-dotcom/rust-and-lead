@@ -531,12 +531,29 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	var schritt: float = float(f.get("step", TERRAIN_STEP_M))
 	var n: int = maxi(8, int(ceil(reach * 2.0 / schritt)))
 	var step: float = reach * 2.0 / float(n)
+	# Wo ein MODELL das Gelaende bildet, darf hier kein Sand liegen.
+	#
+	# Ausgespart wird ein Quadrat, das Modell fuellt einen Kreis darin — der Flicken ist also
+	# noetig, aber nur fuer die vier Ecken. Zeichnete man ihn auch innerhalb des Kreises, laege
+	# er UEBER dem Modellboden: Das Hoehenfeld ist fuer die Lauffläche weichgezeichnet und
+	# liegt damit ueber den Senken zwischen den Truemmern. Im Bild sah man deshalb Schrott, der
+	# aus flachem Sand ragt, statt einer Grube voller Schrott.
+	var modell_r: float = 0.0
+	if String(f.get("model", "")) != "":
+		modell_r = float(f.get("diameter", 0.0)) * 0.5
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for iz in n:
 		for ix in n:
 			var x0: float = c.x - reach + float(ix) * step
 			var z0: float = c.z - reach + float(iz) * step
+			if modell_r > 0.0:
+				# Ueber die MITTE des Vierecks entschieden, und die Grenze eine halbe
+				# Zellenbreite nach innen gezogen: So ueberlappen Flicken und Modell um eine
+				# halbe Zelle, statt eine Fuge offen zu lassen.
+				var m: Vector2 = Vector2(x0 + step * 0.5 - c.x, z0 + step * 0.5 - c.z)
+				if m.length() < modell_r - step * 0.5:
+					continue
 			# Dieselbe umgekehrte Umlaufrichtung wie beim flachen Bodenviereck — und derselbe
 			# Grund, warum es nicht auffiel. Bei einer 66°-Wand wiegt es schwerer als beim
 			# flachen Boden: Ohne Sonne hat die Wand keine Schattierung, und dann sieht man
@@ -558,6 +575,31 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	mi.material_override = mat
 	mi.name = "terrain_" + String(f["id"])
 	add_child(mi)
+
+
+## Sichtbares Modell einer Gelaendeform, falls sie eines hat (`kind: "heightmap"`).
+##
+## Um 6 cm angehoben. Das Hoehenfeld und der Gelaendeflicken darunter beschreiben dieselbe
+## Flaeche — zwei deckungsgleiche Flaechen flimmern gegeneinander (Z-Fighting), und zwar am
+## unangenehmsten dort, wo das Feld zum Rand hin auf null ausklingt. Sechs Zentimeter sind
+## unsichtbar und beenden den Streit.
+const TERRAIN_MODEL_LIFT_M: float = 0.06
+func _add_terrain_model(f: Dictionary) -> void:
+	var name: String = String(f.get("model", ""))
+	if name == "":
+		return
+	# Weder skalieren noch auf den Boden setzen: `bake_heightfield --write-model` hat das
+	# Modell bereits in Meter umgerechnet und sein Aussenniveau auf y = 0 gelegt — mit genau
+	# denselben Zahlen, aus denen das Hoehenfeld entstand. Jede weitere Umrechnung hier waere
+	# eine zweite Wahrheit, und zwei Wahrheiten laufen auseinander. Die Bodenkorrektur wuerde
+	# ausserdem die Grube an ihrer TIEFSTEN Stelle aufsetzen, also komplett ueber die Wueste
+	# heben.
+	var node: Node3D = AssetRegistry.instantiate(name, 0.0, false)
+	if node == null:
+		return
+	var c: Vector3 = WorldManager.feature_center(f)
+	node.position = Vector3(c.x, TERRAIN_MODEL_LIFT_M, c.z)
+	add_child(node)
 
 
 func _build_environment() -> void:
@@ -611,7 +653,11 @@ func _build_ground_and_biomes() -> void:
 	for r in _ground_rects():
 		_add_ground_quad(r, mat)
 	for f in WorldManager.TERRAIN:
+		# Der Flicken kommt AUCH bei einer Form mit eigenem Modell: Ausgespart wird ein
+		# QUADRAT, das Modell fuellt aber nur einen Kreis darin. Ohne den Flicken klafften in
+		# den vier Ecken Loecher bis zum Horizont.
 		_add_terrain_patch(f, mat)
+		_add_terrain_model(f)
 	# Benannte Biom-Kreiszonen (WorldManager.BIOMES) als getönte Scheiben.
 	var tint: Dictionary = {
 		"oasis": Color(0.31, 0.56, 0.31), "salt": Color(0.85, 0.84, 0.78),
@@ -1513,8 +1559,10 @@ func _fill_craters() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9001
 	for f in WorldManager.TERRAIN:
+		# Nur Formen OHNE eigenes Modell werden von Hand gefuellt. Die Schrottgrube bringt
+		# ihren Schrott im Netz mit — 128 Fassstapel obendrauf waeren doppelt.
 		if String(f.get("kind", "crater")) != "crater":
-			continue   # in ein Duenenfeld gehoert kein Schrott
+			continue
 		var c: Vector3 = WorldManager.feature_center(f)
 		var radius: float = float(f["radius"])
 		# Bis an den Wandfuß plus ein Meter: Der Schrott soll die Wand berühren, nicht davor
