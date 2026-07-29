@@ -20,7 +20,7 @@ var radius: float = 96.0             # Vollausschlag in Pixeln
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE   # schluckt keine Eingaben
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 func _draw() -> void:

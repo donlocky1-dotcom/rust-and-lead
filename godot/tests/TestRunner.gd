@@ -33,6 +33,9 @@ func _ready() -> void:
 	_test_weapons()
 	_test_terrain()
 	_test_winding()
+	_test_inventory_grid()
+	_test_fog()
+	_test_swamp()
 	_test_dunes()
 	_test_props()
 	_test_station()
@@ -1208,6 +1211,150 @@ func _test_dunes() -> void:
 		vor2 = h2
 	_check("Luv- und Leeseite sind verschieden steil (%.2f gegen %.2f)" % [auf, ab],
 		absf(auf - ab) > 0.05 * maxf(auf, ab))
+
+
+## Beutel als Raster (GDD §7.4) — Fussabdruecke, Belegung, Trefferflaechen.
+func _test_inventory_grid() -> void:
+	print("· Beutel-Raster")
+	_reset_state()
+	_check("Raster ist 5 Spalten breit (GDD §7.4)", BagManager.COLS == 5)
+	_check("Raster ist 12 Zeilen hoch", BagManager.ROWS == 12)
+	# Belegung: dieselbe Packung wie die Kapazitaetspruefung, sonst zeigt die Anzeige etwas
+	# anderes als der Beutel erlaubt.
+	GameState.bag = []
+	for slot in ["armor", "weapon", "helmet", "armor", "boots"]:
+		BagManager.add(ProgressionManager.make_gear(String(slot), "common"))
+	var belegung: Array = BagManager.layout()
+	_check("Jedes Teil hat einen Platz", belegung.size() == GameState.bag.size())
+	var zellen: int = 0
+	var doppelt: String = ""
+	var besetzt: Dictionary = {}
+	for i in belegung.size():
+		var r: Rect2i = belegung[i]
+		_check("Teil %d liegt im Raster (%s)" % [i, r], r.position.x >= 0
+			and r.position.x + r.size.x <= BagManager.COLS
+			and r.position.y + r.size.y <= BagManager.ROWS)
+		for dy in r.size.y:
+			for dx in r.size.x:
+				var k: int = (r.position.y + dy) * 100 + r.position.x + dx
+				if besetzt.has(k):
+					doppelt = "Zelle %d doppelt belegt" % k
+				besetzt[k] = true
+				zellen += 1
+	_check("Kein Teil ueberlappt ein anderes", doppelt == "", doppelt)
+	_check("Belegte Zellen stimmen mit `used_cells` (%d)" % zellen,
+		zellen == BagManager.used_cells())
+	# Fussabdruecke: genau das, was ein Raster von einer Stueckzahl unterscheidet.
+	_check("Ruestung braucht 2x2, Waffe 2x1, Helm 1x1",
+		BagManager.FOOTPRINT["armor"] == Vector2i(2, 2)
+		and BagManager.FOOTPRINT["weapon"] == Vector2i(2, 1)
+		and BagManager.FOOTPRINT["helmet"] == Vector2i(1, 1))
+	# Trefferrueckrechnung: aus einem Bildpunkt wieder der richtige Beutel-Index.
+	var g := InventoryGrid.new()
+	_scratch.append(g)
+	g.refresh()
+	var treffer_ok: bool = true
+	for i in belegung.size():
+		var r2: Rect2i = belegung[i]
+		var mitte := Vector2(
+			(float(r2.position.x) + float(r2.size.x) * 0.5) * (InventoryGrid.CELL + InventoryGrid.GAP),
+			(float(r2.position.y) + float(r2.size.y) * 0.5) * (InventoryGrid.CELL + InventoryGrid.GAP))
+		if g.cell_at(mitte) != i:
+			treffer_ok = false
+	_check("Ein Tipp auf ein Feld findet genau dieses Teil", treffer_ok)
+	_check("Ein Tipp auf eine leere Zelle findet nichts",
+		g.cell_at(Vector2(InventoryGrid.CELL * 2.0,
+			(InventoryGrid.CELL + InventoryGrid.GAP) * float(BagManager.ROWS - 1) + 4.0)) == -1)
+	_check("Ein Tipp weit daneben findet nichts", g.cell_at(Vector2(-60.0, -60.0)) == -1)
+	# Jede Kategorie braucht ein Sinnbild — ein Fragezeichen im Raster ist ein vergessener Fall.
+	var alle_icons: bool = true
+	for slot2 in BagManager.FOOTPRINT.keys():
+		if not InventoryGrid.SLOT_ICON.has(String(slot2)):
+			alle_icons = false
+	_check("Jede Kategorie hat ein Sinnbild im Raster", alle_icons)
+	# Das Raster muss auf den Bildschirm passen — 12 Zeilen sind der Grund, warum die Zellen
+	# 44 px sind und nicht 48.
+	_check("Raster passt in 720 px Hoehe (%.0f px)" % InventoryGrid.grid_size().y,
+		InventoryGrid.grid_size().y < 640.0)
+
+
+## Fog of War — erkundete Karte.
+func _test_fog() -> void:
+	print("· Fog of War")
+	GameState.fog = {}
+	var rw: Vector2 = WorldManager.poi_position("rustwater")
+	_check("Vor dem ersten Schritt ist nichts bekannt", not FogOfWar.is_seen(rw))
+	var neu: int = FogOfWar.reveal(rw)
+	_check("Aufdecken legt mehrere Zellen frei (%d)" % neu, neu > 4)
+	_check("Der eigene Standort ist danach bekannt", FogOfWar.is_seen(rw))
+	_check("Rustwater gilt als entdeckt", FogOfWar.poi_known("rustwater"))
+	_check("Ein weit entfernter Ort nicht", not FogOfWar.poi_known("eisernes_herz"))
+	_check("Zweimal dieselbe Stelle deckt nichts Neues auf", FogOfWar.reveal(rw) == 0)
+	# Kreisfoermig, nicht quadratisch: sonst zeichnet Laufen eine Treppe an den Rand.
+	var ecke := rw + Vector2(FogOfWar.SIGHT_UNITS, FogOfWar.SIGHT_UNITS) * 0.95
+	_check("Die Ecke des Sichtquadrats bleibt zu (Sicht ist rund)", not FogOfWar.is_seen(ecke))
+	_check("Geradeaus in Sichtweite ist offen",
+		FogOfWar.is_seen(rw + Vector2(FogOfWar.SIGHT_UNITS * 0.8, 0.0)))
+	var anteil: float = FogOfWar.explored_share()
+	_check("Erkundeter Anteil ist klein aber nicht null (%.4f)" % anteil,
+		anteil > 0.0 and anteil < 0.02)
+	# Speichern und Laden muss den Nebel mitnehmen — sonst ist die Karte nach dem Neustart
+	# wieder zu, und das ist der Fehler, den man erst am naechsten Tag bemerkt.
+	var vorher: int = GameState.fog.size()
+	var daten: Dictionary = SaveManager.serialize()
+	GameState.fog = {}
+	SaveManager.deserialize(daten)
+	_check("Der Nebel ueberlebt Speichern und Laden (%d Zellen)" % vorher,
+		GameState.fog.size() == vorher)
+	# `fresh()` ist der Startzustand: Rustwater bekannt, der Rest zu.
+	FogOfWar.fresh()
+	_check("Neues Spiel: Rustwater bekannt", FogOfWar.poi_known("rustwater"))
+	_check("Neues Spiel: die Schrott-Minen noch nicht", not FogOfWar.poi_known("schrott_minen"))
+
+
+## Strahlensumpf (Gate 0) — der erste Riegel, weich statt hart.
+func _test_swamp() -> void:
+	print("· Strahlensumpf")
+	_reset_state()
+	var m: float = WorldManager.METERS_PER_UNIT
+	var mitte := Vector2(500.0, WorldManager.swamp_center_y())
+	var davor := Vector2(500.0, float(WorldManager.SWAMP_SOUTH_Y) - 30.0)
+	var dahinter := Vector2(500.0, float(WorldManager.SWAMP_NORTH_Y) + 30.0)
+	_check("Der Sumpf liegt NORDLICH der Schrott-Minen",
+		float(WorldManager.SWAMP_SOUTH_Y) > WorldManager.poi_position("schrott_minen").y)
+	_check("und SUEDLICH der Sprengtore (er kommt zuerst)",
+		WorldManager.SWAMP_NORTH_Y < WorldManager.BORDER_S1_S2_Y)
+	_check("Rustwater liegt davor",
+		not WorldManager.is_in_swamp(WorldManager.poi_position("rustwater")))
+	_check("Die Schrott-Minen liegen davor",
+		not WorldManager.is_in_swamp(WorldManager.poi_position("schrott_minen")))
+	_check("Das Zugdepot liegt dahinter (wird zugeriegelt)",
+		WorldManager.poi_position("zugdepot").y > float(WorldManager.SWAMP_NORTH_Y))
+	_check("Mitten drin ist man im Sumpf", WorldManager.is_in_swamp(mitte))
+	_check("Davor und dahinter nicht",
+		not WorldManager.is_in_swamp(davor) and not WorldManager.is_in_swamp(dahinter))
+	# Weicher Verlauf: Am Rand tut es weniger weh als in der Mitte. Eine harte Kante wuerde man
+	# ueberrennen und ohne Vorwarnung sterben.
+	var rand := Vector2(500.0, float(WorldManager.SWAMP_SOUTH_Y) + 4.0)
+	_check("Am Rand ist die Strahlung schwaecher als in der Mitte (%.2f gegen %.2f)"
+		% [WorldManager.swamp_depth(rand), WorldManager.swamp_depth(mitte)],
+		WorldManager.swamp_depth(rand) < WorldManager.swamp_depth(mitte) * 0.5)
+	_check("In der Mitte ist sie maximal",
+		is_equal_approx(WorldManager.swamp_depth(mitte), 1.0))
+	# Schaden: ohne Anzug toedlich, mit Anzug null.
+	GameState.economy["laboratory"] = 0
+	var dot: int = WorldManager.swamp_dot_damage(mitte, 1.0)
+	_check("Ohne Anzug kostet eine Sekunde spuerbar Leben (%d)" % dot,
+		dot >= int(float(GameState.max_hp()) / WorldManager.SWAMP_LETHAL_SECONDS) - 1)
+	_check("Draussen kostet es nichts", WorldManager.swamp_dot_damage(davor, 1.0) == 0)
+	GameState.economy["laboratory"] = WorldManager.SWAMP_SUIT_LEVEL
+	_check("Mit Schutzanzug kostet der Sumpf nichts",
+		WorldManager.has_rad_suit() and WorldManager.swamp_dot_damage(mitte, 1.0) == 0)
+	# Der Anzug kommt VOR dem Smog-Filter — zwei Gates am selben Gebaeude, in Reihenfolge.
+	_check("Der Anzug kommt vor dem Smog-Filter",
+		WorldManager.SWAMP_SUIT_LEVEL < WorldManager.FILTER_REQUIRED_LEVEL)
+	_check("Mit Anzug allein hilft der Smog nicht", not WorldManager.has_alchemie_filter())
+	_reset_state()
 
 
 ## Requisiten aus docs/PROMPTS_PROPS.md — Maszstab und Streuregeln.

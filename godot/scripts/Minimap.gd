@@ -109,6 +109,13 @@ func _draw() -> void:
 	var blast_y: float = world_to_map(Vector3(0.0, 0.0, -float(WorldManager.BORDER_S1_S2_Y) * m)).y
 	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, clampf(smog_y, 0.0, size.y))),
 		Color(0.35, 0.72, 0.30, 0.30))
+	# Strahlensumpf: ein Band, kein Strich. Er ist begehbar (und tödlich), keine Grenzlinie —
+	# das muss die Karte zeigen, sonst hält man ihn für eine Wand und sucht einen Weg herum.
+	var sw_s: float = world_to_map(Vector3(0.0, 0.0, -float(WorldManager.SWAMP_SOUTH_Y) * m)).y
+	var sw_n: float = world_to_map(Vector3(0.0, 0.0, -float(WorldManager.SWAMP_NORTH_Y) * m)).y
+	if sw_s > 0.0 and sw_n < size.y:
+		draw_rect(Rect2(Vector2(0.0, sw_n), Vector2(size.x, sw_s - sw_n)),
+			Color(0.30, 0.78, 0.24, 0.34 if WorldManager.has_rad_suit() else 0.46))
 	# Sektorgrenzen als Linien — nur, wenn sie im Ausschnitt liegen.
 	if blast_y > 0.0 and blast_y < size.y:
 		draw_line(Vector2(0.0, blast_y), Vector2(size.x, blast_y), Color(1.0, 0.55, 0.35, 0.85), 1.5)
@@ -123,6 +130,7 @@ func _draw() -> void:
 		draw_line(world_to_map(WorldManager.poi_scene_position(String(seg[0]))),
 			world_to_map(WorldManager.poi_scene_position(String(seg[1]))),
 			Color(0.90, 0.82, 0.55, 0.85), road_w * 2.0)
+	_draw_fog(rect)
 	_draw_pois(rect)
 	# Gegner in der Umgebung. Auf der Nahansicht sind sie endlich mehr als ein gemeinsamer
 	# Punkt — der Spawnradius von 45 m misst hier 21 px statt 1,7.
@@ -134,11 +142,49 @@ func _draw() -> void:
 	_draw_scale_hint()
 
 
+## Der Nebel: alles Unerkundete wird zugedeckt.
+##
+## Gezeichnet wird der NEBEL, nicht das Erkundete — also die Gegenrichtung zum Speicher. Das
+## klingt umständlich, ist aber der einzige Weg, der bei einem Wörterbuch besuchter Zellen
+## funktioniert: Über den sichtbaren Kartenausschnitt laufen und jede Zelle zudecken, die nicht
+## darin steht. Der Aufwand hängt damit an der Bildschirmgröße, nicht an der Weltgröße.
+##
+## Auf der Nahansicht (200 m Umkreis) ist eine 40-m-Zelle 38 px groß, auf der Weltkarte 1,5 px.
+## Beides ist brauchbar: nah als grobe Kachel, weit als Körnung.
+func _draw_fog(rect: Rect2) -> void:
+	var m_pro_zelle: float = float(FogOfWar.CELL) * WorldManager.METERS_PER_UNIT
+	var px: float = m_pro_zelle * pixels_per_meter()
+	if px < 0.7:
+		return   # feiner als ein Pixel — dann wäre es nur Rauschen
+	var mitte: Vector3 = view_center()
+	var halb_m: float = (size.x * 0.5) / maxf(pixels_per_meter(), 0.0001)
+	var von: Vector2i = FogOfWar.cell_of(WorldManager.scene_to_world(
+		mitte + Vector3(-halb_m, 0.0, halb_m)))
+	var bis: Vector2i = FogOfWar.cell_of(WorldManager.scene_to_world(
+		mitte + Vector3(halb_m, 0.0, -halb_m)))
+	var nebel := Color(0.05, 0.05, 0.06, 0.88)
+	for cy in range(von.y, bis.y + 1):
+		for cx in range(von.x, bis.x + 1):
+			if GameState.fog.has(cy * 10000 + cx):
+				continue
+			var ecke: Vector3 = WorldManager.world_to_scene(
+				Vector2(float(cx) * float(FogOfWar.CELL), float(cy + 1) * float(FogOfWar.CELL)))
+			var at: Vector2 = world_to_map(ecke)
+			# Eine Zehntel-Zelle Überlappung: Sonst blitzen zwischen den Kacheln helle Fugen
+			# durch, weil Kartenpixel und Zellengrenzen nie ganzzahlig zueinander passen.
+			draw_rect(Rect2(at, Vector2(px, px) * 1.1), nebel)
+
+
 ## Orte. Was aus dem Ausschnitt fällt, wird auf der Nahansicht als blasse Marke an den Rand
 ## geklemmt: So bleibt die Richtung zum nächsten Ort ablesbar, ohne die Karte zuzukleistern.
 func _draw_pois(rect: Rect2) -> void:
 	var font: Font = ThemeDB.fallback_font
 	for id in WorldManager.POIS.keys():
+		# Unentdeckte Orte gibt es auf der Karte NICHT. Sie blass zu zeichnen waere schlimmer
+		# als sie wegzulassen: Ein grauer Punkt mit Namen ist verraten, ein grauer Punkt ohne
+		# Namen ist eine Aufforderung, jeden davon abzulaufen.
+		if not FogOfWar.poi_known(String(id)):
+			continue
 		var p: Dictionary = WorldManager.POIS[id]
 		var sec: int = int(p["sector"])
 		var col: Color = _sector_color[sec]

@@ -328,6 +328,7 @@ func _ready() -> void:
 	_build_environment()
 	_build_ground_and_biomes()
 	_build_sector_lines_and_rim()
+	_build_swamp()
 	_build_railway()
 	_build_pois()
 	_build_township()
@@ -353,6 +354,10 @@ func _load_or_init_save() -> void:
 	_save_loaded = SaveManager.has_slot(SAVE_SLOT)
 	if _save_loaded:
 		SaveManager.load_from_slot(SAVE_SLOT)
+	else:
+		# Neues Spiel: Rustwater und Umgebung sind bekannt. Eine vollstaendig schwarze Karte
+		# beim ersten Start haelt man fuer kaputt, nicht fuer eine Aufgabe.
+		FogOfWar.fresh()
 
 
 ## Schreibt den Spielstand in festem Takt weg (Gold/Level/Ausrüstung/Kills — alles, was
@@ -634,6 +639,140 @@ func _build_ground_and_biomes() -> void:
 	var smog_depth_m: float = (float(WorldManager.WORLD_SIZE) - float(WorldManager.SMOG_LINE_Y)) * WorldManager.METERS_PER_UNIT
 	var smog_z: float = -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT + smog_depth_m / 2.0)
 	_box(Vector3(WorldManager.WORLD_METERS, 0.4, smog_depth_m), Vector3(half, 0.35, smog_z), Color(0.35, 0.65, 0.30), 0.35)
+
+
+## Der Strahlensumpf: ein Band quer über die Karte, nördlich hinter den Schrott-Minen.
+##
+## Optisch lebt er von drei Dingen, und zwei davon kosten nichts:
+##
+##  1. **Der Boden verfärbt sich.** Kein Modell, kein zweites Material — dieselbe Sandtextur
+##     mit giftgrüner Tönung, als flaches Band knapp über dem Boden. Ein eigenes Biom wäre
+##     dasselbe Ergebnis mit mehr Arbeit.
+##  2. **Pfützen.** Das ist die Frage, die der Auftraggeber gestellt hat: wie macht man die
+##     optisch? Antwort: als flache Scheiben mit LEUCHTENDEM Material (`emission`) und
+##     niedriger Rauheit. Das Leuchten ist der Trick — eine Pfütze, die nur eine dunkle Fläche
+##     ist, liest sich als Loch; eine, die von innen grün glimmt, liest sich als verseucht.
+##     Godots `emission` braucht dafür keine Lichtquelle und kostet nichts.
+##  3. **Tote Bäume.** Dafür fehlen Modelle (siehe `docs/ASSETS_OFFEN.md`); bis dahin stehen
+##     dort kahle Stämme aus zwei Zylindern. Sie liefern die Silhouette, die aus einem grünen
+##     Band ein Moor macht, und lassen sich später durch ein Modell ersetzen, ohne dass sich
+##     hier etwas ändert.
+## Das Band ist 5 km breit — bei den ersten Zahlen (90 Pfützen, 44 Bäume) lag im Bild praktisch
+## nichts, weil sich das auf 1,5 km² verteilt. Ein Zwanzigstel eines Quadratkilometers je Pfütze
+## ist keine Sumpflandschaft. 420 und 240 sind noch billig (Pfütze 28 Dreiecke, Baum 26) und
+## ergeben endlich eine Dichte, die man beim Durchlaufen sieht.
+const SWAMP_PUDDLES: int = 420
+const SWAMP_TREES: int = 240
+func _build_swamp() -> void:
+	var m: float = WorldManager.METERS_PER_UNIT
+	var sued: float = float(WorldManager.SWAMP_SOUTH_Y) * m
+	var nord: float = float(WorldManager.SWAMP_NORTH_Y) * m
+	var breite: float = nord - sued
+	var mitte_z: float = -(sued + breite * 0.5)
+	# 1. Die Verfärbung. Knapp über dem Boden, durchscheinend — der Sand bleibt sichtbar.
+	# Alpha 0.16, nicht 0.55. Der erste Versuch war eine grüne Platte, die den Sand vollständig
+	# verdeckte — das Bild sah aus wie eine Wiese, nicht wie verseuchter Boden. Ein Schleier muss
+	# durchlassen, was er einfärbt; die Verseuchung liest man an den Pfützen, nicht am Anstrich.
+	var band := _box(Vector3(WorldManager.WORLD_METERS, 0.24, breite),
+		Vector3(WorldManager.WORLD_METERS * 0.5, 0.13, mitte_z),
+		Color(0.30, 0.50, 0.18), 0.16)
+	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_label(Vector3(WorldManager.WORLD_METERS * 0.5, 26.0, mitte_z),
+		"☢ STRAHLENSUMPF — ohne Schutzanzug tödlich", Color(0.62, 1.0, 0.45), 150, 900.0)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20250729
+	# 2. Pfützen. Leuchtendes Material, flache Scheibe, zufällig gestreckt — ein Kreis liest
+	#    sich als Deckel, eine Ellipse als Lache.
+	var lache := StandardMaterial3D.new()
+	lache.albedo_color = Color(0.16, 0.34, 0.13)
+	lache.emission_enabled = true
+	lache.emission = Color(0.35, 0.95, 0.28)
+	lache.emission_energy_multiplier = 0.85
+	lache.roughness = 0.14
+	lache.metallic = 0.25
+	for i in SWAMP_PUDDLES:
+		var mi := MeshInstance3D.new()
+		var zyl := CylinderMesh.new()
+		var r: float = rng.randf_range(1.1, 4.2)
+		zyl.top_radius = r
+		zyl.bottom_radius = r
+		zyl.height = 0.06
+		zyl.radial_segments = 14
+		mi.mesh = zyl
+		mi.material_override = lache
+		# Nur dort, wo die Strahlung wirklich zubeisst: dichter in der Mitte des Bandes.
+		var t: float = 0.5 + (rng.randf() - 0.5) * 1.4
+		var z: float = -(sued + breite * clampf(t, 0.04, 0.96))
+		var x: float = _swamp_x(rng)
+		mi.position = Vector3(x, WorldManager.height_at(x, z) + 0.05, z)
+		mi.scale = Vector3(1.0, 1.0, rng.randf_range(0.45, 1.0))
+		mi.rotation.y = rng.randf() * TAU
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+	# 3. Tote Stämme. Platzhalter, bis ein Modell da ist — aber die Silhouette stimmt schon.
+	var holz: Material = _mat(Color(0.19, 0.17, 0.13))
+	for i in SWAMP_TREES:
+		var z2: float = -(sued + breite * rng.randf_range(0.08, 0.92))
+		var x2: float = _swamp_x(rng)
+		var hoehe: float = rng.randf_range(3.4, 6.8)
+		var baum := Node3D.new()
+		add_child(baum)
+		baum.position = Vector3(x2, WorldManager.height_at(x2, z2), z2)
+		baum.rotation.y = rng.randf() * TAU
+		# Schiefer Stamm plus ein Aststummel: Zwei Zylinder sind das Minimum, ab dem ein Baum
+		# als Baum liest und nicht als Pfahl.
+		var stamm: MeshInstance3D = _child_cyl(baum, 0.22, hoehe, Vector3(0.0, hoehe * 0.5, 0.0), holz)
+		stamm.rotation.z = deg_to_rad(rng.randf_range(-13.0, 13.0))
+		var ast: MeshInstance3D = _child_cyl(baum, 0.10, hoehe * 0.42,
+			Vector3(0.0, hoehe * 0.72, 0.0), holz)
+		ast.rotation.z = deg_to_rad(rng.randf_range(52.0, 84.0) * (1.0 if rng.randf() < 0.5 else -1.0))
+		_solid_pillar(baum.position, 0.35)
+
+
+## Ost-West-Lage eines Sumpf-Details, gewichtet zur ÜBERQUERUNG hin.
+##
+## Das Band ist 5 km breit. Gleichmäßig gestreut sind selbst 420 Pfützen eine je 3 600 m² —
+## bei 30 m Sichtweite läuft man daran vorbei, ohne eine zu sehen, und der Sumpf bleibt ein
+## grüner Anstrich. Zwei Drittel der Details liegen deshalb in einem 700-m-Fenster um die
+## Stelle, an der die Bahntrasse das Band schneidet: Dort kommt praktisch jeder durch. Das
+## letzte Drittel bleibt breit gestreut, damit der Sumpf auch abseits nicht plötzlich aufhört.
+func _swamp_x(rng: RandomNumberGenerator) -> float:
+	var rand_x: float = rng.randf_range(25.0, WorldManager.WORLD_METERS - 25.0)
+	if rng.randf() > 0.66:
+		return rand_x
+	var mitte: float = _swamp_crossing_x()
+	if mitte < 0.0:
+		return rand_x
+	return clampf(mitte + rng.randf_range(-350.0, 350.0), 25.0, WorldManager.WORLD_METERS - 25.0)
+
+
+## Wo schneidet die Bahntrasse den Sumpf (Szenen-x, −1 = nirgends)?
+func _swamp_crossing_x() -> float:
+	var y: float = WorldManager.swamp_center_y()
+	for seg in WorldManager.rail_segments():
+		var a: Vector2 = WorldManager.poi_position(String(seg[0]))
+		var b: Vector2 = WorldManager.poi_position(String(seg[1]))
+		if (a.y < y) == (b.y < y):
+			continue     # beide Enden auf derselben Seite: kein Schnitt
+		var t: float = (y - a.y) / (b.y - a.y)
+		return (a.x + (b.x - a.x) * t) * WorldManager.METERS_PER_UNIT
+	return -1.0
+
+
+## Zylinder als Kind eines Knotens — fuer alles Stangenfoermige (Staemme, Rohre, Masten).
+func _child_cyl(parent: Node3D, radius: float, hoehe: float, local_pos: Vector3,
+		mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var zyl := CylinderMesh.new()
+	zyl.top_radius = radius * 0.75      # oben schlanker: ein Stamm laeuft nach oben zu
+	zyl.bottom_radius = radius
+	zyl.height = hoehe
+	zyl.radial_segments = 7             # aus zehn Metern zaehlt niemand die Kanten
+	mi.mesh = zyl
+	mi.material_override = mat
+	mi.position = local_pos
+	parent.add_child(mi)
+	return mi
 
 
 func _build_sector_lines_and_rim() -> void:
@@ -1831,12 +1970,12 @@ func _build_hud() -> void:
 ## sich ohnehin bei jedem Frame neu, und ein Aufbau pro Öffnen wäre ein Ruckler ohne Gegenwert.
 func _build_world_map(layer: CanvasLayer) -> void:
 	_map_overlay = Control.new()
-	_map_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_map_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_overlay.visible = false
 	layer.add_child(_map_overlay)
 	var dim := ColorRect.new()
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.color = Color(0.03, 0.03, 0.04, 0.88)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_overlay.add_child(dim)
@@ -2461,6 +2600,12 @@ func _input(event: InputEvent) -> void:
 ## DANEBEN schließt den Laden und wird verbraucht.
 func _handle_overlay_tap(at: Vector2) -> bool:
 	if _char != null and _char.visible:
+		# Das Beutel-Raster ist GEZEICHNET, kein Knopf — es bekommt seinen Tipp deshalb nicht
+		# von der GUI, sondern hier von Hand. Muss VOR `hits_panel` stehen, sonst wird der Tipp
+		# als „irgendwo auf der Tafel" abgetan und die Auswahl aendert sich nie.
+		if _char.tap_grid(at):
+			get_viewport().set_input_as_handled()
+			return true
 		if _char.hits_panel(at):
 			return true   # Knopf auf der Tafel: durchreichen, aber nicht als Joystick werten
 		_close_character()
@@ -2597,9 +2742,29 @@ func _process(delta: float) -> void:
 	_process_chests(delta)
 	_process_ground(delta)
 	_process_zone_title(delta)
+	_process_fog(delta)
 	_process_interactions(delta)
 	_process_autosave(delta)
 	_update_hud()
+
+
+## Nebel aufdecken, wo der Spieler war.
+##
+## Nicht jeden Frame: Bei 4,7 m/s und 40-m-Zellen dauert es acht Sekunden, bis eine neue Zelle
+## erreicht ist — sechzigmal pro Sekunde 25 Zellen zu prüfen, um in 99,8 % der Fälle „schon
+## bekannt" zu antworten, ist verschenkte Rechenzeit. Viermal pro Sekunde reicht und deckt
+## selbst bei Schnellreise nichts unabsichtlich zu.
+const FOG_INTERVAL_SEC: float = 0.25
+var _fog_cd: float = 0.0
+func _process_fog(delta: float) -> void:
+	_fog_cd -= delta
+	if _fog_cd > 0.0:
+		return
+	_fog_cd = FOG_INTERVAL_SEC
+	# Nur bei WIRKLICH neuen Zellen neu zeichnen. Die Karte zeichnet sich sonst ohnehin jeden
+	# Frame; hier geht es um die Vollbildkarte, die es nicht tut.
+	if FogOfWar.reveal(WorldManager.scene_to_world(_player.position)) > 0 and _world_map != null:
+		_world_map.queue_redraw()
 
 
 func _process_movement(delta: float) -> void:
@@ -2854,11 +3019,23 @@ func _scurry(e: Dictionary, moving: bool) -> void:
 		model.rotation.z = sin(t * 0.5) * SCURRY_ROLL_RAD
 
 
+var _swamp_warned: float = 0.0
 func _process_hazards(delta: float) -> void:
-	# Smog-DOT (Gate 2): WorldManager rechnet, die Szene wendet nur an.
-	var dot: int = WorldManager.smog_dot_damage(WorldManager.scene_to_world(_player.position), delta)
+	var rel: Vector2 = WorldManager.scene_to_world(_player.position)
+	# Smog-DOT (Gate 2) und Strahlensumpf (Gate 0): WorldManager rechnet, die Szene wendet an.
+	var dot: int = WorldManager.smog_dot_damage(rel, delta)
+	dot += WorldManager.swamp_dot_damage(rel, delta)
 	if dot > 0:
 		_hp -= float(dot)
+		# Sagen, WAS passiert. Leben, das ohne Erklaerung sinkt, liest sich als Fehler; erst der
+		# Satz macht aus dem Schaden eine Grenze, die man versteht und respektiert.
+		var jetzt: float = Time.get_ticks_msec() / 1000.0
+		if jetzt - _swamp_warned > 2.2:
+			_swamp_warned = jetzt
+			if WorldManager.is_in_swamp(rel):
+				_say("☢ Strahlung! Der Sumpf frisst dich — ohne Schutzanzug kein Durchkommen.", 2.4)
+			else:
+				_say("☣ Smog! Ohne Alchemie-Filter überlebt das niemand.", 2.4)
 		if _hp <= 0.0:
 			_respawn()
 

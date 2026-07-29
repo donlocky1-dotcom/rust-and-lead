@@ -12,6 +12,25 @@ config/name="Rust & Lead"
 run/main_scene="res://scenes/Overworld.tscn"
 config/features=PackedStringArray("4.3")
 
+[display]
+
+; ── Die wichtigste Einstellung für das Handy, und sie fehlte ─────────────────────
+; Ohne Streckung zeichnet Godot die Oberfläche in ECHTEN Pixeln. Auf einem Telefon mit
+; 2400 px Breite ist ein 52-px-Knopf dann 2 % der Bildschirmbreite — deshalb war der
+; Charakter-Knopf im ersten Handy-Test praktisch unsichtbar, obwohl er am Computer gut saß.
+; Es war nie ein Fehler am Knopf; es fehlte die Skalierung für alle.
+;
+; `canvas_items` rechnet die gesamte Oberfläche von 1280×720 auf die echte Auflösung hoch.
+; Eine Größe in Pixeln bedeutet damit auf jedem Gerät dasselbe. `expand` behält das
+; Seitenverhältnis des Geräts und gibt den Überschuss als zusätzliches Blickfeld dazu,
+; statt schwarze Balken zu setzen — ein 20:9-Telefon sieht also mehr Wüste, nicht kleinere
+; Knöpfe.
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation="landscape"
+
 [autoload]
 
 ; Reihenfolge zählt: GameState zuerst, dann die abhängigen Manager.

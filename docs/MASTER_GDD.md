@@ -139,6 +139,18 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   nicht Deko — die Wüste war eine Tischplatte, auf der sich beim Laufen nichts am Horizont
   bewegt. Über einen Kamm zu steigen und das nächste Tal zu sehen, gibt der Strecke einen
   Puls, und das kostet nichts außer der Formel.
+* **Der Strahlensumpf** (Gate 0, Sektor 1, y 520–640) — ein verstrahltes Moor quer über die
+  Karte, nördlich hinter den Schrott-Minen. Der ERSTE Riegel des Spiels und der einzige, der
+  vor Kapitel 4 greift: Er zieht die Startwelt auf Rustwater, die Grube und den Weg dazwischen
+  zusammen. Ohne Schutzanzug (Alchemie-Labor Stufe 1) tödlich in sechs Sekunden, mit Anzug nur
+  noch Gelände. Der Schaden wächst weich von den Rändern zur Mitte — die Grenze ist eine
+  Entscheidung, keine Wand: Man kann hineinlaufen, sieht was dahinter liegt, und stirbt.
+  Optisch: grüner Schleier über dem Sand, leuchtende Pfützen, kahle Moorbäume.
+* **Fog of War** — die Karte zeigt nur, was man gesehen hat. Vorher lagen alle vierzehn Orte ab
+  dem ersten Schritt offen; damit war das Erkunden erzählt, bevor es anfing. Unentdeckte Orte
+  fehlen ganz (ein grauer Punkt mit Namen wäre verraten, einer ohne Namen eine Aufforderung,
+  alles abzulaufen). Aufgedeckt wird in 40-m-Zellen mit 75 m Sichtweite; gespeichert werden nur
+  die besuchten Zellen, nicht das Raster.
 * **Eisenbahn** — die Iron Rail verbindet die fünf Knoten (Rustwater, Zugdepot, Rogue's
   Landing, Fort Freedom, Sektor 01). Ihre Trasse liegt **auf den Routen** (zweite Geografie
   ausgeschlossen) und ist damit die einzige gezeichnete Verbindung zwischen den Orten. Gereist wird **nur vom Bahnsteig aus**: Schnellreise ist ein Ort in der
@@ -1009,6 +1021,22 @@ Gadget (`firerate`), Stiefel (`speed`) + **acht Platten-/Tech-Slots** (`plate1�
 **Panzerplatten** (`armor`, stapelbar), **später für Tech-Upgrades** reserviert; rechts das
 gepackte Grid-Inventar. Frei zwischen Tasche und Slots per Ziehen/Antippen.
 
+**Umsetzungsstand (`CharacterScreen` + `InventoryGrid`):** Zwei Spalten auf einer festen Tafel
+von 1080 × 646 px. Links Getragenes und wirksame Werte, rechts das **gezeichnete 5 × 12-Raster**
+mit sichtbaren Fußabdrücken — eine Rüstung belegt 2 × 2 Zellen, eine Waffe 2 × 1, alles andere
+eine. Rahmenfarbe = Seltenheit, ein Zeichen in der Mitte = Kategorie. Antippen wählt, nochmal
+antippen hebt die Wahl auf; die Beschreibung rechts vergleicht mit dem, was gerade an derselben
+Stelle sitzt (▲/▼). Zwei Aktionen: Anlegen, Verschrotten.
+
+Gezeichnet statt aus Knöpfen gebaut, und das ist keine Sparmaßnahme: Sechzig Knöpfe je Öffnen neu
+zu erzeugen wäre ein Ruckler, und nur gezeichnet lässt sich ein Teil über mehrere Zellen als EIN
+Feld darstellen. Der Tipp wird über `InventoryGrid.cell_at()` zurückgerechnet.
+
+Die Belegung kommt aus `BagManager.layout()` — derselben Packung, mit der auch „passt das noch?"
+beantwortet wird. Anzeige und Kapazitätsprüfung können damit nicht auseinanderlaufen.
+
+Die Platten-Slots und das Ziehen zwischen Tasche und Slots stehen noch aus.
+
 **Seltenheit (Stat-Multiplikator & Level-Voraussetzung):**
 | Seltenheit | Farbe | Stat-Mult | Mindest-Level |
 | :-- | :-- | --: | --: |
@@ -1433,6 +1461,24 @@ Biom-Zonierung (§1.6.3) bereits nach `WorldManager` portiert ist.
 > **CI** abgesichert (`.github/workflows/godot-backend.yml`). Offen bleibt allein die
 > **Präsentations-/Render-Schicht** (Kampf-Lesbarkeit §8.4, 3D-Szenen/Assets, Audio, UI) — kein
 > Logik-Port mehr, sondern View-Arbeit auf dem fertigen, getesteten Fundament.
+
+## 8.1a Vorgemerkt: Reittier (Pferd)
+
+Der Krater ist 5 × 5 km, die Laufgeschwindigkeit 4,7 m/s — eine Querung dauert achtzehn Minuten.
+Die Iron Rail nimmt das zwischen den Bahnhöfen weg, aber alles daneben bleibt Fußmarsch. Ein
+Pferd ist deshalb keine Kosmetik, sondern die Antwort auf die Weltgröße abseits der Trasse.
+
+Vorgemerkt, nicht geplant. Was es braucht, wenn es dran ist:
+
+* **Modell mit Animationen** (Stehen, Schritt, Galopp) und ein Reit-Clip für die Spielerfigur —
+  das ist der Aufwand, alles andere ist wenig.
+* **Zweiter Bewegungszustand:** höhere Geschwindigkeit (Vorschlag 11 m/s, also 2,3-fach), größerer
+  Kamera-Abstand, kein Schießen im Sattel (sonst ist es die bessere Version von allem).
+* **Absteigen an Orten:** In Aktionszonen ist es eng; dort steigt man ab, das Pferd bleibt stehen.
+* **Ein Ort, wo es steht** — Stall in Rustwater, sinnvoll als Township-Ausbaustufe.
+
+Offene Entscheidung: ob es gekauft, in einer Quest verdient oder gezähmt wird. Das gehört in die
+Story-Bibel, nicht hierher.
 
 ## 8.2 Mini-Dungeons & Unique-Champions (Backend-Spec)
 * **Instanz-Modell:** Jeder verstreute 🕳️-Eingang (`POIS`-Einträge `typ:"critter_hall"` mit

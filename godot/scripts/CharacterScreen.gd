@@ -15,7 +15,12 @@ class_name CharacterScreen extends Control
 
 enum Tab { AUSRUESTUNG, FAEHIGKEITEN }
 
-const PANEL_W: float = 560.0
+## Zweispaltig, seit der Beutel ein Raster ist: links die getragene Ausrüstung als Puppe, rechts
+## das Raster. Bei 1280×720 Bezugsauflösung passen 1080 px Tafelbreite bequem.
+const PANEL_W: float = 1080.0
+const LEFT_W: float = 430.0     # Spalte „Getragen" + Werteblatt
+const GRID_W: float = 250.0
+const PAD: float = 14.0     # 5 Spalten x 44 px + Fugen
 
 var tab: int = Tab.AUSRUESTUNG
 
@@ -23,44 +28,190 @@ var _head: Label
 var _tabs: HBoxContainer
 var _list: VBoxContainer
 var _scroll: ScrollContainer
+var _cols: Control                # Sammelknoten der rechten Spalte (Raster + Aktionen)
+var _panel: Panel
+var _grid: InventoryGrid
+var _grid_head: Label
+var _detail: Label
+var _act_equip: Button
+var _act_scrap: Button
 
+
+## Feste Tafel statt verschachtelter Container.
+##
+## Der erste Anlauf setzte zwei Spalten in eine HBox in eine VBox mit Anker und Versatz. Das
+## Ergebnis war unbrauchbar: keine Abdunklung, die linke Spalte 60 px breit statt 430, die
+## Kopfzeile mitten im HUD. Container verhandeln ihre Größen untereinander, und wer dabei
+## `position` und `custom_minimum_size` von außen hineinreicht, kämpft gegen die Verhandlung
+## statt sie zu nutzen.
+##
+## Jetzt: eine `Panel` mit festen Rändern, mittig verankert, darin alles an festen Positionen.
+## Bei fester Bezugsauflösung (1280×720, siehe `project.godot`) ist das nicht nur einfacher,
+## sondern auch genauer — die Tafel sitzt auf jedem Gerät gleich.
+const PANEL_H: float = 646.0
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# `set_anchors_AND_OFFSETS_preset`, nicht `set_anchors_preset`.
+	#
+	# Die kurze Variante setzt nur die ANKER und lässt die Ränder stehen. Bei einem Control
+	# direkt unter einem `CanvasLayer` sind die beim Erzeugen alle 0 — und 0 Ränder auf einem
+	# Anker von (0,0,1,1) ergeben rechnerisch Vollbild, praktisch aber blieb dieser Bildschirm
+	# 0×0 groß. Die Folge war grotesk und schwer zuzuordnen: Die Abdunklung war unsichtbar (0×0),
+	# und die mittig verankerte Tafel zentrierte auf den Nullpunkt, ragte also zu drei Vierteln
+	# aus dem Bild. Die lange Variante setzt beides und ist hier die einzige richtige.
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 	var dim := ColorRect.new()
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.color = Color(0.03, 0.03, 0.04, 0.90)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
-	var box := VBoxContainer.new()
-	box.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	box.position = Vector2(-PANEL_W * 0.5, 30.0)
-	box.custom_minimum_size = Vector2(PANEL_W, 0.0)
-	box.add_theme_constant_override("separation", 7)
-	add_child(box)
+	# Die Tafel: mittig, feste Größe. RÄNDER statt `position`, weil Ränder immer relativ zum
+	# Anker sind — `position` zählt nach `add_child` absolut (dieselbe Falle wie beim
+	# Schuss-Knopf, die dort einen Knopf auf (−146, −146) gesetzt hat).
+	_panel = Panel.new()
+	_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_panel.offset_left = -PANEL_W * 0.5
+	_panel.offset_right = PANEL_W * 0.5
+	_panel.offset_top = -PANEL_H * 0.5
+	_panel.offset_bottom = PANEL_H * 0.5
+	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_panel)
 	_head = Label.new()
 	_head.add_theme_font_size_override("font_size", 17)
 	_head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(_head)
+	_head.position = Vector2(0.0, 10.0)
+	_head.custom_minimum_size = Vector2(PANEL_W, 0.0)
+	_panel.add_child(_head)
 	_tabs = HBoxContainer.new()
+	_tabs.position = Vector2(PAD, 38.0)
 	_tabs.add_theme_constant_override("separation", 8)
-	box.add_child(_tabs)
-	# Die Liste kann lang werden (zwölf Perks, fünf Slots, voller Beutel) — ohne Rollbereich
-	# waere sie auf dem Handy unten abgeschnitten.
+	_panel.add_child(_tabs)
 	_scroll = ScrollContainer.new()
-	_scroll.custom_minimum_size = Vector2(PANEL_W, 430.0)
-	box.add_child(_scroll)
+	_scroll.position = Vector2(PAD, 88.0)
+	_scroll.size = Vector2(LEFT_W, PANEL_H - 128.0)
+	_scroll.custom_minimum_size = _scroll.size
+	_panel.add_child(_scroll)
 	_list = VBoxContainer.new()
-	_list.custom_minimum_size = Vector2(PANEL_W, 0.0)
+	_list.custom_minimum_size = Vector2(LEFT_W - 18.0, 0.0)
 	_list.add_theme_constant_override("separation", 4)
 	_scroll.add_child(_list)
+	_build_grid_column()
 	var hint := Label.new()
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.text = "[C] oder [Esc] schließt"
-	box.add_child(hint)
+	hint.position = Vector2(0.0, PANEL_H - 24.0)
+	hint.custom_minimum_size = Vector2(PANEL_W, 0.0)
+	hint.text = "Teil im Raster antippen → Anlegen oder Verschrotten · [C]/[Esc] schließt"
+	_panel.add_child(hint)
+
+
+## Rechte Spalte: Kopfzeile, Raster, Beschreibung des gewählten Teils, zwei Aktionen.
+##
+## Einmal gebaut und danach nur befüllt. Der Beutel wird bei jeder Aufnahme neu gezeichnet;
+## fünfzig Steuerelemente je Öffnen neu zu erzeugen wäre ein Ruckler ohne Gegenwert.
+func _build_grid_column() -> void:
+	var x: float = PAD + LEFT_W + 22.0
+	_cols = Control.new()      # Sammelknoten: einmal verstecken statt fuenfmal
+	_cols.position = Vector2(x, 88.0)
+	_cols.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_panel.add_child(_cols)
+	_grid_head = Label.new()
+	_grid_head.add_theme_font_size_override("font_size", 14)
+	_grid_head.add_theme_color_override("font_color", Color(0.72, 0.66, 0.50))
+	_grid_head.position = Vector2(0.0, -22.0)
+	_grid_head.custom_minimum_size = Vector2(GRID_W + 200.0, 0.0)
+	_cols.add_child(_grid_head)
+	_grid = InventoryGrid.new()
+	_grid.custom_minimum_size = InventoryGrid.grid_size()
+	_grid.size = InventoryGrid.grid_size()
+	_grid.picked.connect(_on_grid_picked)
+	_cols.add_child(_grid)
+	# Beschreibung UNTER dem Raster, nicht als Sprechblase am Finger: Auf dem Handy verdeckt
+	# die Hand genau die Stelle, an der eine Sprechblase erscheinen würde.
+	# Beschreibung RECHTS neben dem Raster, nicht darunter: Unter 12 Zeilen ist kein Platz mehr,
+	# und auf dem Handy verdeckt die Hand genau die Stelle unter dem Finger.
+	_detail = Label.new()
+	_detail.add_theme_font_size_override("font_size", 13)
+	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail.position = Vector2(GRID_W + 18.0, 0.0)
+	_detail.custom_minimum_size = Vector2(300.0, 150.0)
+	_detail.size = Vector2(300.0, 150.0)
+	_cols.add_child(_detail)
+	_act_equip = Button.new()
+	_act_equip.text = "Anlegen"
+	_act_equip.position = Vector2(GRID_W + 18.0, 170.0)
+	_act_equip.custom_minimum_size = Vector2(300.0, 46.0)
+	_act_equip.add_theme_font_size_override("font_size", 15)
+	_act_equip.pressed.connect(_equip_selected)
+	_cols.add_child(_act_equip)
+	_act_scrap = Button.new()
+	_act_scrap.text = "🔩 Verschrotten"
+	_act_scrap.position = Vector2(GRID_W + 18.0, 224.0)
+	_act_scrap.custom_minimum_size = Vector2(300.0, 46.0)
+	_act_scrap.add_theme_font_size_override("font_size", 15)
+	_act_scrap.pressed.connect(_scrap_selected)
+	_cols.add_child(_act_scrap)
+
+
+func _on_grid_picked(_index: int) -> void:
+	_refresh_selection()
+
+
+## Beschreibung und Knöpfe an die Auswahl anpassen. Knöpfe ohne Auswahl werden GESPERRT, nicht
+## versteckt: Ein Knopf, der erscheint und verschwindet, verschiebt das Bild bei jedem Tipp.
+func _refresh_selection() -> void:
+	if _grid == null:
+		return
+	var i: int = _grid.selected
+	if i < 0 or i >= GameState.bag.size():
+		_detail.text = "Kein Teil gewählt — tippe eines im Raster an."
+		_detail.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+		_act_equip.disabled = true
+		_act_scrap.disabled = true
+		return
+	var g: Dictionary = GameState.bag[i]
+	var f: Vector2i = BagManager.footprint(g)
+	var slot: String = String(g.get("slot", ""))
+	var getragen: Dictionary = EquipManager.equipped(slot)
+	var text: String = "%s\n%s · %d×%d Plätze" % [_describe(g),
+		String(ProgressionManager.GEAR_SLOTS[slot]["name"]), f.x, f.y]
+	# Vergleich mit dem, was gerade an derselben Stelle sitzt — das ist die Frage, die man beim
+	# Anlegen wirklich hat. Ohne sie muss man sich den alten Wert merken.
+	if not getragen.is_empty():
+		var alt: int = int(getragen["stat"]["val"])
+		var neu: int = int(g["stat"]["val"])
+		var pfeil: String = "▲" if neu > alt else ("▼" if neu < alt else "=")
+		text += "\nGetragen: %d %s   %s" % [alt, String(getragen["stat"]["key"]), pfeil]
+	_detail.text = text
+	_detail.add_theme_color_override("font_color", _rarity_color(g))
+	_act_equip.disabled = false
+	_act_scrap.disabled = false
+
+
+func _equip_selected() -> void:
+	var i: int = _grid.selected
+	if i >= 0 and BagManager.equip_from_bag(i):
+		_grid.selected = -1
+		refresh()
+
+
+func _scrap_selected() -> void:
+	var i: int = _grid.selected
+	if i < 0:
+		return
+	BagManager.scrap_at(i)
+	_grid.selected = -1
+	refresh()
+
+
+## Tipp aus `OverworldView` weiterreichen. `true`, wenn das Raster ihn verbraucht hat — dann
+## darf der Bildschirm nicht schliessen.
+func tap_grid(at: Vector2) -> bool:
+	if not visible or tab != Tab.AUSRUESTUNG or _grid == null:
+		return false
+	return _grid.tap(at)
 
 
 func open(which: int = Tab.AUSRUESTUNG) -> void:
@@ -76,8 +227,9 @@ func close() -> void:
 ## Liegt der Punkt auf der Tafel? Ein Tipp DARAUF muss an die Knöpfe durchgereicht werden,
 ## ein Tipp DANEBEN schließt (dieselbe Trennung wie beim Laden).
 func hits_panel(at: Vector2) -> bool:
-	return Rect2(Vector2(size.x * 0.5 - PANEL_W * 0.5 - 12.0, 20.0),
-		Vector2(PANEL_W + 24.0, 560.0)).has_point(at)
+	# Gegen die ECHTE Lage der Tafel gerechnet, nicht gegen nachgebaute Zahlen: Der Vorgaenger
+	# rechnete mit festen 660 px Hoehe und lag nach jeder Aenderung der Tafel daneben.
+	return _panel != null and Rect2(_panel.global_position, _panel.size).grow(10.0).has_point(at)
 
 
 func refresh() -> void:
@@ -95,7 +247,22 @@ func refresh() -> void:
 		String(AmmoData.POOLS["kristall"]["icon"]), AmmoData.amount("kristall"), AmmoData.cap("kristall")]
 	_add_tab("🎽 Ausrüstung", Tab.AUSRUESTUNG)
 	_add_tab("✴ Fähigkeiten (%d)" % GameState.perk_points, Tab.FAEHIGKEITEN)
-	if tab == Tab.AUSRUESTUNG:
+	# Die rechte Spalte gehört zur Ausrüstung. Im Fähigkeiten-Reiter wird sie versteckt und die
+	# linke bekommt die ganze Breite — ein leeres Raster neben dem Perk-Baum wäre nur Ballast.
+	var zeige_raster: bool = (tab == Tab.AUSRUESTUNG)
+	if _cols != null:
+		_cols.visible = zeige_raster
+	# Die linke Spalte wird im Faehigkeiten-Reiter breit: dort gibt es keine rechte Spalte, und
+	# zwoelf Perks mit Beschreibung brauchen den Platz.
+	var breite: float = LEFT_W if zeige_raster else PANEL_W - PAD * 2.0
+	_scroll.size = Vector2(breite, PANEL_H - 128.0)
+	_scroll.custom_minimum_size = _scroll.size
+	_list.custom_minimum_size = Vector2(breite - 18.0, 0.0)
+	if zeige_raster:
+		_grid.refresh()
+		_grid_head.text = "🎒 Beutel — %d/%d Zellen" % [
+			BagManager.used_cells(), BagManager.total_cells()]
+		_refresh_selection()
 		_build_gear()
 	else:
 		_build_perks()
@@ -104,7 +271,9 @@ func refresh() -> void:
 func _add_tab(text: String, which: int) -> void:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(PANEL_W * 0.5 - 6.0, 40.0)
+	# Feste Breite, nicht halbe Tafel: Bei 1080 px Tafelbreite wären zwei Reiter 534 px breit und
+	# stünden am Bildrand auseinander wie zwei Plakate. Reiter gehören zusammen, links oben.
+	b.custom_minimum_size = Vector2(240.0, 40.0)
 	b.add_theme_font_size_override("font_size", 15)
 	b.disabled = (tab == which)
 	b.pressed.connect(func() -> void:
@@ -140,23 +309,9 @@ func _build_gear() -> void:
 	]
 	for r in sheet:
 		_row("%s: %s" % [String(r[0]), String(r[1])], Color(0.86, 0.84, 0.78), "", Callable())
-	_caption("Beutel — %d/%d Plätze" % [BagManager.used_cells(), BagManager.total_cells()])
-	if GameState.bag.is_empty():
-		_row("   — leer —", Color(0.55, 0.55, 0.55), "", Callable())
-		return
-	for i in GameState.bag.size():
-		var g: Dictionary = GameState.bag[i]
-		var idx: int = i
-		var f: Vector2i = BagManager.footprint(g)
-		_row("%s\n   %s · %d Plätze" % [_describe(g),
-			String(ProgressionManager.GEAR_SLOTS[String(g["slot"])]["name"]), f.x * f.y],
-			_rarity_color(g), "Anlegen",
-			func() -> void:
-				if BagManager.equip_from_bag(idx):
-					refresh(),
-			"🔩", func() -> void:
-				BagManager.scrap_at(idx)
-				refresh())
+	# Der Beutel steht jetzt rechts im Raster. Ihn hier NOCHMAL als Liste zu führen war der
+	# erste Reflex und wäre falsch: zwei Darstellungen desselben Zustands, die man beide
+	# aktuell halten muss, und der Spieler weiß nicht, welche gilt.
 
 
 func _describe(g: Dictionary) -> String:

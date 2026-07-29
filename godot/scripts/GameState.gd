@@ -84,6 +84,11 @@ var codex: Array = []              ## freigeschaltete Codex-Einträge (ids)
 ## soll sie nicht jede Sitzung neu treffen muessen.
 var cam_zoom: int = 1
 
+## Erkundete Karte (Fog of War, siehe `FogOfWar`): Zellenschlüssel (int) -> 1.
+## Nur BESUCHTE Zellen stehen drin — ein Raster über die ganze Karte wären 15 625 Einträge in
+## jedem Spielstand, auch bei jemandem, der noch nichts gesehen hat.
+var fog: Dictionary = {}
+
 # ── Ablauf-Flags (nur backend-relevante; UI-Only-Flags leben in der UI-Schicht) ─
 var flags_ui: Dictionary = { "reveal_playing": false }
 

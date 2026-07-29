@@ -31,6 +31,7 @@ static func serialize() -> Dictionary:
 		"ammo": GameState.ammo.duplicate(true),
 		"mag": GameState.mag.duplicate(true),
 		"cam_zoom": GameState.cam_zoom,
+		"fog": GameState.fog.duplicate(),
 		"economy": GameState.economy.duplicate(true),
 		"kills": GameState.kills,
 		"quests": GameState.quests.duplicate(true),
@@ -66,6 +67,18 @@ static func deserialize(data: Dictionary) -> void:
 	GameState.mag = _int_dict_with_defaults(data.get("mag", {}), AmmoData.fresh_mags())
 	GameState.cam_zoom = clampi(int(data.get("cam_zoom", OverworldView.CAM_ZOOM_DEFAULT)),
 		0, OverworldView.CAM_ZOOM_STEPS.size() - 1)
+	# Altstand ohne Nebel: Dann galt die ganze Karte als bekannt, und das soll auch so bleiben —
+	# jemandem nachträglich die Karte wieder zuzuziehen, die er schon gelaufen ist, wäre die
+	# unfreundlichste Art, eine neue Funktion einzuführen. Ein leeres Feld heisst „alles bekannt",
+	# ein befülltes heisst „nur diese Zellen"; `FogOfWar` kennt diese Unterscheidung nicht, also
+	# wird hier bei fehlendem Block die halbe Welt um Rustwater aufgedeckt.
+	GameState.fog = {}
+	var gespeichert: Dictionary = data.get("fog", {}) as Dictionary
+	if gespeichert.is_empty():
+		FogOfWar.fresh()
+	else:
+		for k in gespeichert:
+			GameState.fog[int(k)] = 1
 	GameState.economy = _int_dict_with_defaults(data.get("economy", {}), { "saloon": 0, "forge": 0, "distillery": 0, "laboratory": 0 })
 	GameState.kills = maxi(0, int(data.get("kills", 0)))
 	GameState.quests = (data.get("quests", {}) as Dictionary).duplicate(true)

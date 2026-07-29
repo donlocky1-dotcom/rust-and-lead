@@ -45,6 +45,24 @@ static func has_room_for(gear: Dictionary) -> bool:
 	return _pack(gear)
 
 
+## WO im Raster jedes Teil liegt: Beutel-Index → Rect2i(Spalte, Zeile, Breite, Höhe).
+##
+## Bisher hat `_pack` die Belegung berechnet und weggeworfen — es brauchte nur ein Ja/Nein.
+## Ein Beutel, den man SIEHT, braucht sie: Dass eine Rüstung 2×2 Zellen frisst und ein Helm
+## eine, ist genau der Unterschied zwischen einem Raster und einer Stückzahl. Dieselbe Packung
+## wie in `_pack`, damit Anzeige und Kapazitätsprüfung nicht auseinanderlaufen können.
+static func layout() -> Array:
+	var grid := GridInventoryBackend.new(COLS, ROWS)
+	var out: Array = []
+	for i in GameState.bag.size():
+		var f: Vector2i = footprint(GameState.bag[i])
+		if not grid.place_first(i, f.x, f.y):
+			out.append(Rect2i(-1, -1, f.x, f.y))   # passt nicht mehr; sollte nie vorkommen
+			continue
+		out.append(grid.placement_of(i))
+	return out
+
+
 static func add(gear: Dictionary) -> bool:
 	if gear.is_empty() or not has_room_for(gear):
 		return false

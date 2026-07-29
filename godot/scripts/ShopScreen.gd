@@ -29,11 +29,14 @@ var _hint: Label
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# `..._and_offsets_...`: Die kurze Variante setzt nur die Anker und laesst die Raender bei 0.
+	# Unter einem `CanvasLayer` bleibt der Bildschirm dadurch 0x0 gross — die Abdunklung ist dann
+	# unsichtbar und alles mittig Verankerte zentriert auf den Nullpunkt statt auf das Bild.
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 	var dim := ColorRect.new()
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.color = Color(0.03, 0.03, 0.04, 0.88)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)

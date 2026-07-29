@@ -462,6 +462,65 @@ static func smog_dot_damage(pos: Vector2, delta_sec: float) -> int:
 	return ceili(float(GameState.max_hp()) / SMOG_LETHAL_SECONDS * delta_sec)
 
 
+# ── Der Strahlensumpf (Gate 0) ────────────────────────────────────────────────
+## Ein Riegel VOR den Sprengtoren, und der erste, den der Spieler überhaupt trifft.
+##
+## Wozu: Sektor 1 misst 800 × 2000 Welteinheiten, das sind zwei Quadratkilometer, die von
+## Minute eins offenstehen. Wer dort loslaeuft, hat vier Orte in beliebiger Reihenfolge und
+## keinen Grund, irgendwohin zu gehen. Die Sprengtore greifen erst in Kapitel 4 — bis dahin
+## gibt es keine einzige Grenze.
+##
+## Der Sumpf zieht die Startwelt auf ein Viertel zusammen: ein Band quer ueber die Karte,
+## NORDLICH hinter den Schrott-Minen. Alles dahinter — Rattengestruepp-Norden, Zugdepot,
+## Salzpfanne — wird erst mit Strahlenschutz begehbar. Damit hat der Anfang eine Form: Stadt,
+## Grube, und dazwischen der Weg.
+##
+## Warum ein Sumpf und keine Mauer: Eine Mauer sagt „hier nicht", ein verstrahltes Moor sagt
+## „hier noch nicht, und du siehst schon, was dahinter liegt". Man kann hineinlaufen und
+## nimmt Schaden — die Grenze ist eine Entscheidung, keine Wand.
+const SWAMP_SOUTH_Y: int = 520      # Sued-Rand des Bandes (Welteinheiten)
+const SWAMP_NORTH_Y: int = 640      # Nord-Rand
+## Sekunden bis zum Tod ohne Schutz, mitten im Band. Kuerzer als beim Smog (3 s): Der Sumpf
+## kommt frueh, und ein frueher Riegel muss unmissverstaendlich sein.
+const SWAMP_LETHAL_SECONDS: float = 6.0
+## Der Schutzanzug haengt an derselben Werkstatt wie der Smog-Filter, nur eine Stufe frueher.
+## Zwei Gates am gleichen Gebaeude geben dem Ausbau eine sichtbare Reihenfolge.
+const SWAMP_SUIT_LEVEL: int = 1
+
+
+static func has_rad_suit() -> bool:
+	return GameState.building_level(REFINERY_BUILDING) >= SWAMP_SUIT_LEVEL
+
+
+## Wie tief im Sumpf (0 = draussen, 1 = mitten drin)?
+##
+## Ein weicher Verlauf statt einer Kante: An den Raendern nimmt man wenig Schaden und merkt,
+## dass es schlimmer wird. Eine harte Grenze wuerde man ueberrennen und ohne Vorwarnung
+## sterben — das ist der Unterschied zwischen einer Warnung und einer Falle.
+static func swamp_depth(pos: Vector2) -> float:
+	if pos.y <= float(SWAMP_SOUTH_Y) or pos.y >= float(SWAMP_NORTH_Y):
+		return 0.0
+	var t: float = (pos.y - float(SWAMP_SOUTH_Y)) / float(SWAMP_NORTH_Y - SWAMP_SOUTH_Y)
+	return sin(PI * t)     # 0 an beiden Raendern, 1 in der Mitte
+
+
+static func is_in_swamp(pos: Vector2) -> bool:
+	return swamp_depth(pos) > 0.0
+
+
+## Strahlenschaden dieses Frames. Mit Anzug 0 — dann ist der Sumpf nur noch Gelaende.
+static func swamp_dot_damage(pos: Vector2, delta_sec: float) -> int:
+	var tiefe: float = swamp_depth(pos)
+	if tiefe <= 0.0 or has_rad_suit():
+		return 0
+	return ceili(float(GameState.max_hp()) / SWAMP_LETHAL_SECONDS * delta_sec * tiefe)
+
+
+## Mitte des Bandes in Welteinheiten — fuer Karte und Gelaendeaufbau.
+static func swamp_center_y() -> float:
+	return float(SWAMP_SOUTH_Y + SWAMP_NORTH_Y) * 0.5
+
+
 # ── Sektor-Zutritt (kombiniert) ───────────────────────────────────────────────
 
 ## Grundsätzlicher Zutritt zu einem Sektor (Story-/Ausrüstungs-Gate).
