@@ -126,6 +126,13 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   **echte Bauten**: Palisaden mit Toren, Häuserzeilen, Turmbeine, Felskanten. **Keine
   unsichtbaren Wände** — was blockt, sieht man auch, und man gleitet an der Kante entlang,
   statt hart zu stoppen.
+* **Die Schrottgrube** (Schrott-Minen, Sektor 1) — der Ort, an dem der Held erwacht. 30 m
+  Durchmesser, 5 m tief, **steile Erdwände (66°)** und eine begehbare Rampe im Nordosten; der
+  Grund ist über 23 m flach. Kein Trichter: Aus der Iso-Perspektive liest sich eine Schüssel
+  als sanfte Delle, erst die Wand macht daraus einen Ort, in den man hinabsteigt. Der Grund
+  liegt unter einem Teppich aus 128 Schrottstücken in drei Lagen, jedes gedreht, gekippt und
+  teilweise eingesunken; in der Mitte steht eine Lache. Bildvorlage und die fehlenden
+  Modelle: `docs/PROMPTS_SCHROTTGRUBE.md`.
 * **Eisenbahn** — die Iron Rail verbindet die fünf Knoten (Rustwater, Zugdepot, Rogue's
   Landing, Fort Freedom, Sektor 01). Ihre Trasse liegt **auf den Routen** (zweite Geografie
   ausgeschlossen) und ist damit die einzige gezeichnete Verbindung zwischen den Orten. Gereist wird **nur vom Bahnsteig aus**: Schnellreise ist ein Ort in der

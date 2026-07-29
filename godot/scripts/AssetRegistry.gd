@@ -61,6 +61,23 @@ const PATHS: Dictionary = {
 	"cactus":          ["res://assets/models/props/cactus.glb"],
 	"scrap_heap":      ["res://assets/models/props/scrap_heap.glb"],
 	"scrap_heap_b":    ["res://assets/models/props/scrap_heap_b.glb"],
+	# Sparsame Zwillinge für die Schrottgrube. Dort liegen rund hundert Stücke übereinander;
+	# mit den vollen Modellen (7.000–12.000 Dreiecke) käme allein die Grube auf eine Million.
+	# Die `_lod`-Dateien sind dieselben Modelle mit 1.400 Dreiecken und 512er Textur.
+	"scrap_heap_lod":   ["res://assets/models/props/scrap_heap_lod.glb"],
+	"scrap_heap_b_lod": ["res://assets/models/props/scrap_heap_b_lod.glb"],
+	"barrels_lod":      ["res://assets/models/props/barrels_lod.glb"],
+	"barrels_b_lod":    ["res://assets/models/props/barrels_b_lod.glb"],
+	"barrels_c_lod":    ["res://assets/models/props/barrels_c_lod.glb"],
+	# Verrostete Zweitfassungen derselben Modelle (`tools/rust_variant.py`): nur die Farbtextur
+	# ist durch einen Rost-Verlauf geschickt. Verdoppelt die Formenvielfalt der Grube zum
+	# Nulltarif und bringt vor allem die Farbe, die den Bildern des Auftraggebers entspricht —
+	# die Fass-Stapel kommen ab Werk in gebleichtem Holz, nicht in korrodiertem Blech.
+	"scrap_heap_rust_lod":   ["res://assets/models/props/scrap_heap_rust_lod.glb"],
+	"scrap_heap_b_rust_lod": ["res://assets/models/props/scrap_heap_b_rust_lod.glb"],
+	"barrels_rust_lod":      ["res://assets/models/props/barrels_rust_lod.glb"],
+	"barrels_b_rust_lod":    ["res://assets/models/props/barrels_b_rust_lod.glb"],
+	"barrels_c_rust_lod":    ["res://assets/models/props/barrels_c_rust_lod.glb"],
 	"bones":           ["res://assets/models/props/bones.glb"],
 	"bones_b":         ["res://assets/models/props/bones_b.glb"],
 	# ── Props / Items ──
@@ -104,6 +121,8 @@ const TARGET_HEIGHT: Dictionary = {
 	"palisade_d": 3.4, "palisade_e": 3.4,
 	# ── Requisiten, die AUFRECHT stehen (Masse aus docs/PROMPTS_PROPS.md) ──
 	"barrels": 1.6, "barrels_b": 1.6, "barrels_c": 1.6,
+	"barrels_lod": 1.6, "barrels_b_lod": 1.6, "barrels_c_lod": 1.6,
+	"barrels_rust_lod": 1.6, "barrels_b_rust_lod": 1.6, "barrels_c_rust_lod": 1.6,
 	"street_lamp": 3.6,
 	"bounty_board": 2.2,
 	"cactus": 2.6,               # Saeulenkaktus — ueberragt den Spieler deutlich
@@ -128,6 +147,8 @@ const TARGET_LENGTH: Dictionary = {
 	                         # Gebäude 37 m lang geworden — eine Kathedrale statt eines Depots.
 	"hitching_post": 2.6,    # Trog mit Anbindestange
 	"scrap_heap": 3.2, "scrap_heap_b": 3.6,
+	"scrap_heap_lod": 3.2, "scrap_heap_b_lod": 3.6,
+	"scrap_heap_rust_lod": 3.2, "scrap_heap_b_rust_lod": 3.6,
 	"bones": 1.8, "bones_b": 1.8,
 }
 

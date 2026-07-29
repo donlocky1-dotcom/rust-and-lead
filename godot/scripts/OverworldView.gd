@@ -172,10 +172,12 @@ const WEAPON_GRIP_ROT: Vector3 = Vector3(0.0, 0.0, 0.0)   # Radiant (X, Y, Z)
 const PLAYER_RADIUS_M: float = 0.6
 ## Breite der Meldungszeile. Fest, damit sie mittig bleibt und nicht aus dem Bild waechst.
 const TOAST_W: float = 720.0
-## Aufloesung des Gelaendenetzes. 0,5 m ergibt fuer die Schrotthalde (20 m Aussenradius)
-## rund 6 800 Vierecke — bei 242 Meshes im Spiel faellt das nicht ins Gewicht, und die
-## Flanke bleibt bei 22° Neigung glatt.
-const TERRAIN_STEP_M: float = 0.5
+## Aufloesung des Gelaendenetzes. Verfeinert von 0,5 auf 0,35 m, als aus der Schuessel eine
+## Grube mit 66°-Waenden wurde: Bei 0,5 m Schrittweite steigt eine solche Wand je Viereck um
+## 1,1 m — sichtbar treppig. Mit 0,35 m sind es 0,79 m, und die Kanten lesen sich als
+## ausgewaschene Erde statt als Stufen. Kostet fuer die Schrotthalde (20 m Aussenradius)
+## rund 33 000 Dreiecke; das ist der Preis fuer die einzige Gelaendeform im Spiel.
+const TERRAIN_STEP_M: float = 0.35
 ## Zuschlag um jede Gelaendeform, damit der Flicken sicher auf y = 0 ausklingt, bevor die
 ## flache Restflaeche anschliesst.
 const TERRAIN_MARGIN_M: float = 2.0
@@ -492,7 +494,13 @@ func _add_ground_quad(r: Rect2, mat: Material) -> void:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var corners: Array = [Vector2(r.position.x, r.position.y), Vector2(r.end.x, r.position.y),
 		Vector2(r.end.x, r.end.y), Vector2(r.position.x, r.end.y)]
-	for idx in [0, 2, 1, 0, 3, 2]:
+	# Umlaufrichtung: siehe `_ist_vorderseitig` in den Tests. Sie stand hier jahrelang falsch
+	# herum ([0,2,1 / 0,3,2]) — der Boden war damit RUECKSEITIG. Aufgefallen ist es nie, weil
+	# das Sandmaterial aus dem CC0-Modell doppelseitig ist (`cull_mode = CULL_DISABLED`): Die
+	# Flaeche blieb sichtbar, Godot dreht bei Rueckseiten aber die Normale um, und eine nach
+	# UNTEN zeigende Normale bekommt keine Sonne. Gemessen lag die Helligkeit bei 0,24 statt
+	# 0,96 — der ganze Boden der Welt lag nur im Umgebungslicht.
+	for idx in [0, 1, 2, 0, 2, 3]:
 		var p: Vector2 = corners[idx]
 		st.set_normal(Vector3.UP)
 		st.set_uv(p / _ground_tile_m)
@@ -525,8 +533,12 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 		for ix in n:
 			var x0: float = c.x - reach + float(ix) * step
 			var z0: float = c.z - reach + float(iz) * step
-			for q in [Vector2(0, 0), Vector2(1, 1), Vector2(1, 0),
-					Vector2(0, 0), Vector2(0, 1), Vector2(1, 1)]:
+			# Dieselbe umgekehrte Umlaufrichtung wie beim flachen Bodenviereck — und derselbe
+			# Grund, warum es nicht auffiel. Bei einer 66°-Wand wiegt es schwerer als beim
+			# flachen Boden: Ohne Sonne hat die Wand keine Schattierung, und dann sieht man
+			# die Grube ueberhaupt nicht mehr als Grube.
+			for q in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1),
+					Vector2(0, 0), Vector2(1, 1), Vector2(0, 1)]:
 				var px: float = x0 + q.x * step
 				var pz: float = z0 + q.y * step
 				st.set_normal(WorldManager.normal_at(px, pz))
@@ -1460,22 +1472,38 @@ func _scatter_props() -> void:
 
 
 ## Füllt jede Geländesenke mit dem, wonach sie benannt ist — bei der Schrotthalde also mit
-## Schrott. Bisher war der Trichter eine leere Mulde: Man sah, dass es abwärts geht, aber
-## nicht wozu. Der Schrott macht aus der Topographie einen Ort.
+## Schrott. Vorlage sind die Bilder, die der Auftraggeber geschickt hat: eine Grube, deren
+## Grund von Rand zu Rand unter Metall verschwindet, mit einer Lache in der Mitte.
 ##
-## Bewusst NICHT gleichmäßig: Das Zeug ist von den Rändern nach innen gerutscht, liegt also in
-## der Mitte am dichtesten. `sqrt(randf())` würde gleichmäßig über die Fläche streuen — hier
-## ist `randf()²`-nah das richtige, weil die Mitte voll sein soll.
-const CRATER_PROP_COUNT: int = 26
+## Der Unterschied zur ersten Fassung ist nicht die Menge, sondern die ART der Verteilung.
+## Vorher standen 26 Stücke einzeln herum, jedes auf dem Boden, jedes für sich erkennbar —
+## das liest sich als „hier wurde etwas abgestellt". Ein Schrotthaufen liest sich erst als
+## Haufen, wenn drei Dinge zusammenkommen:
+##
+##  1. **Kein Boden mehr sichtbar.** Deshalb wird nicht gestreut, sondern in drei Lagen
+##     gefüllt: große Brocken, mittleres Zeug dazwischen, Kleinkram als Lückenfüller.
+##  2. **Überlappung.** Die Stücke dürfen ineinanderstecken. Ein Mindestabstand — der erste
+##     Reflex — erzeugt genau das Raster, das man vermeiden will.
+##  3. **Teilweise vergraben.** Jedes Stück sinkt um 15–45 % seiner Höhe in den Grund. Ohne
+##     das steht alles mit der Unterkante auf einer gemeinsamen Ebene, und die Ebene sieht
+##     man sofort — sie verrät, dass da nichts liegt, sondern etwas platziert wurde.
+##
+## Gefüllt wird nur der FLACHE Grund plus ein Stück Wandfuß. Die Wand selbst bleibt frei:
+## Bei 66° würde jedes Fass wie angeklebt aussehen.
+## Die drei Lagen. Die Zahlen sind ein Kompromiss mit dem Dreiecksbudget: 80 Stücke kosten
+## rund 190 000 Dreiecke, und das ist für den einen Ort, an dem das Spiel anfängt, vertretbar
+## — für die Wüste daneben wäre es das nicht.
+const CRATER_LAYERS: Array = [
+	# n = Anzahl, min/max = Größe als Anteil der Normalgröße, sink = Einsinken (Anteil Höhe)
+	{ "n": 22, "min": 0.95, "max": 1.55, "sink": [0.10, 0.30] },   # große Brocken
+	{ "n": 44, "min": 0.50, "max": 0.90, "sink": [0.15, 0.40] },   # mittleres Zeug
+	{ "n": 62, "min": 0.22, "max": 0.46, "sink": [0.20, 0.55] },   # Kleinkram in den Lücken
+]
+## Radius der Lache am tiefsten Punkt. Sie ist der einzige freie Fleck — und der Ort, an dem
+## der Held erwacht, weil man dort als Einziges liegen kann.
+const PUDDLE_R_M: float = 2.1
 func _fill_craters() -> void:
-	# Gewichtet zugunsten der Schrotthaufen: Der Ort heisst Schrotthalde, nicht Lagerhof.
-	# Gleich verteilt sah der Trichter aus, als waere ein Frachtwagen umgekippt.
-	var pool: Array = []
-	for k in [["scrap_heap", 4], ["scrap_heap_b", 4], ["barrels", 1], ["barrels_b", 1],
-			["barrels_c", 1], ["bones", 1]]:
-		if AssetRegistry.has_model(String(k[0])):
-			for _i in int(k[1]):
-				pool.append(String(k[0]))
+	var pool: Array = _scrap_pool()
 	if pool.is_empty():
 		return
 	var rng := RandomNumberGenerator.new()
@@ -1483,29 +1511,136 @@ func _fill_craters() -> void:
 	for f in WorldManager.TERRAIN:
 		var c: Vector3 = WorldManager.feature_center(f)
 		var radius: float = float(f["radius"])
-		for i in CRATER_PROP_COUNT:
-			var kind: String = pool[rng.randi_range(0, pool.size() - 1)]
-			var goal: float = AssetRegistry.length_of(kind)
-			if goal <= 0.0:
-				goal = AssetRegistry.height_of(kind)
-			var node: Node3D = AssetRegistry.instantiate(kind, goal * rng.randf_range(0.6, 1.25))
-			if node == null:
+		# Bis an den Wandfuß plus ein Meter: Der Schrott soll die Wand berühren, nicht davor
+		# aufhören. Eine sichtbare Fuge zwischen Haufen und Wand wäre das Verräterischste.
+		var reichweite: float = radius * float(f.get("floor", 0.8)) + 1.0
+		_add_puddle(c, f)
+		for lage in CRATER_LAYERS:
+			for i in int(lage["n"]):
+				_drop_scrap(c, reichweite, pool, lage, rng)
+		_dress_rim(c, f, rng)
+
+
+## Ein Stück Schrott an eine zufällige Stelle des Grundes.
+func _drop_scrap(c: Vector3, reichweite: float, pool: Array, lage: Dictionary,
+		rng: RandomNumberGenerator) -> void:
+	var kind: String = pool[rng.randi_range(0, pool.size() - 1)]
+	var basis: float = AssetRegistry.length_of(kind)
+	if basis <= 0.0:
+		basis = AssetRegistry.height_of(kind)
+	var groesse: float = basis * rng.randf_range(float(lage["min"]), float(lage["max"]))
+	var node: Node3D = AssetRegistry.instantiate(kind, groesse)
+	if node == null:
+		return
+	# `sqrt` verteilt gleichmäßig über die FLÄCHE. Ohne die Wurzel drängt sich alles in der
+	# Mitte und der Rand des Grundes bleibt kahl — bei einem Teppich fällt das sofort auf.
+	var ang: float = rng.randf() * TAU
+	var dist: float = sqrt(rng.randf()) * reichweite
+	var pos := Vector3(c.x + cos(ang) * dist, 0.0, c.z + sin(ang) * dist)
+	# Nur die Lache selbst bleibt frei, nicht ein Ring darum: Der Schnitt liegt INNERHALB des
+	# Lachenrands, sodass Stuecke von aussen hineinragen duerfen. Sonst zieht sich ein
+	# makellos runder Freiraum durch den Haufen, und ein makelloser Kreis ist das Letzte, was
+	# in einer Schuttgrube liegt.
+	if Vector2(pos.x - c.x, pos.z - c.z).length() < PUDDLE_R_M * 0.72:
+		return
+	pos.y = WorldManager.height_at(pos.x, pos.z)
+	var hoehe: float = maxf(AssetRegistry.local_bounds(node).size.y, 0.05)
+	pos.y -= hoehe * rng.randf_range(float(lage["sink"][0]), float(lage["sink"][1]))
+	node.position = pos
+	node.rotation.y = rng.randf() * TAU
+	# Kippen: nicht nach der Hangneigung wie bisher (der Grund ist flach), sondern zufällig.
+	# Geworfenes Metall liegt schief; alles waagerecht wirkt wie ein Regal.
+	node.rotation.x = deg_to_rad(rng.randf_range(-26.0, 26.0))
+	node.rotation.z = deg_to_rad(rng.randf_range(-26.0, 26.0))
+	add_child(node)
+
+
+## Sparsame Fassungen bevorzugen. Ein Stück Schrott liegt hier hundertfach — bei 12.000
+## Dreiecken je Haufen wäre allein die Grube teurer als die ganze übrige Welt. Die `_lod`-
+## Dateien sind dieselben Modelle mit 1.400 Dreiecken und 512er Textur; aus zehn Metern
+## Entfernung, in einem Haufen aus dreißig anderen, sieht man den Unterschied nicht.
+func _scrap_pool() -> Array:
+	var pool: Array = []
+	# Gewichtet nach KOSTEN, nicht nur nach Optik. Die beiden Schrotthaufen bleiben auch
+	# reduziert bei 6.600 bzw. 3.600 Dreiecken haengen — die Reduktion kommt dort nicht weiter,
+	# weil die Modelle aus vielen losen Einzelteilen bestehen und jede Bruchkante als Rand
+	# geschuetzt wird. Die Fass-Stapel gehen dagegen sauber auf 1.400 herunter. Also liegen
+	# mehr Faesser als Haufen in der Grube; im Gewirr faellt das nicht auf.
+	# `bones` ist raus: kein sparsamer Zwilling, und ein Tierskelett gehoert in die Wueste,
+	# nicht in eine Grube voller Maschinenteile.
+	for eintrag in [["scrap_heap", 2], ["scrap_heap_b", 3], ["barrels", 4], ["barrels_b", 4],
+			["barrels_c", 4]]:
+		var name: String = String(eintrag[0])
+		# Rostfassung zuerst, dann die sparsame, dann das volle Modell. Zwei Drittel der
+		# Stuecke sollen rostig sein — die Vorlage ist ein Haufen Metall, kein Holzlager.
+		for kandidat in [[name + "_rust_lod", 2], [name + "_lod", 1]]:
+			var wie: String = String(kandidat[0])
+			if not AssetRegistry.has_model(wie):
 				continue
-			var ang: float = rng.randf() * TAU
-			var t: float = rng.randf()
-			# Die inneren 4 m bleiben frei: Dort erwacht der Held (GDD), und dort muss Platz
-			# für ihn, die Kamera und den ersten Schritt sein.
-			var dist: float = 4.0 + t * t * (radius * 0.95 - 4.0)
-			var pos := Vector3(c.x + cos(ang) * dist, 0.0, c.z + sin(ang) * dist)
-			pos.y = WorldManager.height_at(pos.x, pos.z)
-			node.position = pos
-			node.rotation.y = rng.randf() * TAU
-			# Leicht in die Hangneigung kippen — ein waagerechtes Fass an einer 20°-Böschung
-			# verrät die Formel sofort.
-			var n: Vector3 = WorldManager.normal_at(pos.x, pos.z)
-			node.rotation.x = atan2(n.z, n.y) * 0.7
-			node.rotation.z = -atan2(n.x, n.y) * 0.7
-			add_child(node)
+			for _i in int(eintrag[1]) * int(kandidat[1]):
+				pool.append(wie)
+		if pool.is_empty() and AssetRegistry.has_model(name):
+			for _i in int(eintrag[1]):
+				pool.append(name)
+	return pool
+
+
+## Steine auf der Lippe. In der Vorlage ist der Rand der Grube kein sauberer Kreis, sondern
+## aufgebrochene Erde mit losem Geroell — daran erkennt man, dass hier etwas eingebrochen ist
+## und nicht jemand ein Loch ausgehoben hat.
+func _dress_rim(c: Vector3, f: Dictionary, rng: RandomNumberGenerator) -> void:
+	var sorten: Array = []
+	for k in ["rock_small", "rock_boulder"]:
+		if AssetRegistry.has_model(k):
+			sorten.append(k)
+	if sorten.is_empty():
+		return
+	var radius: float = float(f["radius"])
+	for i in 22:
+		var kind: String = sorten[rng.randi_range(0, sorten.size() - 1)]
+		# Klein halten: Bei voller Groesse standen dort helle Findlinge, die groesser waren als
+		# die Faesser in der Grube — das las sich als Steinbruch, nicht als abgebrochene Kante.
+		var node: Node3D = AssetRegistry.instantiate(kind,
+			AssetRegistry.length_of(kind) * rng.randf_range(0.18, 0.45))
+		if node == null:
+			continue
+		var ang: float = rng.randf() * TAU
+		# Genau auf dem Wall, nicht davor und nicht dahinter: dort, wo die Kante bricht.
+		var dist: float = radius * rng.randf_range(1.02, 1.0 + float(f["rim_width"]) * 0.9)
+		var pos := Vector3(c.x + cos(ang) * dist, 0.0, c.z + sin(ang) * dist)
+		pos.y = WorldManager.height_at(pos.x, pos.z) - 0.15   # etwas eingesunken
+		node.position = pos
+		node.rotation.y = rng.randf() * TAU
+		node.rotation.x = deg_to_rad(rng.randf_range(-15.0, 15.0))
+		node.rotation.z = deg_to_rad(rng.randf_range(-15.0, 15.0))
+		add_child(node)
+
+
+## Stehendes Wasser am tiefsten Punkt — Regen, Öl und was aus dem Metall läuft.
+##
+## Der einzige waagerechte, spiegelnde Fleck in einer Grube voller stumpfem Rost: Genau
+## deshalb zieht er den Blick auf die Mitte, und genau dort soll der Held liegen.
+func _add_puddle(c: Vector3, f: Dictionary) -> void:
+	var mi := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = PUDDLE_R_M
+	disc.bottom_radius = PUDDLE_R_M
+	disc.height = 0.04
+	disc.radial_segments = 24
+	mi.mesh = disc
+	var m := StandardMaterial3D.new()
+	# Nicht schwarz: Ein schwarzer Fleck im hellen Sand liest sich als LOCH, nicht als Wasser.
+	# Ein bisschen Eigenfarbe, mittlere Rauheit und etwas Metallic ergeben einen breiten
+	# Glanz statt eines Spiegels — und Glanz ist es, was eine Pfuetze im Bild ausmacht.
+	m.albedo_color = Color(0.14, 0.13, 0.10)
+	m.metallic = 0.40
+	m.roughness = 0.22
+	m.rim_enabled = true
+	m.rim = 0.6
+	mi.mesh.surface_set_material(0, m)
+	mi.position = Vector3(c.x, WorldManager.height_at(c.x, c.z) + 0.02, c.z)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
 
 
 func _rustwater_spawn() -> Vector3:

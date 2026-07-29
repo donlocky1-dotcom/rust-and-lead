@@ -50,14 +50,28 @@ static func poi_scene_position(poi_id: String) -> Vector3:
 
 ## Geländeformen. `poi` verankert sie an einem Ort, alle Maße in METERN.
 ##  • `radius`      Rand der Senke — dort ist die Höhe wieder 0
-##  • `depth`       Tiefe in der Mitte
+##  • `depth`       Tiefe des Grundes
 ##  • `rim`         Höhe des Auswurfwalls direkt außerhalb
 ##  • `rim_width`   Breite des Walls als Anteil des Radius
+##  • `floor`       Anteil des Radius, der FLACHER GRUND ist (0 = Schüssel ohne Boden).
+##                  Der Rest dazwischen ist die Wand: je größer `floor`, desto steiler.
+##  • `ramp_deg`    Richtung der Rampe (0° = Osten, 90° = Norden) — dort bleibt die Wand weg
+##  • `ramp_span`   Öffnungswinkel der Rampe in Grad (Gesamtbreite, nicht halbe)
 const TERRAIN: Array = [
-	# Die Schrotthalde: Einschlagtrichter, in dem der Held erwacht. 30 m Durchmesser — groß
-	# genug für eine Szene, klein genug, dass man den Rand von der Mitte aus sieht.
+	# Die Schrotthalde: die Grube, in der der Held erwacht. 30 m Durchmesser — groß genug für
+	# eine Szene, klein genug, dass man den Rand von der Mitte aus sieht.
+	#
+	# Kein Trichter mehr, sondern ein LOCH: flacher Grund, steile ausgewaschene Erdwände, eine
+	# aufgeworfene Lippe. Eine Schüssel liest sich aus der Iso-Perspektive als sanfte Delle;
+	# erst die Wand macht daraus einen Ort, in den man hinabsteigt und aus dem man nicht
+	# einfach in jede Richtung herausläuft.
+	#
+	# Die Rampe im Nordosten ist die einzige Stelle, an der die Wand fehlt — dort geht man
+	# hinein und hinaus. Ohne sie wäre die Grube entweder ein Käfig oder man liefe eine
+	# senkrechte Wand hoch wie eine Fliege.
 	{ "id": "schrotthalde", "poi": "schrott_minen",
-		"radius": 15.0, "depth": 4.0, "rim": 0.8, "rim_width": 0.36 },
+		"radius": 15.0, "depth": 5.0, "rim": 1.0, "rim_width": 0.36,
+		"floor": 0.78, "ramp_deg": 55.0, "ramp_span": 70.0 },
 ]
 
 
@@ -66,30 +80,59 @@ static func height_at(x: float, z: float) -> float:
 	var h: float = 0.0
 	for f in TERRAIN:
 		var c: Vector3 = poi_scene_position(String(f["poi"]))
-		h += _feature_height(f, Vector2(x - c.x, z - c.z).length())
+		h += _feature_height(f, Vector2(x - c.x, z - c.z))
 	return h
 
 
-## Höhenprofil einer Form über den Abstand zur Mitte.
+## Höhenprofil einer Form über den Abstand zur Mitte — jetzt richtungsabhängig (Rampe).
 ##
-## Zwei Abschnitte, beide mit waagerechtem Anschluss — es gibt also keine Kante, an der man
+## Drei Abschnitte, alle mit waagerechtem Anschluss; es gibt also keine Kante, an der man
 ## hängenbleibt oder die als harter Knick auffällt:
 ##
-##   1. **Schale** (0 … radius): `-depth * (1 - smoothstep(t))`. In der Mitte flach (dort liegt
-##      man beim Erwachen und dort stehen Dinge gerade), am Rand wieder flach, am steilsten auf
-##      halbem Weg. Bei 15 m Radius und 4 m Tiefe sind das höchstens 21,8° — bequem begehbar.
-##   2. **Wall** (radius … radius·(1+rim_width)): `rim * sin²(…)`. Der Auswurf, den ein
+##   1. **Grund** (0 … radius·floor): flach bei −depth. Dort liegt man beim Erwachen, dort
+##      steht der Schrott, dort steht die Lache.
+##   2. **Wand** (radius·floor … radius): `-depth · (1 − smoothstep(…))`, aber über eine
+##      SCHMALE Spanne. Bei floor 0,78 sind das 3,3 m waagerecht auf 5 m senkrecht — im
+##      Mittel 57°, an der steilsten Stelle 66°. Eine Wand, keine Böschung.
+##   3. **Wall** (radius … radius·(1+rim_width)): `rim · sin²(…)`. Der Auswurf, den ein
 ##      Einschlag nach außen wirft. Sinus-Quadrat, weil es an beiden Enden waagerecht ansetzt.
-static func _feature_height(f: Dictionary, dist: float) -> float:
+##
+## Die Rampe entsteht dadurch, dass `floor` in ihrem Sektor gegen 0 läuft — dann fällt
+## Abschnitt 1 weg und Abschnitt 2 zieht sich über den ganzen Radius. Das ist exakt das alte
+## Schüsselprofil (höchstens 27° bei 5 m Tiefe), nur eben nicht mehr rundum.
+static func _feature_height(f: Dictionary, off: Vector2) -> float:
 	var radius: float = float(f["radius"])
-	var t: float = dist / radius
-	if t <= 1.0:
-		return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, t))
+	var t: float = off.length() / radius
 	var w: float = float(f["rim_width"])
 	if t >= 1.0 + w:
 		return 0.0
-	var s: float = sin(PI * (t - 1.0) / w)
-	return float(f["rim"]) * s * s
+	if t > 1.0:
+		var s: float = sin(PI * (t - 1.0) / w)
+		return float(f["rim"]) * s * s
+	var boden: float = _floor_share(f, off)
+	if t <= boden:
+		return -float(f["depth"])
+	var u: float = (t - boden) / maxf(1.0 - boden, 0.0001)
+	return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, u))
+
+
+## Wie viel des Radius ist an DIESER Stelle flacher Grund? In der Rampe: nichts.
+##
+## Der Übergang läuft über `smoothstep` statt hart auf den Sektor — sonst stünde links und
+## rechts der Rampe je eine senkrechte Kante im Gelände, an der man entlangschrammt.
+static func _floor_share(f: Dictionary, off: Vector2) -> float:
+	var boden: float = float(f.get("floor", 0.0))
+	if boden <= 0.0 or off.length_squared() < 0.000001:
+		return boden
+	var halb: float = deg_to_rad(float(f.get("ramp_span", 0.0))) * 0.5
+	if halb <= 0.0:
+		return boden
+	var ziel: float = deg_to_rad(float(f.get("ramp_deg", 0.0)))
+	# Winkel des Punktes. `off` ist (x, z); Norden ist −z, deshalb das Minus.
+	var ang: float = atan2(-off.y, off.x)
+	var d: float = absf(wrapf(ang - ziel, -PI, PI))
+	var k: float = 1.0 - smoothstep(0.0, 1.0, clampf(d / halb, 0.0, 1.0))
+	return boden * (1.0 - k)
 
 
 ## Normale des Bodens — aus der Formel abgeleitet statt aus Nachbardreiecken gemittelt.

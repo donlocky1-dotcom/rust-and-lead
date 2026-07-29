@@ -32,6 +32,7 @@ func _ready() -> void:
 	_test_reload()
 	_test_weapons()
 	_test_terrain()
+	_test_winding()
 	_test_props()
 	_test_station()
 	_test_camera_zoom()
@@ -944,43 +945,64 @@ func _test_terrain() -> void:
 		and is_zero_approx(WorldManager.height_at(2500.0, -2500.0)))
 	_check("Der Auswurfwall ragt heraus",
 		WorldManager.height_at(c.x + R * (1.0 + float(f["rim_width"]) * 0.5), c.z) > 0.3)
-	# Rotationssymmetrie — sonst haette der Krater eine bevorzugte Richtung.
-	var sym: bool = true
-	for deg in [0, 37, 90, 143, 180, 271]:
-		var a: float = deg_to_rad(float(deg))
-		if not is_equal_approx(WorldManager.height_at(c.x + cos(a) * 7.0, c.z + sin(a) * 7.0),
-				WorldManager.height_at(c.x + 7.0, c.z)):
-			sym = false
-	_check("Rundum gleich tief (keine bevorzugte Richtung)", sym)
+	# Der flache Grund: die Buehne, auf der der Held erwacht und auf der der Schrott liegt.
+	# Eine Schuessel hat keinen — dort faellt der Boden von der Mitte weg sofort weiter ab.
+	var boden_r: float = R * float(f["floor"])
+	_check("Der Grund ist ueber %.1f m flach" % (boden_r * 2.0),
+		is_equal_approx(WorldManager.height_at(c.x - boden_r * 0.9, c.z), -float(f["depth"]))
+		and is_equal_approx(WorldManager.height_at(c.x, c.z - boden_r * 0.9), -float(f["depth"])),
+		"%.2f m" % WorldManager.height_at(c.x - boden_r * 0.9, c.z))
 
-	# Stetigkeit und Begehbarkeit: dicht abtasten, groessten Sprung messen.
+	# Wand und Rampe. Das ist der Kern der Form: rundum eine Wand, an EINER Stelle ein Weg.
+	# Beides wird an derselben Formel gemessen, nur in verschiedene Richtungen.
+	var steil := func(deg: float) -> float:
+		var a: float = deg_to_rad(deg)
+		var dir := Vector2(cos(a), -sin(a))
+		var groesste: float = 0.0
+		var vor: float = WorldManager.height_at(c.x, c.z)
+		var dd: float = 0.0
+		while dd <= reach + 1.0:
+			dd += 0.05
+			var hh: float = WorldManager.height_at(c.x + dir.x * dd, c.z + dir.y * dd)
+			groesste = maxf(groesste, rad_to_deg(atan2(absf(hh - vor), 0.05)))
+			vor = hh
+		return groesste
+	var rampe: float = float(f["ramp_deg"])
+	_check("Die Rampe ist begehbar (< 35°)", steil.call(rampe) < 35.0,
+		"%.1f° bei %.0f°" % [steil.call(rampe), rampe])
+	var wand_min: float = 999.0
+	for versatz in [120.0, 180.0, 240.0, 300.0]:
+		wand_min = minf(wand_min, steil.call(rampe + versatz))
+	_check("Ueberall sonst steht eine Wand (> 50°)", wand_min > 50.0, "flachste %.1f°" % wand_min)
+	_check("Die Rampe ist die EINZIGE flache Stelle",
+		steil.call(rampe) < 35.0 and wand_min > 50.0)
+
+	# Stetigkeit: dicht abtasten, groessten Sprung messen. Eine steile Wand darf steil sein,
+	# aber keine Stufe haben — an einer Stufe bleibt man haengen oder faellt hindurch.
 	var max_step: float = 0.0
-	var max_slope: float = 0.0
-	var wo: float = 0.0
 	var d: float = 0.0
 	var prev: float = WorldManager.height_at(c.x, c.z)
-	while d <= reach + 3.0:
-		d += 0.05
-		var h: float = WorldManager.height_at(c.x + d, c.z)
-		var step: float = absf(h - prev)
-		if step > max_step:
-			max_step = step
-		var sl: float = rad_to_deg(atan2(step, 0.05))
-		if sl > max_slope:
-			max_slope = sl
-			wo = d
-		prev = h
-	_check("Keine Kante im Profil (groesster Sprung auf 5 cm < 4 cm)", max_step < 0.04,
+	for richtung in [0.0, rampe, rampe + 180.0]:
+		var ra: float = deg_to_rad(richtung)
+		var rd := Vector2(cos(ra), -sin(ra))
+		d = 0.0
+		prev = WorldManager.height_at(c.x, c.z)
+		while d <= reach + 3.0:
+			d += 0.05
+			var h: float = WorldManager.height_at(c.x + rd.x * d, c.z + rd.y * d)
+			max_step = maxf(max_step, absf(h - prev))
+			prev = h
+	_check("Keine Stufe im Profil (groesster Sprung auf 5 cm < 12 cm)", max_step < 0.12,
 		"%.3f m" % max_step)
-	_check("Steilste Stelle bleibt begehbar (< 35°)", max_slope < 35.0,
-		"%.1f° bei %.1f m" % [max_slope, wo])
 
 	# Normalen kommen aus derselben Formel — in der Mitte senkrecht, an der Flanke geneigt.
 	_check("Normale in der Mitte zeigt nach oben",
 		WorldManager.normal_at(c.x, c.z).is_equal_approx(Vector3.UP))
-	var n: Vector3 = WorldManager.normal_at(c.x + R * 0.5, c.z)
-	_check("Normale an der Flanke ist geneigt und zeigt bergab",
-		n.y < 0.97 and n.x < 0.0, "%s" % n)
+	_check("Normale auf dem flachen Grund zeigt ebenfalls nach oben",
+		WorldManager.normal_at(c.x + R * 0.5, c.z).is_equal_approx(Vector3.UP))
+	var n: Vector3 = WorldManager.normal_at(c.x + R * 0.92, c.z)
+	_check("Normale an der Wand ist stark geneigt und zeigt bergab",
+		n.y < 0.75 and n.x < 0.0, "%s" % n)
 
 	# Die Restflaeche: Ausschneiden darf keine Flaeche verlieren und keine doppelt zaehlen.
 	var ow := OverworldView.new()
@@ -1072,6 +1094,61 @@ func _test_terrain() -> void:
 	ow.free()
 
 
+## Umlaufrichtung aller selbst gebauten Bodenflaechen.
+##
+## Der teuerste Fehler des Projekts bisher, und der am schwersten zu sehende: Bodenviereck und
+## Gelaendeflicken waren RUECKSEITIG gewickelt. Sichtbar blieben sie trotzdem, weil das
+## Sandmaterial aus dem CC0-Modell doppelseitig ist (`cull_mode = CULL_DISABLED`) — aber Godot
+## dreht bei einem rueckseitigen Fragment die Normale um, und eine nach unten zeigende Normale
+## bekommt kein Sonnenlicht. Der gesamte Boden der Welt lag im blossen Umgebungslicht.
+##
+## Gemessen im Bild: Helligkeit 0,239 falsch herum gegen 0,963 richtig herum. Die Piste
+## daneben war korrekt gewickelt und deshalb hell — DAS war der „Bodenwechsel", ueber den sich
+## der Auftraggeber beschwert hat, und der Grund, warum die Wueste aussah wie nasser Lehm.
+##
+## Die Regel, gegen die hier geprueft wird, stammt aus dem einzigen Bauteil, das nachweislich
+## richtig war (`_add_ribbon`): Bei einem VORDERSEITIGEN Dreieck zeigt das Kreuzprodukt
+## (v1−v0)×(v2−v0) ENTGEGEN der Schattierungsnormale.
+func _test_winding() -> void:
+	print("· Umlaufrichtung der Bodenflaechen")
+	var ow := OverworldView.new()
+	ow._ground_material()
+	ow._add_ground_quad(Rect2(Vector2(0.0, -100.0), Vector2(100.0, 100.0)), null)
+	ow._add_terrain_patch(WorldManager.TERRAIN[0], null)
+	ow._add_ribbon(Vector3.ZERO, Vector3(100.0, 0.0, -100.0), 5.0, 0.0, 0.06, null)
+	var namen: Array = ["Bodenviereck", "Gelaendeflicken", "Gleisband"]
+	var i: int = 0
+	for c in ow.get_children():
+		if not (c is MeshInstance3D):
+			continue
+		var quote: Array = _vorderseitig_anteil(c as MeshInstance3D)
+		_check("%s ist vorderseitig gewickelt (%d Dreiecke)" % [String(namen[i]), int(quote[1])],
+			int(quote[0]) == int(quote[1]),
+			"%d von %d rueckseitig" % [int(quote[1]) - int(quote[0]), int(quote[1])])
+		i += 1
+		if i >= namen.size():
+			break
+	_check("Alle drei Bauteile geprueft", i == namen.size())
+	ow.free()
+
+
+## [vorderseitige Dreiecke, Dreiecke gesamt] eines Meshes.
+func _vorderseitig_anteil(mi: MeshInstance3D) -> Array:
+	var arr: Array = mi.mesh.surface_get_arrays(0)
+	var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var n: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var gut: int = 0
+	var alle: int = 0
+	for t in range(0, v.size() / 3):
+		var flaeche: Vector3 = (v[t * 3 + 1] - v[t * 3]).cross(v[t * 3 + 2] - v[t * 3])
+		if flaeche.length() < 0.0000001:
+			continue
+		alle += 1
+		if flaeche.normalized().dot(n[t * 3]) < 0.0:
+			gut += 1
+	return [gut, alle]
+
+
 ## Requisiten aus docs/PROMPTS_PROPS.md — Maszstab und Streuregeln.
 ##
 ## Der Kern dieser Suite ist die GEMESSENE Groesse. Generatoren normieren jedes Modell auf
@@ -1120,12 +1197,6 @@ func _test_props() -> void:
 	for name in ["barrels", "cactus", "scrap_heap", "bones", "bounty_board", "hitching_post",
 			"street_lamp", "bahnhof"]:
 		_check("%s gilt nicht als Mauerteil" % name, not AssetRegistry.is_wall(String(name)))
-	# Die Kraterfuellung darf die Mitte nicht zustellen: dort erwacht der Held.
-	_check("Die inneren Meter des Kraters bleiben frei",
-		OverworldView.CRATER_PROP_COUNT > 0)
-	var f: Dictionary = WorldManager.TERRAIN[0]
-	_check("Die Fuellung bleibt innerhalb des Kraterrands",
-		float(f["radius"]) * 0.95 < float(f["radius"]))
 	_check("Gestreut wird ausserhalb des befriedeten Stadtrings",
 		OverworldView.PROP_SCATTER_R_M > OverworldView.TOWN_SAFE_M + 18.0)
 
