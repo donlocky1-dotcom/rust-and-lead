@@ -26,8 +26,20 @@ Halten feuert dauerhaft im Waffentakt. Gezielt wird weiterhin automatisch auf de
 Gegner in Reichweite (es gibt keinen zweiten Stick zum Zielen), aber **abgedrückt wird nur von
 Hand**. Der Knopf leuchtet auf, sobald jemand in Reichweite ist; ohne Ziel passiert beim Drücken
 nichts. Am Rechner: **Leertaste** oder **rechte Maustaste** (links ist der Joystick).
-Tastatur: `[Leertaste]` schießen, `[Tab]` Waffe, `[E]` ansprechen, `[M]` Karte, `[1]`–`[5]` Iron
-Rail (nur am Bahnsteig, GDD §1.4a).
+**Gold ausgeben:** Bei **Silas Kupferauge** öffnet die Aktionsleiste die **Werkstatt** (Schaden,
+Feuerrate, Panzerung, Tempo, Regeneration, Loot-Magnet — Kostenkurve und Höchststufen 1:1 aus
+dem Prototyp), bei **Mamma Mabel** die **Geschäfte** (die vier Rustwater-Betriebe, die pro
+aktiver Spielsekunde Einkommen abwerfen). Die Läden hängen bewusst an den *Leuten*, nicht an
+ihren Häusern: Die Stadt wird von Hand umgestellt, und Destille und Labor haben noch gar kein
+Modell. Tippen daneben oder `[Esc]` schließt.
+
+> Körper-Ausbauten (Panzerung, Laufbeine, Kühlsystem, Magnet-Spule) sind vor dem **Reveal**
+> gesperrt und stehen als „🔒 ???" in der Liste — wer sich für einen Menschen hält, lässt sich
+> keine Hydraulik einbauen. Danach ändern auch die übrigen Teile ihren Namen: aus „Schneller
+> Hahn" wird „Kolben-Frequenz".
+
+Tastatur: `[Leertaste]` schießen, `[Tab]` Waffe, `[E]` ansprechen, `[M]` Karte, `[Esc]` schließen,
+`[1]`–`[5]` Iron Rail (nur am Bahnsteig, GDD §1.4a).
 
 ## Die Stadt im Editor bearbeiten
 

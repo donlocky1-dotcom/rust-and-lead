@@ -221,6 +221,7 @@ var _fire_touch_id: int = -1     # Finger auf dem Knopf (-1 = keiner)
 var _minimap: Minimap            # Nahansicht oben rechts (200-m-Umkreis)
 var _world_map: Minimap          # dieselbe Klasse im Vollbild-Modus
 var _map_overlay: Control        # Abdunklung + Weltkarte; unsichtbar, solange sie zu ist
+var _shop: ShopScreen            # Werkstatt/Geschäfte; unsichtbar, solange zu
 var _stick: VirtualStick
 var _toast: Label
 var _toast_until: float = 0.0
@@ -862,6 +863,14 @@ func _process_interactions(_delta: float) -> void:
 	if ctx.begins_with("npc:"):
 		_add_action("🗣  %s ansprechen   [E]" % String(npc["name"]),
 			_talk_to.bind(String(npc["giver"])))
+		# Die Laeden haengen an den LEUTEN, nicht an ihren Haeusern. Zwei Gruende: Die Stadt
+		# wird von Hand umgestellt, ein Haus kann also morgen woanders stehen — die NPCs setzt
+		# `TOWN_NPCS` im Code. Und Destille und Labor haben noch gar kein Modell, waeren als
+		# Anlaufstelle also unerreichbar.
+		if String(npc["giver"]) == "silas":
+			_add_action("🔨  Werkstatt", _open_shop.bind(ShopScreen.Mode.WERKSTATT))
+		elif String(npc["giver"]) == "mabel":
+			_add_action("💰  Geschäfte", _open_shop.bind(ShopScreen.Mode.WIRTSCHAFT))
 	elif ctx.begins_with("station:"):
 		_add_action("🚂  Iron Rail — Ziel wählen", Callable())
 		for i in FAST_TRAVEL.size():
@@ -1138,6 +1147,8 @@ func _build_hud() -> void:
 	# Weltkarte ZULETZT: In einem CanvasLayer ist die Kindreihenfolge die Zeichenreihenfolge,
 	# und eine Vollbildkarte, unter der die Aktionsleiste hervorlugt, ist keine.
 	_build_world_map(layer)
+	_shop = ShopScreen.new()
+	layer.add_child(_shop)
 
 
 ## Vollbild-Weltkarte: liegt fertig gebaut, aber unsichtbar über allem und geht per Tippen auf
@@ -1172,6 +1183,38 @@ func _map_is_open() -> bool:
 	return _map_overlay != null and _map_overlay.visible
 
 
+## Liegt IRGENDEIN Vollbild-Overlay ueber der Welt? Karte und Laden sperren beide dasselbe:
+## Bewegung und Abzug. Eine gemeinsame Abfrage, damit ein spaeter dazukommender Bildschirm
+## nicht wieder an zwei Stellen nachgetragen werden muss.
+func _overlay_open() -> bool:
+	return _map_is_open() or (_shop != null and _shop.visible)
+
+
+## Blendet aus, was sonst UEBER dem Overlay stehenbliebe. Die Aktionsleiste und der Schuss-Knopf
+## sind eigene Controls; Zeichenreihenfolge allein genuegt bei ihnen nicht.
+func _set_hud_hidden(hidden: bool) -> void:
+	if _actions != null:
+		_actions.visible = not hidden
+	if _fire_btn != null:
+		_fire_btn.visible = not hidden
+
+
+## Oeffnet Werkstatt oder Geschaefte.
+func _open_shop(which: int) -> void:
+	if _shop == null:
+		return
+	_close_world_map()
+	_shop.open(which)
+	_end_stick()
+	_set_hud_hidden(true)
+
+
+func _close_shop() -> void:
+	if _shop != null:
+		_shop.close()
+	_set_hud_hidden(false)
+
+
 ## Beide Karten bekommen denselben Stand — die Nahansicht und die Weltkarte sind dieselbe
 ## Klasse und unterscheiden sich nur in Mittelpunkt und Maßstab.
 func _feed_map(map: Minimap, enemies: Array) -> void:
@@ -1200,19 +1243,13 @@ func _open_world_map() -> void:
 	# Die Aktionsleiste zeichnet trotz Zeichenreihenfolge weiter ihre Knöpfe: Sie ist ein
 	# eigenes Control und würde als Streifen über der Karte stehenbleiben. Der Schuss-Knopf
 	# genauso — und ein sichtbarer Abzug, der nichts auslöst, sieht nach Fehler aus.
-	if _actions != null:
-		_actions.visible = false
-	if _fire_btn != null:
-		_fire_btn.visible = false
+	_set_hud_hidden(true)
 
 
 func _close_world_map() -> void:
 	if _map_overlay != null:
 		_map_overlay.visible = false
-	if _actions != null:
-		_actions.visible = true
-	if _fire_btn != null:
-		_fire_btn.visible = true
+	_set_hud_hidden(false)
 
 
 ## Baut einen Gegner-Node (Modell oder Primitive + Lebensleiste), fügt ihn NICHT in die Szene
@@ -1424,8 +1461,7 @@ func _input(event: InputEvent) -> void:
 		if event.pressed:
 			# Reihenfolge ist hier alles: Karte, dann Schuss-Knopf, dann erst der Joystick.
 			# Der Joystick beansprucht sonst jeden Finger, der irgendwo aufsetzt.
-			if _handle_map_tap(event.position):
-				get_viewport().set_input_as_handled()
+			if _handle_overlay_tap(event.position):
 				return
 			if _fire_touch_id == -1 and _fire_btn != null and _fire_btn.hits(event.position):
 				_fire_touch_id = event.index
@@ -1446,8 +1482,7 @@ func _input(event: InputEvent) -> void:
 	# testet, was auf dem Handy auch passiert (statt einer zweiten, abweichenden Steuerung).
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed and _touch_id == -1:
-			if _handle_map_tap(event.position):
-				get_viewport().set_input_as_handled()
+			if _handle_overlay_tap(event.position):
 				return
 			# Auch mit der Maus muss der Knopf anklickbar sein: Was auf dem Handy geht, muss
 			# am Rechner nachstellbar sein, sonst testet man eine andere Steuerung.
@@ -1470,13 +1505,16 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.keycode == KEY_SPACE and not event.echo:
 		_fire_key = event.pressed
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_M or (event.keycode == KEY_ESCAPE and _map_is_open()):
+		if event.keycode == KEY_ESCAPE and _overlay_open():
+			_close_shop()
+			_close_world_map()
+		elif event.keycode == KEY_M:
 			if _map_is_open():
 				_close_world_map()
 			else:
 				_open_world_map()
-		elif _map_is_open():
-			pass   # bei offener Karte schluckt sie die restlichen Tasten
+		elif _overlay_open():
+			pass   # bei offenem Overlay schluckt es die restlichen Tasten
 		elif event.keycode == KEY_TAB:
 			_cycle_weapon()
 		elif event.keycode == KEY_E:
@@ -1487,23 +1525,30 @@ func _input(event: InputEvent) -> void:
 			_fast_travel(event.keycode - KEY_1)
 
 
-## Tippen auf die Minikarte öffnet die Weltkarte, Tippen auf die offene Weltkarte schließt sie.
-## Liefert `true`, wenn der Tipp verbraucht wurde.
+## Tipp auf eines der Overlays. Liefert `true`, wenn der Joystick ihn NICHT bekommen darf.
 ##
-## Warum das hier steht und nicht als `_gui_input` in der Karte selbst: `_input` läuft VOR der
-## GUI-Verarbeitung. Ein Tipp auf die Karte würde also erst den Joystick starten und danach die
-## Karte öffnen — die Figur liefe los, während man nur nachsehen wollte. Nur an dieser einen
-## Stelle abzufangen ist die einzige Reihenfolge, die beides sauber trennt.
+## Warum das hier steht und nicht als `_gui_input` in den Controls selbst: `_input` läuft VOR
+## der GUI-Verarbeitung. Ein Tipp auf die Minikarte würde also erst den Joystick starten und
+## danach die Karte öffnen — die Figur liefe los, während man nur nachsehen wollte.
 ##
-## Der Aufrufer muss das Ereignis danach mit `set_input_as_handled()` verbrauchen: `_input`
-## allein hält es nicht auf, ein Tipp auf die offene Karte würde sonst zusätzlich den Knopf
-## drücken, der darunter liegt.
-func _handle_map_tap(at: Vector2) -> bool:
+## Der Laden ist der Sonderfall, an dem sich die Regel bricht: Er hat ECHTE Knöpfe, die die GUI
+## verarbeiten muss. Ein Tipp DARAUF wird deshalb zwar vom Joystick ferngehalten, aber NICHT
+## mit `set_input_as_handled()` verbraucht — sonst käme kein Kauf jemals an. Nur ein Tipp
+## DANEBEN schließt den Laden und wird verbraucht.
+func _handle_overlay_tap(at: Vector2) -> bool:
+	if _shop != null and _shop.visible:
+		if _shop.hits_panel(at):
+			return true   # Knopf im Laden: durchreichen, aber nicht als Joystick werten
+		_close_shop()
+		get_viewport().set_input_as_handled()
+		return true
 	if _map_is_open():
 		_close_world_map()
+		get_viewport().set_input_as_handled()
 		return true
 	if _minimap != null and _minimap.get_global_rect().has_point(at):
 		_open_world_map()
+		get_viewport().set_input_as_handled()
 		return true
 	return false
 
@@ -1581,9 +1626,9 @@ func _cycle_weapon() -> void:
 
 
 func _move_vector() -> Vector2:
-	# Bei offener Weltkarte steht die Figur. Sie ist verdeckt, also wäre jede Bewegung blind —
-	# und man würde beim Kartenlesen ungewollt in eine Gegnergruppe laufen.
-	if _map_is_open():
+	# Bei offenem Overlay steht die Figur. Sie ist verdeckt, also wäre jede Bewegung blind —
+	# und man würde beim Kartenlesen oder Einkaufen ungewollt in eine Gegnergruppe laufen.
+	if _overlay_open():
 		return Vector2.ZERO
 	var kb: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	return kb if kb.length() > 0.05 else _touch_vec
@@ -1681,7 +1726,7 @@ func _nearest_enemy(max_dist: float) -> Dictionary:
 ## Liegt der Abzug an? Halten feuert dauerhaft im Waffentakt — bei 3 Schuss pro Sekunde waere
 ## Einzeltippen auf einem Touchscreen keine Steuerung, sondern eine Zumutung.
 func _fire_wanted() -> bool:
-	return (_fire_key or _fire_mouse or _fire_touch_id != -1) and not _map_is_open()
+	return (_fire_key or _fire_mouse or _fire_touch_id != -1) and not _overlay_open()
 
 
 ## Kampf. Gezielt wird automatisch auf den naechsten Gegner in Reichweite — es gibt keinen

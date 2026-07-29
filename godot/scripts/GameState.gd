@@ -96,6 +96,18 @@ func add_gold(amount: int) -> void:
 	gold = maxi(0, gold + amount)
 	gold_changed.emit(gold)
 
+## Gold ausgeben. Liefert `false` und ändert NICHTS, wenn es nicht reicht.
+##
+## Bewusst kein `add_gold(-kosten)`: Das klemmt still bei 0 ab, ein Kauf ginge also auch mit zu
+## wenig Gold durch und der Spieler stünde hinterher einfach bei null. Ein Kauf muss ganz
+## stattfinden oder gar nicht — und der Aufrufer muss das am Rückgabewert erkennen können.
+func spend_gold(amount: int) -> bool:
+	if amount <= 0 or gold < amount:
+		return false
+	gold -= amount
+	gold_changed.emit(gold)
+	return true
+
 func add_xp(amount: int) -> void:
 	# Ignoriert nicht-positive Beträge und respektiert das Level-Cap; verhindert so
 	# Endlosschleifen und negative XP-Zustände (Korruptionsschutz).

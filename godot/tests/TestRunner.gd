@@ -27,6 +27,7 @@ func _ready() -> void:
 	_test_minimap()
 	_test_fire_control()
 	_test_wall_classification()
+	_test_workshop()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
 	_test_overworld_quest_flow()
@@ -788,6 +789,80 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+## Werkstatt & Wirtschaft: die Gold-Senke.
+##
+## Bis hierher hatte Gold KEINE Senke — `add_gold` wurde beim Kill und an der Truhe gerufen,
+## ausgegeben wurde es nirgends. Die Kernschleife „töten → Gold → stärker werden" brach nach
+## dem zweiten Schritt ab, obwohl Kostenkurve, Höchststufen und Einkommensrechnung im
+## Hintergrund längst liefen. Diese Tests halten fest, dass sie jetzt geschlossen ist.
+func _test_workshop() -> void:
+	print("· Werkstatt & Wirtschaft (Gold-Senke)")
+	_reset_state()
+	_check("spend_gold gibt es ueberhaupt", GameState.has_method("spend_gold"))
+	GameState.gold = 100
+	_check("Zu teuer -> kein Kauf, kein Abzug",
+		not GameState.spend_gold(150) and GameState.gold == 100)
+	_check("Bezahlbar -> Kauf und exakter Abzug",
+		GameState.spend_gold(60) and GameState.gold == 40)
+	_check("Nicht-positive Betraege prallen ab",
+		not GameState.spend_gold(0) and not GameState.spend_gold(-10) and GameState.gold == 40)
+
+	# Kostenkurve 1:1 aus dem Prototyp: Basis x (Stufe + 1).
+	_reset_state()
+	_check("Erste Stufe Schaden kostet 40", WorkshopData.cost("damage") == 40)
+	GameState.gold = 10000
+	_check("Kauf erhoeht die Stufe", WorkshopData.buy("damage") and WorkshopData.level("damage") == 1)
+	_check("Zweite Stufe kostet das Doppelte (80)", WorkshopData.cost("damage") == 80)
+	_check("Gold wurde genau um 40 verringert", GameState.gold == 9960)
+
+	# Der Kern: Ein Werkstatt-Kauf muss im Kampfwert ankommen.
+	_reset_state()
+	GameState.gold = 10000
+	var dmg0: int = PlayerStats.damage_per_bullet("karabiner")
+	WorkshopData.buy("damage")
+	var dmg1: int = PlayerStats.damage_per_bullet("karabiner")
+	_check("Ausbau wirkt SOFORT auf den naechsten Schuss", dmg1 > dmg0,
+		"vorher %d, nachher %d" % [dmg0, dmg1])
+
+	# Koerper-Eingriffe bleiben zu, solange der Held sich fuer einen Menschen haelt.
+	_reset_state()
+	GameState.gold = 10000
+	GameState.is_revealed = false
+	_check("Vor dem Reveal: Panzerung gesperrt", WorkshopData.is_locked("hp"))
+	_check("Vor dem Reveal: Schaden NICHT gesperrt", not WorkshopData.is_locked("damage"))
+	_check("Gesperrtes laesst sich nicht kaufen",
+		not WorkshopData.buy("hp") and WorkshopData.level("hp") == 0 and GameState.gold == 10000)
+	_check("Vor dem Reveal heisst es noch 'Schneller Hahn'",
+		WorkshopData.label("firerate") == "Schneller Hahn")
+	GameState.is_revealed = true
+	_check("Nach dem Reveal: Panzerung frei", not WorkshopData.is_locked("hp"))
+	_check("Nach dem Reveal kaufbar", WorkshopData.buy("hp") and WorkshopData.level("hp") == 1)
+	_check("Nach dem Reveal heisst dasselbe Teil 'Kolben-Frequenz'",
+		WorkshopData.label("firerate") == "Kolben-Frequenz")
+
+	# Hoechststufe deckelt.
+	_reset_state()
+	GameState.gold = 999999
+	GameState.is_revealed = true
+	var kaeufe: int = 0
+	for i in 20:
+		if WorkshopData.buy("magnet"):
+			kaeufe += 1
+	_check("Magnet-Spule endet bei Stufe 4", kaeufe == 4 and WorkshopData.is_maxed("magnet"),
+		"%d Kaeufe, Stufe %d" % [kaeufe, WorkshopData.level("magnet")])
+
+	# Wirtschaft: Ausbau erzeugt Einkommen, das es vorher nicht gab.
+	_reset_state()
+	_check("Ohne Ausbau kein Einkommen", TycoonManager.income_per_sec() == 0)
+	GameState.gold = 10000
+	_check("Saloon ausbaubar", TycoonManager.try_upgrade("saloon"))
+	_check("Ausbau erzeugt Einkommen", TycoonManager.income_per_sec() > 0,
+		"%d/s" % TycoonManager.income_per_sec())
+	GameState.gold = 0
+	_check("Ohne Gold kein Ausbau", not TycoonManager.try_upgrade("forge"))
+	_reset_state()
 
 
 ## Mauerstuecke: Kollision darf NICHT geschrumpft werden.
