@@ -20,9 +20,21 @@ var has_target: bool = false    # Gegner in Schussreichweite
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE   # Treffer prüft `hits()`, nicht die GUI
-	size = Vector2(RADIUS, RADIUS) * 2.0
+	# Ränder DIREKT setzen statt über `position` — der Knopf lag sonst außerhalb des Bildes.
+	#
+	# Godots `position` ist die Lage relativ zur Elternecke, nicht der Abstand zum Anker. Wird
+	# sie gesetzt, solange das Elternteil noch keine Größe hat (also VOR `add_child`), rechnet
+	# Godot daraus einen Rand und der Anker verschiebt ihn später richtig. Wird sie danach
+	# gesetzt — und `_ready` läuft nach `add_child` —, zählt der Wert absolut: aus −146 wurde
+	# die Bildschirmposition −146 statt „146 px vor dem rechten Rand". Der Knopf saß dadurch
+	# links oberhalb des Bildes, gemessen bei (−146, −146) in einem 1152×648-Fenster.
+	#
+	# Ränder sind gegen diese Reihenfolge unempfindlich: Sie sind IMMER relativ zum Anker.
 	set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	position = Vector2(-RADIUS * 2.0 - MARGIN, -RADIUS * 2.0 - MARGIN)
+	offset_right = -MARGIN
+	offset_bottom = -MARGIN
+	offset_left = -MARGIN - RADIUS * 2.0
+	offset_top = -MARGIN - RADIUS * 2.0
 
 
 func center() -> Vector2:

@@ -22,7 +22,7 @@ TycoonManager="*res://scripts/TycoonManager.gd"
 [input_devices]
 
 ; Maus-Drag emuliert den Touch-Joystick — gleiche Steuerung am Desktop wie am Handy.
-pointing/emulate_touch_from_mouse=true
+pointing/emulate_touch_from_mouse=false
 
 [rendering]
 

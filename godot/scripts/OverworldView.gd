@@ -170,6 +170,8 @@ const WEAPON_GRIP_ROT: Vector3 = Vector3(0.0, 0.0, 0.0)   # Radiant (X, Y, Z)
 ## durch unsichtbare Wände: jedes Haus, jeder Palisadenpfosten, jedes Turmbein trägt sich
 ## beim Bauen selbst als Sperre ein (`_solid_box` / `_solid_pillar`). Was man sieht, blockt.
 const PLAYER_RADIUS_M: float = 0.6
+## Breite der Meldungszeile. Fest, damit sie mittig bleibt und nicht aus dem Bild waechst.
+const TOAST_W: float = 720.0
 ## Aufloesung des Gelaendenetzes. 0,5 m ergibt fuer die Schrotthalde (20 m Aussenradius)
 ## rund 6 800 Vierecke — bei 242 Meshes im Spiel faellt das nicht ins Gewicht, und die
 ## Flanke bleibt bei 22° Neigung glatt.
@@ -1351,11 +1353,17 @@ func _build_hud() -> void:
 	_zone_lbl.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	_zone_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_zone_lbl)
+	# Die Meldungszeile bekommt eine feste Breite und wird um die halbe davon nach links
+	# gerückt. Ohne das beginnt sie in der Bildmitte und wächst mit dem Text nach rechts aus
+	# dem Bild heraus — gemessen ragte sie bei 1152 px Fensterbreite 260 px darüber hinaus.
 	_toast = Label.new()
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.position = Vector2(0.0, 64.0)
+	_toast.offset_left = -TOAST_W * 0.5
+	_toast.offset_right = TOAST_W * 0.5
+	_toast.offset_top = 64.0
 	_toast.add_theme_font_size_override("font_size", 16)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	layer.add_child(_toast)
 	# Minikarte oben rechts — Nahansicht im 200-m-Umkreis (Minimap.LOCAL_RADIUS_M).
 	_minimap = Minimap.new()
@@ -1968,7 +1976,15 @@ func _input(event: InputEvent) -> void:
 			_drag_stick(event.position)
 	# Maus verhält sich exakt wie ein Finger — derselbe Joystick, damit man am Rechner das
 	# testet, was auf dem Handy auch passiert (statt einer zweiten, abweichenden Steuerung).
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+	#
+	# `is_emulating_touch_from_mouse()` ist kein Zierrat: Steht Godots Maus-Emulation an,
+	# erzeugt EIN Klick zwei Ereignisse — erst einen Finger-Tipp, dann den Mausknopf. Beide
+	# liefen hier durch, und weil `_handle_overlay_tap` ein Umschalter ist, ging die Weltkarte
+	# im ersten auf und im zweiten sofort wieder zu: Sie liess sich nicht oeffnen. Die
+	# Projekteinstellung ist inzwischen aus, aber die Abfrage bleibt — sonst holt das jemand
+	# zurueck, ohne den Zusammenhang zu kennen.
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and not Input.is_emulating_touch_from_mouse():
 		if event.pressed and _touch_id == -1:
 			if _handle_overlay_tap(event.position):
 				return
@@ -1993,7 +2009,8 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 		_zoom_by(1)
-	elif event is InputEventMouseMotion and _touch_id == MOUSE_STICK_ID:
+	elif event is InputEventMouseMotion and _touch_id == MOUSE_STICK_ID \
+			and not Input.is_emulating_touch_from_mouse():
 		_drag_stick(event.position)
 	# Leertaste: Halten feuert. Sie braucht auch das LOSLASSEN, deshalb steht sie vor dem
 	# `pressed`-Filter der uebrigen Tasten.

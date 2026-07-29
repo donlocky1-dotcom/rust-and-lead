@@ -33,6 +33,7 @@ func _ready() -> void:
 	_test_weapons()
 	_test_terrain()
 	_test_camera_zoom()
+	_test_hud_layout()
 	_test_bag()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
@@ -811,6 +812,44 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+## HUD-Verankerung und Eingabewege — zwei Fehler, die nur im laufenden Fenster sichtbar sind.
+func _test_hud_layout() -> void:
+	print("· HUD-Verankerung & Eingabe")
+	# ── Die Weltkarte liess sich nicht oeffnen ────────────────────────────────
+	# Godots Maus-Emulation erzeugt aus EINEM Klick zwei Ereignisse: erst einen Finger-Tipp,
+	# dann den Mausknopf. Beide liefen durch `_handle_overlay_tap`, und weil das ein Umschalter
+	# ist, ging die Karte im ersten auf und im zweiten sofort wieder zu.
+	_check("Maus-Emulation ist aus (sonst zaehlt jeder Klick doppelt)",
+		not bool(ProjectSettings.get_setting("input_devices/pointing/emulate_touch_from_mouse", false)))
+
+	# ── Der Schuss-Knopf lag ausserhalb des Bildes ────────────────────────────
+	# `position` ist die Lage relativ zur Elternecke, nicht der Abstand zum Anker. Nach
+	# `add_child` gesetzt — und `_ready` laeuft danach — zaehlt sie absolut: aus −146 wurde die
+	# Bildschirmposition −146. Raender sind dagegen immer ankerrelativ.
+	var b := FireButton.new()
+	add_child(b)   # erst im Baum laeuft `_ready` und setzt Anker und Raender
+	_check("Schuss-Knopf haengt unten rechts", is_equal_approx(b.anchor_left, 1.0)
+		and is_equal_approx(b.anchor_top, 1.0))
+	# Godots eigene Rechnung nachvollziehen: Kante = Anker x Fenstermass + Rand.
+	for schirm in [Vector2(1152, 648), Vector2(720, 1280), Vector2(2400, 1080)]:
+		var links: float = b.anchor_left * schirm.x + b.offset_left
+		var oben: float = b.anchor_top * schirm.y + b.offset_top
+		var rechts: float = b.anchor_right * schirm.x + b.offset_right
+		var unten: float = b.anchor_bottom * schirm.y + b.offset_bottom
+		var drin: bool = links >= 0.0 and oben >= 0.0 and rechts <= schirm.x and unten <= schirm.y
+		_check("Schuss-Knopf liegt bei %dx%d im Bild" % [int(schirm.x), int(schirm.y)], drin,
+			"[%.0f, %.0f] bis [%.0f, %.0f]" % [links, oben, rechts, unten])
+		if schirm == Vector2(1152, 648):
+			_check("Und zwar mit %d px Abstand zur unteren rechten Ecke" % int(FireButton.MARGIN),
+				is_equal_approx(schirm.x - rechts, FireButton.MARGIN)
+				and is_equal_approx(schirm.y - unten, FireButton.MARGIN))
+			_check("Er ist quadratisch mit dem doppelten Radius",
+				is_equal_approx(rechts - links, FireButton.RADIUS * 2.0))
+	_check("Die Trefferpruefung liegt auf dem gezeichneten Kreis",
+		b.hits(b.center()) and not b.hits(b.center() + Vector2(FireButton.RADIUS * 2.0, 0.0)))
+	b.queue_free()
 
 
 ## Zoom: von Hand, nicht automatisch (siehe CAM_ZOOM_STEPS).
