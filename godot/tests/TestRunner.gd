@@ -1019,6 +1019,30 @@ func _test_terrain() -> void:
 	# Regression: Am Kratergrund stand der Platzhalter-Klotz des Ortes und sperrte ihn mit
 	# 6,6 m Radius — man lief die Flanke hinunter und blieb unten stehen. Orte mit geformtem
 	# Gelaende bekommen deshalb keine Landmarken-Saeule mehr; der Krater IST die Landmarke.
+	# Regression: Pisten und Gleise duerfen eine Senke nicht ueberbruecken.
+	#
+	# Der erste Anlauf tastete die Hoehe nur an den beiden RAENDERN des Streifens ab. Bei 55 m
+	# Pistenbreite und 40 m Kraterdurchmesser liegen beide Raender auf flachem Boden — die
+	# Strasse spannte sich als Brett ueber das Loch, und Figur wie Truhe verschwanden darunter.
+	# Deshalb wird auch QUER unterteilt, und dieser Test faehrt eine Piste mitten durch.
+	ow._add_ribbon(c + Vector3(-200.0, 0.0, 0.0), c + Vector3(200.0, 0.0, 0.0),
+		WorldManager.CORRIDOR_HALF_W * WorldManager.METERS_PER_UNIT, 0.0, 0.06, null)
+	var band: MeshInstance3D = null
+	for kind in ow.get_children():
+		if kind is MeshInstance3D:
+			band = kind
+	var tiefster: float = 99.0
+	var naechster: float = 9999.0
+	if band != null and band.mesh != null:
+		for v in band.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
+			tiefster = minf(tiefster, v.y)
+			naechster = minf(naechster, Vector2(v.x - c.x, v.z - c.z).length())
+	_check("Eine Piste quer durch die Senke wird auch quer unterteilt",
+		naechster < 2.0, "naechster Punkt %.1f m von der Mitte" % naechster)
+	_check("Und sie folgt dabei bis auf den Grund (%.1f m tief)" % float(f["depth"]),
+		tiefster < -float(f["depth"]) + 0.2,
+		"tiefster Punkt %.2f m statt %.2f m" % [tiefster, -float(f["depth"]) + 0.06])
+
 	_check("Der Krater-Ort ist als geformt erkannt",
 		not ow._terrain_at_poi(String(f["poi"])).is_empty())
 	_check("Ein Ort ohne Gelaende bleibt unveraendert",

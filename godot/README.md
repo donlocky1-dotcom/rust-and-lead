@@ -153,6 +153,14 @@ außerhalb des Walls exakt 0,000 m. Das Netz kostet 16 200 Dreiecke.
 Die flache Restfläche wird um jede Form **ausgeschnitten** (Rechteck-Subtraktion), sonst läge
 sie über der Senke. Ein Test prüft, dass Restfläche + Löcher exakt die Weltfläche ergeben.
 
+**Pisten und Gleise sind Streifen, keine Balken.** Eine Piste war ein einziger Quader von Ort zu
+Ort — über flachem Boden unauffällig, über einer Senke ein Brett über dem Loch. `_add_ribbon`
+baut sie stattdessen als Band, das `height_at` folgt, und unterteilt **längs wie quer**: Die
+Piste ist 55 m breit, der Krater 40 m — würde nur an den Rändern abgetastet, lägen beide auf
+flachem Boden und die Straße überspannte die Senke weiterhin. Die Schrittweite passt sich an
+(1,5 m nahe einer Geländeform, sonst 40 m), damit 1000 m flache Wüste nicht 1300 Dreiecke
+kosten.
+
 > Wo Gelände geformt ist, entfällt die Landmarken-Säule des Ortes — sie stand sonst mitten im
 > Kratergrund und sperrte ihn.
 

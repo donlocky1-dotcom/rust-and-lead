@@ -693,26 +693,80 @@ func _terrain_at_poi(id: String) -> Dictionary:
 	return {}
 
 
+## Bodennaher Streifen, der dem Gelaende FOLGT.
+##
+## Vorher war jede Piste EIN Balken von Ort zu Ort. Auf flachem Boden faellt das nicht auf —
+## sobald aber eine Senke darunter liegt, deckt der Balken sie zu wie ein Brett ueber einem
+## Loch. In der Schrotthalde verschwanden Figur und Truhe darunter, und vom Krater war nichts
+## zu sehen: Man blickte auf die Unterseite der Piste.
+##
+## Die Schrittweite passt sich an: In der Naehe einer Gelaendeform alle 1,5 m, sonst alle 40 m.
+## Ein Streifen ueber 1000 m flacher Wueste kostet damit 50 Dreiecke statt 1300, und die
+## Stelle, auf die es ankommt, ist trotzdem fein aufgeloest.
+##
+## UV traegt METER, nicht 0..1 — quer in `u`, laengs in `v`. Der Gleisbett-Shader zeichnet
+## daraus seine Schwellen; sonst haenge die Schwellenzahl an der Segmentlaenge.
+const RIBBON_STEP_NEAR: float = 1.5
+const RIBBON_STEP_FAR: float = 40.0
+
+func _ribbon_step(p: Vector3) -> float:
+	for f in WorldManager.TERRAIN:
+		var c: Vector3 = WorldManager.feature_center(f)
+		if Vector2(p.x - c.x, p.z - c.z).length() < WorldManager.feature_reach(f) + RIBBON_STEP_FAR:
+			return RIBBON_STEP_NEAR
+	return RIBBON_STEP_FAR
+
+
+func _add_ribbon(a: Vector3, b: Vector3, half_w: float, lateral: float, lift: float,
+		mat: Material) -> void:
+	var flat: Vector3 = Vector3(b.x - a.x, 0.0, b.z - a.z)
+	var total: float = flat.length()
+	if total < 0.5:
+		return
+	var dir: Vector3 = flat / total
+	var side: Vector3 = Vector3(-dir.z, 0.0, dir.x)
+	var mitte: Vector3 = a + side * lateral
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var d0: float = 0.0
+	while d0 < total:
+		var step: float = _ribbon_step(mitte + dir * d0)
+		var d1: float = minf(d0 + step, total)
+		# AUCH QUER unterteilen. Die Piste ist 55 m breit, der Krater misst 40 m — wird die
+		# Hoehe nur an den beiden Raendern abgetastet, liegen beide auf flachem Boden und die
+		# Strasse spannt sich als Bruecke ueber das Loch. Genau so verschwand die Figur darunter.
+		var spalten: int = maxi(1, int(ceil(half_w * 2.0 / step)))
+		for k in spalten:
+			var q0: float = -half_w + half_w * 2.0 * float(k) / float(spalten)
+			var q1: float = -half_w + half_w * 2.0 * float(k + 1) / float(spalten)
+			for e in [[d0, q0], [d1, q1], [d0, q1], [d0, q0], [d1, q0], [d1, q1]]:
+				var laengs: float = float(e[0])
+				var quer: float = float(e[1])
+				var v: Vector3 = mitte + dir * laengs + side * quer
+				v.y = WorldManager.height_at(v.x, v.z) + lift
+				st.set_normal(WorldManager.normal_at(v.x, v.z))
+				st.set_uv(Vector2(quer, laengs))
+				st.add_vertex(v)
+		d0 = d1
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	# Ein bodennaher Streifen wirft keinen sinnvollen Schatten, kostet im Schattendurchlauf
+	# aber die volle Laenge.
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+
 ## Zeichnet die Routen aus `WorldManager.ROUTES` als gestampfte Pisten. Sie SPERREN nichts —
 ## die Wüste daneben ist genauso begehbar (GDD §1.4a). Sie sind Wegführung: die schnellste,
 ## sicherste Linie zwischen zwei Orten, an der man sich orientiert, statt Wände zu haben.
 func _build_roads() -> void:
-	var road_col := Color(0.56, 0.46, 0.32)   # festgefahrener, hellerer Staub
+	var road_mat: Material = _mat(Color(0.56, 0.46, 0.32))   # festgefahrener, hellerer Staub
 	for r in WorldManager.ROUTES:
 		var pair: Array = _trim_at_town(WorldManager.poi_scene_position(String(r[0])),
 			WorldManager.poi_scene_position(String(r[1])), String(r[0]), String(r[1]))
-		var a: Vector3 = pair[0]
-		var b: Vector3 = pair[1]
-		if a.distance_to(b) < 1.0:
-			continue
-		var seg := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(WorldManager.CORRIDOR_HALF_W * 2.0 * WorldManager.METERS_PER_UNIT, 0.12, a.distance_to(b))
-		seg.mesh = bm
-		seg.material_override = _mat(road_col)
-		seg.position = (a + b) / 2.0 + Vector3(0.0, 0.06, 0.0)   # knapp über dem Boden
-		seg.look_at_from_position(seg.position, b, Vector3.UP)
-		add_child(seg)
+		_add_ribbon(pair[0], pair[1],
+			WorldManager.CORRIDOR_HALF_W * WorldManager.METERS_PER_UNIT, 0.0, 0.06, road_mat)
 
 
 ## Kuerzt eine Strecke an den Enden, die in einer bebauten Stadt liegen. Ohne das laufen Piste
@@ -735,46 +789,27 @@ func _is_built_town(poi_id: String) -> bool:
 ## Wueste bleibt moeglich — spaeter faehrt man ihn. Fahren darf man nur AM Bahnsteig
 ## (`_fast_travel`), damit Schnellreise ein Ort in der Welt ist und kein Menuepunkt.
 func _build_railway() -> void:
-	var steel := Color(0.62, 0.60, 0.58)
+	var steel: Material = _mat(Color(0.62, 0.60, 0.58))
 	var bed_shader: Shader = load("res://shaders/rail_bed.gdshader") as Shader
 	for seg_ids in WorldManager.rail_segments():
 		# Auch die Trasse endet vor der Stadt statt ueber den Marktplatz zu laufen.
 		var pair: Array = _trim_at_town(WorldManager.poi_scene_position(String(seg_ids[0])),
 			WorldManager.poi_scene_position(String(seg_ids[1])),
 			String(seg_ids[0]), String(seg_ids[1]))
-		var a: Vector3 = pair[0]
-		var b: Vector3 = pair[1]
-		var mid: Vector3 = (a + b) / 2.0
-		var length: float = a.distance_to(b)
-		# Schotterbett und beide Schienen liegen im selben gedrehten Knoten — dann muss die
-		# Ausrichtung nur einmal berechnet werden und die Spurweite stimmt garantiert.
-		var track := Node3D.new()
-		add_child(track)
-		track.position = mid + Vector3(0.0, 0.18, 0.0)
-		track.look_at(Vector3(b.x, track.position.y, b.z), Vector3.UP)
-		# Schotterbett: die Schwellen zeichnet der Shader aus der Position im Balken. Bei
-		# 1186 m allein zwischen Rustwater und Zugdepot waeren es sonst tausende Einzelteile.
-		var bed := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(RAIL_GAUGE_M + 3.0, 0.36, length)
-		bed.mesh = bm
+		# Schotterbett und beide Schienen sind jetzt gelaendefolgende Streifen statt gedrehter
+		# Balken — aus demselben Grund wie bei den Pisten. Die Schwellen zeichnet weiterhin der
+		# Shader, er liest den Takt aber aus der UV-Laengskoordinate statt aus der Balkenlaenge.
+		var bed_mat: Material = null
 		if bed_shader != null:
-			var mat := ShaderMaterial.new()
-			mat.shader = bed_shader
-			mat.set_shader_parameter("sleeper_reach", RAIL_GAUGE_M * 0.5 + 0.55)
-			bed.material_override = mat
+			var sm := ShaderMaterial.new()
+			sm.shader = bed_shader
+			sm.set_shader_parameter("sleeper_reach", RAIL_GAUGE_M * 0.5 + 0.55)
+			bed_mat = sm
 		else:
-			bed.material_override = _mat(Color(0.30, 0.27, 0.24))
-		track.add_child(bed)
-		# Schienen sitzen OBEN auf dem Bett, nicht darin — sonst sieht man nur zwei Striche.
+			bed_mat = _mat(Color(0.30, 0.27, 0.24))
+		_add_ribbon(pair[0], pair[1], (RAIL_GAUGE_M + 3.0) * 0.5, 0.0, 0.10, bed_mat)
 		for side in [-1.0, 1.0]:
-			var rail := MeshInstance3D.new()
-			var rm := BoxMesh.new()
-			rm.size = Vector3(0.16, 0.18, length)
-			rail.mesh = rm
-			rail.material_override = _mat(steel)
-			rail.position = Vector3(side * RAIL_GAUGE_M * 0.5, 0.27, 0.0)
-			track.add_child(rail)
+			_add_ribbon(pair[0], pair[1], 0.08, side * RAIL_GAUGE_M * 0.5, 0.30, steel)
 	for id in WorldManager.RAIL_STATIONS:
 		_build_station(String(id))
 
