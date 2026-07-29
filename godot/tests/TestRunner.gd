@@ -920,96 +920,90 @@ func _test_camera_zoom() -> void:
 	ow.free()
 
 
-## Topografie. Zwei Wege zur Bodenhoehe, EINE Funktion: `WorldManager.height_at`.
+## Topografie: Die Senke ist eine FORMEL, kein Modell.
 ##
-## Der Krater kommt inzwischen aus einem MODELL — `tools/bake_heightfield.py` rastert seine
-## Oberseite in ein Feld, `_field_height` liest daraus. Die Tests pruefen deshalb nicht mehr
-## Formelwerte (Tiefe, Wandwinkel, Rampe), sondern die Eigenschaften, auf die sich der Rest des
-## Spiels verlaesst: exakt flach ausserhalb, stetig ueberall, begehbar steil, und Bild und
-## Kollision aus derselben Quelle.
+## Der Boden war eine flache Platte bei y = 0, und die Figur bekam ihr y nie von irgendwoher.
+## Ein modelliertes Gelaende waere Kulisse geblieben, durch die man hindurchspaziert. Diese
+## Tests halten die Eigenschaften fest, auf die sich alles andere verlaesst: exakt flach
+## ausserhalb, stetig ueberall, begehbar steil.
 func _test_terrain() -> void:
-	print("· Topografie (Hoehenfeld aus dem Modell)")
-	_check("Mindestens eine Gelaendeform definiert", WorldManager.TERRAIN.size() >= 1)
-	var f: Dictionary = {}
-	for e in WorldManager.TERRAIN:
-		if String(e.get("kind", "crater")) == "heightmap":
-			f = e
-	if f.is_empty():
-		_check("Eine Form mit gebackenem Hoehenfeld ist eingetragen", false)
-		return
+	print("· Topografie (Senken als Formel)")
+	_check("Genau eine Gelaendeform definiert", WorldManager.TERRAIN.size() >= 1)
+	var f: Dictionary = WorldManager.TERRAIN[0]
 	var c: Vector3 = WorldManager.feature_center(f)
+	var R: float = float(f["radius"])
 	var reach: float = WorldManager.feature_reach(f)
-	var R: float = reach
-
-	_check("Das Hoehenfeld ist lesbar (Datei %s)" % String(f["field"]),
-		FileAccess.file_exists(String(f["field"])))
-	_check("Die Grube ist %.0f m im Durchmesser" % float(f["diameter"]),
-		is_equal_approx(float(f["diameter"]), 30.0))
-	_check("Es gehoert ein sichtbares Modell dazu",
-		AssetRegistry.has_model(String(f.get("model", ""))),
-		"model=%s" % String(f.get("model", "")))
-
-	# Ausserhalb exakt flach — daran haengt, dass die Restflaeche der Welt nahtlos anschliesst.
-	_check("Hinter dem Rand exakt flach",
-		is_zero_approx(WorldManager.height_at(c.x + reach + 1.0, c.z))
-		and is_zero_approx(WorldManager.height_at(c.x, c.z - reach - 1.0)))
+	_check("Krater ist %.0f m im Durchmesser" % (R * 2.0), is_equal_approx(R * 2.0, 30.0),
+		"%.1f m" % (R * 2.0))
+	_check("In der Mitte volle Tiefe (-%.1f m)" % float(f["depth"]),
+		is_equal_approx(WorldManager.height_at(c.x, c.z), -float(f["depth"])))
+	_check("Am Kraterrand wieder auf null",
+		is_zero_approx(WorldManager.height_at(c.x + R, c.z)))
+	_check("Hinter dem Wall exakt flach",
+		is_zero_approx(WorldManager.height_at(c.x + reach + 1.0, c.z)))
 	_check("Der Rest der Welt bleibt unberuehrt",
 		is_zero_approx(WorldManager.height_at(100.0, -100.0))
 		and is_zero_approx(WorldManager.height_at(2500.0, -2500.0)))
+	_check("Der Auswurfwall ragt heraus",
+		WorldManager.height_at(c.x + R * (1.0 + float(f["rim_width"]) * 0.5), c.z) > 0.3)
+	# Der flache Grund: die Buehne, auf der der Held erwacht und auf der der Schrott liegt.
+	# Eine Schuessel hat keinen — dort faellt der Boden von der Mitte weg sofort weiter ab.
+	var boden_r: float = R * float(f["floor"])
+	_check("Der Grund ist ueber %.1f m flach" % (boden_r * 2.0),
+		is_equal_approx(WorldManager.height_at(c.x - boden_r * 0.9, c.z), -float(f["depth"]))
+		and is_equal_approx(WorldManager.height_at(c.x, c.z - boden_r * 0.9), -float(f["depth"])),
+		"%.2f m" % WorldManager.height_at(c.x - boden_r * 0.9, c.z))
 
-	# Tiefe und Kranz aus dem FELD gemessen, nicht aus Zahlen in der Tabelle. Genau das ist der
-	# Punkt am Backen: Die Tabelle behauptet nichts ueber die Form, das Modell bestimmt sie.
-	var tiefste: float = 99.0
-	var hoechste: float = -99.0
-	var steilste: float = 0.0
-	var schritt: float = 0.25
-	for iz in range(-60, 61):
-		var vor: float = 0.0
-		for ix in range(-60, 61):
-			var h: float = WorldManager.height_at(c.x + float(ix) * schritt, c.z + float(iz) * schritt)
-			tiefste = minf(tiefste, h)
-			hoechste = maxf(hoechste, h)
-			if ix > -60:
-				steilste = maxf(steilste, rad_to_deg(atan2(absf(h - vor), schritt)))
-			vor = h
-	_check("Die Grube ist mindestens 2,5 m tief (gemessen %.2f m)" % -tiefste, tiefste < -2.5)
-	_check("Ein Kranz ragt heraus (gemessen %.2f m)" % hoechste, hoechste > 0.4)
-	# 55° ist die Grenze, ab der ein Hang im Bild als Wand liest und man beim Hinauflaufen
-	# haengt. Das gebackene Feld ist dafuer weichgezeichnet (`--smooth`); ohne das lag die
-	# steilste Stelle bei 85°, weil dort jedes einzelne Truemmerstueck eine Stufe ist.
-	_check("Ueberall begehbar (steilste Stelle %.1f° < 55°)" % steilste, steilste < 55.0)
-
-	# Stetigkeit: Bilinear zwischen den Zellen, also darf zwischen zwei Abtastpunkten kein
-	# Sprung liegen. Eine Stufe waere eine Kante, an der man haengt oder hindurchfaellt.
-	var max_step: float = 0.0
-	for richtung in [0.0, 55.0, 145.0, 235.0]:
-		var a: float = deg_to_rad(richtung)
+	# Wand und Rampe. Das ist der Kern der Form: rundum eine Wand, an EINER Stelle ein Weg.
+	# Beides wird an derselben Formel gemessen, nur in verschiedene Richtungen.
+	var steil := func(deg: float) -> float:
+		var a: float = deg_to_rad(deg)
 		var dir := Vector2(cos(a), -sin(a))
-		var d: float = 0.0
-		var prev: float = WorldManager.height_at(c.x, c.z)
+		var groesste: float = 0.0
+		var vor: float = WorldManager.height_at(c.x, c.z)
+		var dd: float = 0.0
+		while dd <= reach + 1.0:
+			dd += 0.05
+			var hh: float = WorldManager.height_at(c.x + dir.x * dd, c.z + dir.y * dd)
+			groesste = maxf(groesste, rad_to_deg(atan2(absf(hh - vor), 0.05)))
+			vor = hh
+		return groesste
+	var rampe: float = float(f["ramp_deg"])
+	_check("Die Rampe ist begehbar (< 35°)", steil.call(rampe) < 35.0,
+		"%.1f° bei %.0f°" % [steil.call(rampe), rampe])
+	var wand_min: float = 999.0
+	for versatz in [120.0, 180.0, 240.0, 300.0]:
+		wand_min = minf(wand_min, steil.call(rampe + versatz))
+	_check("Ueberall sonst steht eine Wand (> 50°)", wand_min > 50.0, "flachste %.1f°" % wand_min)
+	_check("Die Rampe ist die EINZIGE flache Stelle",
+		steil.call(rampe) < 35.0 and wand_min > 50.0)
+
+	# Stetigkeit: dicht abtasten, groessten Sprung messen. Eine steile Wand darf steil sein,
+	# aber keine Stufe haben — an einer Stufe bleibt man haengen oder faellt hindurch.
+	var max_step: float = 0.0
+	var d: float = 0.0
+	var prev: float = WorldManager.height_at(c.x, c.z)
+	for richtung in [0.0, rampe, rampe + 180.0]:
+		var ra: float = deg_to_rad(richtung)
+		var rd := Vector2(cos(ra), -sin(ra))
+		d = 0.0
+		prev = WorldManager.height_at(c.x, c.z)
 		while d <= reach + 3.0:
 			d += 0.05
-			var h2: float = WorldManager.height_at(c.x + dir.x * d, c.z + dir.y * d)
-			max_step = maxf(max_step, absf(h2 - prev))
-			prev = h2
-	_check("Keine Stufe im Profil (groesster Sprung auf 5 cm < 10 cm)", max_step < 0.10,
+			var h: float = WorldManager.height_at(c.x + rd.x * d, c.z + rd.y * d)
+			max_step = maxf(max_step, absf(h - prev))
+			prev = h
+	_check("Keine Stufe im Profil (groesster Sprung auf 5 cm < 12 cm)", max_step < 0.12,
 		"%.3f m" % max_step)
 
-	# Normalen kommen aus derselben Funktion — auf dem Kranz geneigt, weit draussen senkrecht.
-	_check("Normale weit ausserhalb zeigt nach oben",
-		WorldManager.normal_at(c.x + reach + 5.0, c.z).is_equal_approx(Vector3.UP))
-	# Die steilste Stelle SUCHEN, nicht an einem festen Radius erwarten: Wo bei einer Formel die
-	# Flanke sass, liegt beim Modell vielleicht der Kranz. Ein gebackenes Feld hat kein Profil,
-	# das man vorher kennt — man kann nur pruefen, DASS es irgendwo geneigt ist.
-	var flachste_normale: float = 1.0
-	for grad in range(0, 360, 15):
-		var w: float = deg_to_rad(float(grad))
-		for i in range(2, 20):
-			var d2: float = R * float(i) / 20.0
-			var nn: Vector3 = WorldManager.normal_at(c.x + cos(w) * d2, c.z - sin(w) * d2)
-			flachste_normale = minf(flachste_normale, nn.y)
-	_check("Die Flanken sind deutlich geneigt (flachste Normale y=%.2f)" % flachste_normale,
-		flachste_normale < 0.85)
+	# Normalen kommen aus derselben Formel — in der Mitte senkrecht, an der Flanke geneigt.
+	_check("Normale in der Mitte zeigt nach oben",
+		WorldManager.normal_at(c.x, c.z).is_equal_approx(Vector3.UP))
+	_check("Normale auf dem flachen Grund zeigt ebenfalls nach oben",
+		WorldManager.normal_at(c.x + R * 0.5, c.z).is_equal_approx(Vector3.UP))
+	var n: Vector3 = WorldManager.normal_at(c.x + R * 0.92, c.z)
+	_check("Normale an der Wand ist stark geneigt und zeigt bergab",
+		n.y < 0.75 and n.x < 0.0, "%s" % n)
 
 	# Die Restflaeche: Ausschneiden darf keine Flaeche verlieren und keine doppelt zaehlen.
 	var ow := OverworldView.new()
@@ -1045,7 +1039,7 @@ func _test_terrain() -> void:
 	for r in rects:
 		if r.has_point(Vector2(c.x, c.z)):
 			im_loch = true
-	_check("Ueber der Grube liegt keine flache Platte mehr", not im_loch)
+	_check("Ueber dem Krater liegt keine flache Platte mehr", not im_loch)
 
 	# Regression: Am Kratergrund stand der Platzhalter-Klotz des Ortes und sperrte ihn mit
 	# 6,6 m Radius — man lief die Flanke hinunter und blieb unten stehen. Orte mit geformtem
@@ -1070,9 +1064,9 @@ func _test_terrain() -> void:
 			naechster = minf(naechster, Vector2(v.x - c.x, v.z - c.z).length())
 	_check("Eine Piste quer durch die Senke wird auch quer unterteilt",
 		naechster < 2.0, "naechster Punkt %.1f m von der Mitte" % naechster)
-	_check("Und sie folgt dabei bis in die Grube (%.2f m tief)" % tiefster,
-		tiefster < tiefste + 0.5,
-		"tiefster Punkt des Bandes %.2f m, Grube %.2f m" % [tiefster, tiefste])
+	_check("Und sie folgt dabei bis auf den Grund (%.1f m tief)" % float(f["depth"]),
+		tiefster < -float(f["depth"]) + 0.2,
+		"tiefster Punkt %.2f m statt %.2f m" % [tiefster, -float(f["depth"]) + 0.06])
 
 	_check("Der Krater-Ort ist als geformt erkannt",
 		not ow._terrain_at_poi(String(f["poi"])).is_empty())
@@ -1096,8 +1090,8 @@ func _test_terrain() -> void:
 		c, "rustwater", String(f["poi"]))
 	var dist_zur_mitte: float = (route[1] as Vector3).distance_to(c)
 	_check("Eine Strecke von Rustwater hoert vor der Senke auf",
-		dist_zur_mitte >= reach * 0.9,
-		"endet %.1f m von der Mitte, Rand bei %.1f m" % [dist_zur_mitte, reach])
+		dist_zur_mitte >= float(f["radius"]),
+		"endet %.1f m von der Mitte, Kraterrand bei %.1f m" % [dist_zur_mitte, float(f["radius"])])
 	ow.free()
 
 
@@ -1931,17 +1925,9 @@ func _test_asset_registry() -> void:
 	var scale_ok: bool = true
 	var worst: String = ""
 	var worst_ratio: float = 0.0
-	# Gelaendemodelle sind ausgenommen, und zwar begruendet: Sie kommen schon in Metern aus
-	# `tools/bake_heightfield.py`, mit demselben Maszstab, aus dem ihr Hoehenfeld entstand. Eine
-	# Zielgroesse in einer Tabelle waere eine zweite Wahrheit ueber denselben Maszstab — dann
-	# laeuft die Figur irgendwann neben ihrer eigenen Kollision. Der Test dafuer steht unten.
-	var gelaende: Dictionary = {}
-	for tf in WorldManager.TERRAIN:
-		if String(tf.get("model", "")) != "":
-			gelaende[String(tf["model"])] = true
 	for name in AssetRegistry.PATHS.keys():
 		var id: String = String(name)
-		if not AssetRegistry.has_model(id) or gelaende.has(id):
+		if not AssetRegistry.has_model(id):
 			continue
 		var by_length: float = AssetRegistry.length_of(id)
 		var target: float = by_length if by_length > 0.0 else AssetRegistry.height_of(id)
@@ -1956,24 +1942,6 @@ func _test_asset_registry() -> void:
 		if ratio > 4.0:
 			scale_ok = false
 		m.free()
-	# Die Gegenprobe fuer die Ausgenommenen: Sie duerfen in KEINER Groessentabelle stehen, und
-	# ungeskaliert instanziiert muessen sie bereits ihr Sollmass haben.
-	for id2 in gelaende.keys():
-		var name2: String = String(id2)
-		_check("%s steht in keiner Groessentabelle (Gelaendemodell)" % name2,
-			AssetRegistry.length_of(name2) <= 0.0
-			and not AssetRegistry.TARGET_HEIGHT.has(name2))
-		var tm: Node3D = AssetRegistry.instantiate(name2, 0.0, false)
-		if tm != null:
-			var ts: Vector3 = AssetRegistry.local_bounds(tm).size
-			var soll: float = 0.0
-			for tf2 in WorldManager.TERRAIN:
-				if String(tf2.get("model", "")) == name2:
-					soll = float(tf2.get("diameter", 0.0))
-			_check("%s kommt schon in Metern (%.1f m breit, Soll %.1f m)"
-				% [name2, maxf(ts.x, ts.z), soll], absf(maxf(ts.x, ts.z) - soll) < 0.3,
-				"%s" % ts)
-			tm.free()
 	_check("Kein Asset ist unverhaeltnismaessig gross skaliert",
 		scale_ok, "schlimmster Fall: %s mit Faktor %.1f" % [worst, worst_ratio])
 	_test_town_layout()
@@ -2089,9 +2057,7 @@ func _test_walkable_zones() -> void:
 	# die kleinste Gelaendeform, sonst verschluckt er sie wieder.
 	var schmalste: float = 1e9
 	for tf in WorldManager.TERRAIN:
-		# Ueber `feature_reach`, nicht ueber `radius`: Nicht jede Form ist eine Formel — die
-		# Grube kommt aus einem gebackenen Hoehenfeld und hat kein Radius-Feld.
-		schmalste = minf(schmalste, WorldManager.feature_reach(tf) * 2.0)
+		schmalste = minf(schmalste, float(tf["radius"]) * 2.0)
 	_check("Der Trassenstreifen ist schmaler als die kleinste Senke",
 		WorldManager.RAIL_CORRIDOR_HALF_W * 2.0 * WorldManager.METERS_PER_UNIT < schmalste,
 		"%.1f m Streifen, %.1f m Senke"

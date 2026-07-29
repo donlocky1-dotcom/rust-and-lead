@@ -48,14 +48,6 @@ const PATHS: Dictionary = {
 	"rock_boulder":    ["res://assets/models/environment/namaqualand_boulder_03_1k/namaqualand_boulder_03_1k.gltf"],
 	"cliff":           ["res://assets/models/environment/namaqualand_cliff_02_1k/namaqualand_cliff_02_1k.gltf"],
 	"ground_sand":     ["res://assets/models/environment/gravelly_sand_1k/gravelly_sand_1k.gltf"],
-	# Gelaendemodelle. Anders als Requisiten sind das BODEN: Ihre Form beantwortet
-	# `WorldManager.height_at`, ueber ein gebackenes Hoehenfeld (`tools/bake_heightfield.py`).
-	#
-	# Sie stehen ABSICHTLICH in keiner der Groessentabellen. Das Backwerkzeug hat sie schon in
-	# Meter umgerechnet und ihr Aussenniveau auf y = 0 gelegt — mit denselben Zahlen, aus denen
-	# das Hoehenfeld entstand. Eine Zielgroesse hier waere eine zweite Wahrheit ueber denselben
-	# Maszstab, und dann laeuft die Figur irgendwann neben ihrer eigenen Kollision.
-	"schrottgrube":    ["res://assets/models/environment/schrottgrube.glb"],
 	# ── Requisiten (docs/PROMPTS_PROPS.md) ──
 	# Drei Fass-/Kisten-Stapel statt einem: Ein einziger Stapel, zwanzigmal an dieselbe Gasse
 	# gestellt, liest sich sofort als Kopie. Drei Varianten reichen, damit das Auge aufhoert
