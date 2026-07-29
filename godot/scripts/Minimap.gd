@@ -114,13 +114,11 @@ func _draw() -> void:
 		draw_line(Vector2(0.0, blast_y), Vector2(size.x, blast_y), Color(1.0, 0.55, 0.35, 0.85), 1.5)
 	if smog_y > 0.0 and smog_y < size.y:
 		draw_line(Vector2(0.0, smog_y), Vector2(size.x, smog_y), Color(0.6, 1.0, 0.5, 0.85), 1.5)
-	# Pisten zwischen den Orten — Wegführung, keine Sperre (GDD §1.4a).
+	# Die Karte zeigt nur noch die Trasse. Vorher lag darunter für jede Route eine blasse
+	# Pisten-Linie — die gibt es in der Welt nicht mehr, und eine Straße auf der Karte, die
+	# draußen nirgends liegt, ist schlimmer als gar keine: Man läuft hin und sucht sie.
 	var road_w: float = 1.0 if full_world else 3.0
-	for r0 in WorldManager.ROUTES:
-		draw_line(world_to_map(WorldManager.poi_scene_position(String(r0[0]))),
-			world_to_map(WorldManager.poi_scene_position(String(r0[1]))),
-			Color(0.72, 0.62, 0.44, 0.45), road_w)
-	# Iron-Rail-Trasse darüber: dicker und heller — sie ist die Reiseachse der Karte.
+	# Iron-Rail-Trasse: die Reiseachse der Karte.
 	for seg in WorldManager.rail_segments():
 		draw_line(world_to_map(WorldManager.poi_scene_position(String(seg[0]))),
 			world_to_map(WorldManager.poi_scene_position(String(seg[1]))),

@@ -326,7 +326,6 @@ func _ready() -> void:
 	_build_environment()
 	_build_ground_and_biomes()
 	_build_sector_lines_and_rim()
-	_build_roads()
 	_build_railway()
 	_build_pois()
 	_build_township()
@@ -775,46 +774,28 @@ func _add_ribbon(a: Vector3, b: Vector3, half_w: float, lateral: float, lift: fl
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = mat
-	mi.name = "ribbon"   # damit `tools/Diag` die Baender von Boden und Gelaende trennen kann
+	# Durchnummeriert, nicht bloss "ribbon": Bei gleichem Namen vergibt Godot beim Einhaengen
+	# eigene Namen der Bauart "@MeshInstance3D@23", und dann findet eine Suche nach "ribbon"
+	# genau ein Band statt aller. Das hat beim Nachzaehlen der Pisten schon einmal ein
+	# falsches Ergebnis geliefert.
+	mi.name = "ribbon_%d" % get_child_count()
 	# Ein bodennaher Streifen wirft keinen sinnvollen Schatten, kostet im Schattendurchlauf
 	# aber die volle Laenge.
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 
 
-## Zeichnet die Routen aus `WorldManager.ROUTES` als gestampfte Pisten. Sie SPERREN nichts —
-## die Wüste daneben ist genauso begehbar (GDD §1.4a). Sie sind Wegführung: die schnellste,
-## sicherste Linie zwischen zwei Orten, an der man sich orientiert, statt Wände zu haben.
-## Halbe Breite der GEZEICHNETEN Piste. Bewusst viel schmaler als der Wegkorridor
-## (`WorldManager.CORRIDOR_HALF_W`, 27,5 m je Seite): Der Korridor sagt „hier ist Weg, hier
-## wird nicht gestreut", die Piste ist die Fahrspur darin. Vorher war beides dasselbe, und
-## damit war die Piste 55 m breit — breiter als jeder Platz in Rustwater und breit genug, den
-## 30-m-Krater der Schrotthalde restlos zu ueberdecken.
-const ROAD_HALF_W_M: float = 5.0
-func _build_roads() -> void:
-	var road_mat: Material = _road_material()
-	for r in WorldManager.ROUTES:
-		var pair: Array = _trim_route(WorldManager.poi_scene_position(String(r[0])),
-			WorldManager.poi_scene_position(String(r[1])), String(r[0]), String(r[1]))
-		_add_ribbon(pair[0], pair[1], ROAD_HALF_W_M, 0.0, 0.06, road_mat)
-
-
-## Material der Piste: dieselbe Sand-PBR-Textur wie der Boden, nur dunkler und gröber gekachelt.
+## KEINE PISTEN MEHR.
 ##
-## Vorher stand hier eine reine Farbe ohne jede Textur. Neben dem texturierten Boden fiel das
-## sofort auf — die Piste sah aus wie eine ausgeschnittene Pappe, und ihre Kante war eine
-## harte Linie zwischen „Sand mit Korn" und „Sand ohne alles". Mit derselben Textur liest sich
-## der Uebergang als festgefahrener Untergrund statt als anderer Stoff.
-func _road_material() -> Material:
-	var mat: BaseMaterial3D = AssetRegistry.material_from_model("ground_sand")
-	if mat == null:
-		return _mat(Color(0.56, 0.46, 0.32))
-	# Die Baender legen METER in die UV (`_add_ribbon`), nicht Kacheln — der Kachelfaktor muss
-	# deshalb hier hinein, sonst zieht sich eine Kachel ueber die ganze Streckenlaenge.
-	var s: float = 1.0 / maxf(_ground_tile_m, 0.1)
-	mat.uv1_scale = Vector3(s * 1.4, s * 1.4, 1.0)   # gröber: gestampfter Grus, kein Flugsand
-	mat.albedo_color = Color(0.72, 0.66, 0.58)       # abgedunkelt = festgefahren
-	return mat
+## Es gab hier `_build_roads()`: ein gestampftes Band auf jeder Route, gedacht als Wegfuehrung
+## („die schnellste Linie zwischen zwei Orten, an der man sich orientiert, statt Waende zu
+## haben"). In einer offenen Wueste, in der man ohnehin quer laeuft und ueber die Iron Rail
+## reist, hat das nie getragen — die Strassen waren ein Band auf dem Boden, dem niemand folgte.
+## Praktisch angerichtet haben sie dafuer einiges: 55 m breit deckten sie den 30-m-Krater der
+## Schrotthalde restlos zu, und ihre Kante lief als harter Bodenwechsel quer durch die Senke.
+##
+## Geblieben ist, was wirklich Weg ist: die Iron-Rail-Trasse (`_build_railway`). Die Routen
+## selbst bleiben als Nachbarschafts-Daten bestehen — das Schienennetz leitet sich aus ihnen ab.
 
 
 ## Kuerzt eine Strecke an beiden Enden auf das, was der Ort dort zulaesst.
@@ -1419,7 +1400,7 @@ func _scatter_decor() -> void:
 		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
 		pos.z = clampf(pos.z, -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT), -20.0)
 		# Weder in der Stadt noch auf Piste/Trasse — die Wege sollen frei und lesbar bleiben.
-		if _in_town(pos) or WorldManager.on_route(WorldManager.scene_to_world(pos)):
+		if _in_town(pos) or WorldManager.on_rail(WorldManager.scene_to_world(pos)):
 			rock.queue_free()
 			continue
 		rock.position = pos
@@ -1465,7 +1446,7 @@ func _scatter_props() -> void:
 		var pos: Vector3 = origin + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
 		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
 		pos.z = clampf(pos.z, -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT), -20.0)
-		if _in_town(pos) or WorldManager.on_route(WorldManager.scene_to_world(pos)):
+		if _in_town(pos) or WorldManager.on_rail(WorldManager.scene_to_world(pos)):
 			node.queue_free()
 			continue
 		pos.y = WorldManager.height_at(pos.x, pos.z)   # Senken mitnehmen, sonst schwebt es

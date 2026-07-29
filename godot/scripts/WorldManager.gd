@@ -123,17 +123,21 @@ static func feature_center(f: Dictionary) -> Vector3:
 ## Radius einer Aktionszone um einen POI (dort greifen bauliche Begrenzung & Stadtregeln).
 const ZONE_RADIUS_HUB: float = 46.0        # ≈ 115 m — Rustwater & Fraktionsbasen
 const ZONE_RADIUS_DEFAULT: float = 26.0    # ≈ 65 m  — Dungeons, Jagdgründe, Arenen
-## Halbe Breite des WEGKORRIDORS in Welteinheiten — der Bereich, der als „an der Piste" gilt
-## (`on_route`): dort wird nicht gestreut, dort ist der Weg lesbar. Das ist NICHT die Breite
-## der gezeichneten Piste; die ist schmaler und steht als `OverworldView.ROAD_HALF_W_M`.
+## Halbe Breite des freizuhaltenden Streifens um die Iron-Rail-Trasse, in WELTEINHEITEN
+## (`on_rail`). 3 Einheiten sind 7,5 m nach jeder Seite — Schotterbett (6,2 m) plus etwas Luft.
 ##
-## Der alte Kommentar hier las „≈ 27 m breite Piste" und meinte damit 27,5 — das ist aber die
-## HALBE Breite in Metern (11 × 2,5). Gezeichnet wurde entsprechend ein 55 m breites Band:
-## breiter als der Krater der Schrotthalde (30 m), sodass die Piste ihn vollstaendig
-## ueberdeckte und ihre Kante mitten durch die Senke lief.
-const CORRIDOR_HALF_W: float = 11.0        # 11 × 2,5 m = 27,5 m nach jeder Seite
+## Der Vorgaenger `CORRIDOR_HALF_W` stand bei 11 Einheiten = 27,5 m JE SEITE und galt fuer alle
+## Routen. Sein Kommentar las „≈ 27 m breite Piste" und meinte damit die volle Breite — der
+## Zahlendreher hat die gezeichnete Piste auf 55 m aufgeblasen, breiter als der 30-m-Krater der
+## Schrotthalde. Die Pisten sind inzwischen ganz raus; was bleibt, ist die Trasse.
+const RAIL_CORRIDOR_HALF_W: float = 3.0
 
-## Verbindungen zwischen den Orten — Straßen-Layout und Trassenführung.
+## Nachbarschaft der Orte — welcher Ort mit welchem verbunden ist.
+##
+## Reine Topologie, keine Optik: Gezeichnet wird davon nur noch die Iron-Rail-Trasse
+## (`rail_segments`, die Teilmenge mit Bahnhof an beiden Enden). Die gestampften Pisten, die
+## hier frueher auch herauskamen, gibt es nicht mehr — in einer offenen Wueste, in der man
+## ohnehin quer laeuft, war eine Strasse ohne Ziel nur ein Band auf dem Boden.
 const ROUTES: Array = [
 	["rustwater", "rattengestruepp"], ["rustwater", "schrott_minen"], ["rustwater", "zugdepot"],
 	["zugdepot", "rogues_landing"], ["rogues_landing", "fort_freedom"],
@@ -191,11 +195,17 @@ static func zone_at(rel: Vector2) -> String:
 static func in_action_zone(rel: Vector2) -> bool:
 	return zone_at(rel) != ""
 
-## Steht der Punkt auf einer der sichtbaren Pisten? (Nur Orientierung/Optik — die Wildnis
-## daneben ist genauso begehbar.)
-static func on_route(rel: Vector2) -> bool:
-	for r in ROUTES:
-		if _dist_to_segment(rel, poi_position(String(r[0])), poi_position(String(r[1]))) <= CORRIDOR_HALF_W:
+## Steht der Punkt auf der Iron-Rail-Trasse? (Keine Sperre — man kann ueber die Gleise laufen.
+## Die Abfrage sagt nur: hier darf nichts hingestreut werden, sonst waechst ein Kaktus zwischen
+## den Schwellen.)
+##
+## Loeste `on_route` ab, das dasselbe fuer alle ROUTES tat. Solange es Pisten gab, war das
+## richtig — mit ihnen ist der Grund weggefallen: Ein unsichtbarer 55-m-Streifen quer durch
+## die Wueste, in dem nichts steht, ist keine Wegfuehrung mehr, sondern eine leere Gasse ohne
+## erkennbaren Anlass. Die Trasse dagegen liegt sichtbar da und muss frei bleiben.
+static func on_rail(rel: Vector2) -> bool:
+	for r in rail_segments():
+		if _dist_to_segment(rel, poi_position(String(r[0])), poi_position(String(r[1]))) <= RAIL_CORRIDOR_HALF_W:
 			return true
 	return false
 

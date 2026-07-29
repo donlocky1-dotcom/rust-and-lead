@@ -116,16 +116,19 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
 
 * **Wildnis** — die Wüste **zwischen** den Orten ist frei begehbar. Keine seitliche Begrenzung,
   nur der Kraterrand. Reisezeiten, Biom-Takt und Landmark-Navigation aus §1.4 bleiben voll
-  erhalten; die **Pisten** (≈ 27 m breit, aus `ROUTES`) sind Wegführung, keine Sperre — die
-  schnelle, sichere Linie, an der man sich orientiert, wenn man will.
+  erhalten. **Pisten gibt es nicht mehr.** Sie waren als Wegführung gedacht — die schnelle,
+  sichere Linie, an der man sich orientiert — haben aber nie getragen: In einer offenen Wüste,
+  in der man quer läuft und über die Iron Rail reist, folgt niemand einem Band auf dem Boden.
+  Orientierung leisten Landmarken, Trasse und Karte. `ROUTES` bleibt als reine Nachbarschaft
+  bestehen; gezeichnet wird davon nur noch die Trasse.
 * **Aktionszonen** — Städte, Basen, Dungeons und Arenen (Radius ≈ 115 m für Hubs/Basen,
   ≈ 65 m sonst). Hier ist es eng und geführt wie im mobilen Action-RPG, und zwar durch
   **echte Bauten**: Palisaden mit Toren, Häuserzeilen, Turmbeine, Felskanten. **Keine
   unsichtbaren Wände** — was blockt, sieht man auch, und man gleitet an der Kante entlang,
   statt hart zu stoppen.
 * **Eisenbahn** — die Iron Rail verbindet die fünf Knoten (Rustwater, Zugdepot, Rogue's
-  Landing, Fort Freedom, Sektor 01). Ihre Trasse liegt **auf den Pisten** (zweite Geografie
-  ausgeschlossen). Gereist wird **nur vom Bahnsteig aus**: Schnellreise ist ein Ort in der
+  Landing, Fort Freedom, Sektor 01). Ihre Trasse liegt **auf den Routen** (zweite Geografie
+  ausgeschlossen) und ist damit die einzige gezeichnete Verbindung zwischen den Orten. Gereist wird **nur vom Bahnsteig aus**: Schnellreise ist ein Ort in der
   Welt, kein Menüpunkt. Der Fußmarsch bleibt jederzeit möglich — die Bahn ersetzt ihn später
   nur, wenn man ihn nicht mehr braucht.
 * **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und

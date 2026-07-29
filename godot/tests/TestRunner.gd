@@ -1028,7 +1028,7 @@ func _test_terrain() -> void:
 	# Strasse spannte sich als Brett ueber das Loch, und Figur wie Truhe verschwanden darunter.
 	# Deshalb wird auch QUER unterteilt, und dieser Test faehrt eine Piste mitten durch.
 	ow._add_ribbon(c + Vector3(-200.0, 0.0, 0.0), c + Vector3(200.0, 0.0, 0.0),
-		WorldManager.CORRIDOR_HALF_W * WorldManager.METERS_PER_UNIT, 0.0, 0.06, null)
+		27.5, 0.0, 0.06, null)
 	var band: MeshInstance3D = null
 	for kind in ow.get_children():
 		if kind is MeshInstance3D:
@@ -1056,13 +1056,6 @@ func _test_terrain() -> void:
 	# breites Band ueber einer 30-m-Senke. Dazu lief sie bis in den Mittelpunkt des Ortes, also
 	# bis auf den Kratergrund. Im Bild sah man deshalb mitten in der Mulde eine harte Kante,
 	# an der der Boden wechselte: links Sand mit Textur, rechts die einfarbige Piste.
-	_check("Die gezeichnete Piste ist schmaler als der Krater",
-		OverworldView.ROAD_HALF_W_M * 2.0 < float(f["radius"]) * 2.0,
-		"%.1f m Piste, %.1f m Krater" % [OverworldView.ROAD_HALF_W_M * 2.0, float(f["radius"]) * 2.0])
-	_check("Und schmaler als der Wegkorridor, in dem sie liegt",
-		OverworldView.ROAD_HALF_W_M < WorldManager.CORRIDOR_HALF_W * WorldManager.METERS_PER_UNIT,
-		"%.1f m gegen %.1f m" % [OverworldView.ROAD_HALF_W_M,
-			WorldManager.CORRIDOR_HALF_W * WorldManager.METERS_PER_UNIT])
 	_check("Eine Strecke endet am Kraterrand, nicht in der Mitte",
 		ow._route_stop_m(String(f["poi"])) >= WorldManager.feature_reach(f),
 		"Stopp bei %.1f m, Wallende bei %.1f m"
@@ -1073,7 +1066,7 @@ func _test_terrain() -> void:
 	var route: Array = ow._trim_route(WorldManager.poi_scene_position("rustwater"),
 		c, "rustwater", String(f["poi"]))
 	var dist_zur_mitte: float = (route[1] as Vector3).distance_to(c)
-	_check("Die Piste von Rustwater hoert vor der Senke auf",
+	_check("Eine Strecke von Rustwater hoert vor der Senke auf",
 		dist_zur_mitte >= float(f["radius"]),
 		"endet %.1f m von der Mitte, Kraterrand bei %.1f m" % [dist_zur_mitte, float(f["radius"])])
 	ow.free()
@@ -1904,8 +1897,8 @@ func _test_walkable_zones() -> void:
 	var b: Vector2 = WorldManager.poi_position("zugdepot")
 	_check("Mitte zwischen zwei Orten ist begehbar", WorldManager.is_walkable((a + b) / 2.0))
 	var perp: Vector2 = (b - a).normalized().orthogonal()
-	var off: Vector2 = (a + b) / 2.0 + perp * (WorldManager.CORRIDOR_HALF_W * 3.0)
-	_check("Auch weit neben der Piste ist die Wueste begehbar", WorldManager.is_walkable(off))
+	var off: Vector2 = (a + b) / 2.0 + perp * (WorldManager.RAIL_CORRIDOR_HALF_W * 10.0)
+	_check("Auch weit neben der Trasse ist die Wueste begehbar", WorldManager.is_walkable(off))
 	_check("Abgelegene Kartenecke ist begehbar (offene Welt)",
 		WorldManager.is_walkable(Vector2(30, 1900)))
 	_check("Jenseits des Kraterrands endet die Welt",
@@ -1920,9 +1913,23 @@ func _test_walkable_zones() -> void:
 	_check("Aktionszonen ueberlappen sich nicht (jede Zone ist eindeutig)", _zones_disjoint())
 	_check("Rustwater ist befriedet, ein Dungeon nicht",
 		WorldManager.is_safe_zone("rustwater") and not WorldManager.is_safe_zone("schrott_minen"))
-	# 3. Pisten: reine Wegfuehrung, keine Sperre — aber sie muessen jeden Ort erreichen.
-	_check("Mitte einer Route liegt auf der Piste", WorldManager.on_route((a + b) / 2.0))
-	_check("Weit neben der Route ist keine Piste", not WorldManager.on_route(off))
+	# 3. Routen sind nur noch Nachbarschaft — gezeichnet wird davon die Trasse. Sie sperrt
+	#    nichts (man laeuft ueber die Gleise), haelt aber die Streuung von den Schwellen fern.
+	_check("Zwischen zwei Bahnhoefen liegt man auf der Trasse", WorldManager.on_rail((a + b) / 2.0))
+	_check("Weit daneben nicht mehr", not WorldManager.on_rail(off))
+	_check("Die Trasse sperrt nicht — man darf ueber die Gleise laufen",
+		WorldManager.is_walkable((a + b) / 2.0))
+	# Regression: Es gab hier gestampfte Pisten. Sie waren 55 m breit (der Kommentar an
+	# CORRIDOR_HALF_W las die halbe Breite als volle) und deckten damit den 30-m-Krater der
+	# Schrotthalde restlos zu. Der freizuhaltende Streifen muss deutlich schmaler bleiben als
+	# die kleinste Gelaendeform, sonst verschluckt er sie wieder.
+	var schmalste: float = 1e9
+	for tf in WorldManager.TERRAIN:
+		schmalste = minf(schmalste, float(tf["radius"]) * 2.0)
+	_check("Der Trassenstreifen ist schmaler als die kleinste Senke",
+		WorldManager.RAIL_CORRIDOR_HALF_W * 2.0 * WorldManager.METERS_PER_UNIT < schmalste,
+		"%.1f m Streifen, %.1f m Senke"
+			% [WorldManager.RAIL_CORRIDOR_HALF_W * 2.0 * WorldManager.METERS_PER_UNIT, schmalste])
 	var connected: Dictionary = {}
 	for r in WorldManager.ROUTES:
 		connected[String(r[0])] = true

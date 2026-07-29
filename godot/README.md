@@ -153,11 +153,11 @@ außerhalb des Walls exakt 0,000 m. Das Netz kostet 16 200 Dreiecke.
 Die flache Restfläche wird um jede Form **ausgeschnitten** (Rechteck-Subtraktion), sonst läge
 sie über der Senke. Ein Test prüft, dass Restfläche + Löcher exakt die Weltfläche ergeben.
 
-**Pisten und Gleise sind Streifen, keine Balken.** Eine Piste war ein einziger Quader von Ort zu
-Ort — über flachem Boden unauffällig, über einer Senke ein Brett über dem Loch. `_add_ribbon`
-baut sie stattdessen als Band, das `height_at` folgt, und unterteilt **längs wie quer**: Die
-Piste ist 55 m breit, der Krater 40 m — würde nur an den Rändern abgetastet, lägen beide auf
-flachem Boden und die Straße überspannte die Senke weiterhin. Die Schrittweite passt sich an
+**Gleise sind Streifen, keine Balken.** Eine Trasse war ein einziger Quader von Ort zu Ort —
+über flachem Boden unauffällig, über einer Senke ein Brett über dem Loch. `_add_ribbon` baut
+sie stattdessen als Band, das `height_at` folgt, und unterteilt **längs wie quer**: Ein 55 m
+breites Band über einem 40-m-Krater — so breit waren die inzwischen entfernten Pisten — hätte
+an beiden Rändern flachen Boden gemessen und die Senke weiterhin überspannt. Die Schrittweite passt sich an
 (1,5 m nahe einer Geländeform, sonst 40 m), damit 1000 m flache Wüste nicht 1300 Dreiecke
 kosten.
 
@@ -267,7 +267,8 @@ als echte Szene ausgelagert, weil genau dort Layout-Arbeit anfällt.
   POI-Registry mit Koordinaten, Sektor-Logik, die drei Tore (Sprengtore, Smog-Linie, Fraktions-
   Feindseligkeit) und die aus dem Prototyp portierten **Biom-Zonen** (Palette/Flora/Gegner-Leitmix,
   ans Sektor-Gating gebunden) — alles als aus `GameState` abgeleitete Abfragen (`class_name`, `static`).
-  Dazu die **Weltstruktur** (§1.4a): `ROUTES`/`on_route()` (Pisten als Wegführung, keine Sperre),
+  Dazu die **Weltstruktur** (§1.4a): `ROUTES` (Nachbarschaft der Orte) mit `on_rail()` (Streifen
+  entlang der Trasse, in dem nichts gestreut wird — keine Sperre),
   `zone_at()`/`zone_radius()`/`is_safe_zone()` (Aktionszonen) und `RAIL_STATIONS`/`rail_segments()`
   (Iron Rail). `is_walkable()` begrenzt nur noch den Kraterrand — die Wüste ist offen.
 
