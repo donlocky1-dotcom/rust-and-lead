@@ -71,6 +71,15 @@ jedem Aufstieg anfallen; gesperrte Perks nennen daneben, was ihnen fehlt.
 Tastatur: `[Leertaste]` schießen, `[Tab]` Waffe, `[E]` aufheben/öffnen/ansprechen, `[C]`
 Charakter, `[M]` Karte, `[Esc]` schließen, `[1]`–`[5]` Iron Rail (nur am Bahnsteig, GDD §1.4a).
 
+**Zoom (`＋`/`－` unter der Minikarte, Mausrad, `[+]`/`[−]`, Kneifen):** vier Stufen von **7,5 m**
+bis **16 m** Kameraabstand — nah für Stadt und Dungeon, fern für lange Wüstenwege. Gemessen an
+der Bildhöhe ist die Figur dabei 25,7 % → 20,3 % → 15,4 % → **12,1 %**; die weiteste Stufe trifft
+damit genau die 12–15 % der Diablo-Vorlagen. Die Stufe steht im Spielstand.
+
+> **Von Hand, nicht automatisch.** Automatisches Zoomen nimmt die Entscheidung ab und wechselt
+> im falschen Moment — beim Betreten der Stadt mitten im Gefecht, oder im Sekundentakt am
+> Ortsrand. Wann man Übersicht und wann man Details braucht, weiß nur, wer gerade spielt.
+
 ## Licht: Schatten sind der Unterschied
 
 Bis zuletzt warf in der Szene **nichts einen Schatten** — eine einzelne Sonne ohne

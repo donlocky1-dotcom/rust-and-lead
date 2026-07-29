@@ -111,18 +111,44 @@ const CAM_FOV: float = 50.0     # eng statt Godots 75° — sonst wirkt die Figu
 ## also ~8,9 m, die 1,8-m-Figur füllt damit rund 20 % der Bildhöhe. Der frühere Wert (14 m)
 ## traf zwar die gemessenen 14 % der Vorlage, war am Bildschirm aber zu weit weg, um etwas
 ## zu erkennen — Spielbarkeit schlägt Messwert.
-const CAM_DIST: float = 9.5
+const CAM_DIST: float = 9.5     # Vorgabe; zur Laufzeit ueber CAM_ZOOM_STEPS verstellbar
 const CAM_PITCH: float = 52.0   # Neigung nach unten (etwas flacher -> mehr von der Figur)
 const CAM_YAW: float = 20.0     # leichte Gierung -> isometrischer Eindruck statt Frontalsicht
 
-## Fester Versatz Kamera→Spieler. Die Kamera behält ihre Ausrichtung IMMER — sie folgt nur der
-## Position. Blickrichtung, Neigung und Gierung sind Weltkonstanten, kein Zustand der Figur.
-const CAM_OFFSET: Vector3 = Vector3(
-	sin(deg_to_rad(CAM_YAW)) * CAM_DIST * cos(deg_to_rad(CAM_PITCH)),
-	CAM_DIST * sin(deg_to_rad(CAM_PITCH)),
-	cos(deg_to_rad(CAM_YAW)) * CAM_DIST * cos(deg_to_rad(CAM_PITCH)))
-## Wie schnell die Kamera nachzieht (1/s). Hart gekoppelt wirkt jeder Richtungswechsel wie ein
-## Ruck; zu weich schwimmt das Bild. 10 ist der Punkt, an dem beides verschwindet.
+## Zoomstufen (Abstand Kamera→Figur in Metern) — BEWUSST von Hand statt automatisch.
+##
+## Automatisches Zoomen nimmt dem Spieler die Entscheidung ab und wechselt zuverlaessig im
+## falschen Moment: beim Betreten der Stadt mitten im Gefecht, oder im Sekundentakt, wenn man
+## am Ortsrand hin und her laeuft. In der Stadt und im Dungeon will man nah heran, fuer lange
+## Wuestenwege weit heraus — das weiss nur, wer gerade spielt.
+##
+## Gemessen an der Bildhoehe (Sichthoehe = 2·Abstand·tan(FOV/2)) ist die Figur:
+##   7,5 m -> 25,7 %   9,5 m -> 20,3 %   12,5 m -> 15,4 %   16,0 m -> 12,1 %
+## Die Diablo-Vorlagen liegen bei 12–15 %; die weiteste Stufe trifft sie also genau, waehrend
+## die Vorgabe naeher bleibt, weil auf dem Handy sonst nichts mehr zu erkennen ist. Weiter als
+## 16 m lohnt nicht — bei 20 m waere die Figur 9,7 % hoch und damit nur noch ein Fleck.
+const CAM_ZOOM_STEPS: Array = [7.5, 9.5, 12.5, 16.0]
+const CAM_ZOOM_NAMES: Array = ["Nah", "Normal", "Weit", "Fern"]
+const CAM_ZOOM_DEFAULT: int = 1
+## Wie schnell der Zoom nachzieht (1/s). Springt er hart, verliert man die Orientierung.
+const CAM_ZOOM_RATE: float = 6.0
+## Fingerspreizung je Zoomstufe beim Kneifen.
+const PINCH_PX_PER_STEP: float = 90.0
+## Reichweite der Schattenkaskaden in Metern. Als Konstante, weil sie mit dem Zoom
+## zusammenhaengt: Beim weitesten Zoom liegt die hintere Bildkante 27,8 m vom Objektiv — passt
+## der Zoom kuenftig weiter heraus, muss dieser Wert mit. Ein Test rechnet das nach.
+const CAM_SHADOW_M: float = 60.0
+
+## Versatz Kamera→Spieler beim gegebenen Abstand. Die Kamera behaelt ihre Ausrichtung IMMER —
+## sie folgt nur der Position. Blickrichtung, Neigung und Gierung sind Weltkonstanten, kein
+## Zustand der Figur. Frueher war das eine Konstante; seit der Abstand verstellbar ist, muss
+## sie gerechnet werden.
+func _cam_offset(dist: float) -> Vector3:
+	return Vector3(
+		sin(deg_to_rad(CAM_YAW)) * dist * cos(deg_to_rad(CAM_PITCH)),
+		dist * sin(deg_to_rad(CAM_PITCH)),
+		cos(deg_to_rad(CAM_YAW)) * dist * cos(deg_to_rad(CAM_PITCH)))
+
 const CAM_FOLLOW: float = 10.0
 
 # ── Virtueller Joystick (Finger und Maus, GDD §1.5) ───────────────────────────
@@ -238,6 +264,14 @@ var _shimmer: float = 0.0            # Phase des Schimmerns am nächstgelegenen 
 var _dry_cd: float = 0.0             # Drossel für den "Waffe leer"-Hinweis
 var _ground_tile_m: float = 2.5      # Kantenlaenge einer Bodentextur-Kachel (gemessen)
 var _ammo_lbl: Label                 # Vorrat der getragenen Waffe, unter dem Schuss-Knopf
+var _cam_dist: float = CAM_DIST      # aktueller Abstand, weich nachgezogen
+var _zoom_btns: HBoxContainer        # ＋/－ unter der Minikarte
+var _hud_buttons: Array = []         # echte Knoepfe im HUD — duerfen den Joystick nicht ausloesen
+var _touch_pos: Dictionary = {}      # Finger-Index -> Position (fuer das Kneifen)
+var _pinch_a: int = -1               # die beiden Finger einer Kneifgeste
+var _pinch_b: int = -1
+var _pinch_ref: float = 0.0          # Fingerabstand beim Aufsetzen
+var _pinch_zoom0: int = 0            # Zoomstufe beim Aufsetzen
 var _zone_lbl: Label                 # Ortsschrift beim Betreten
 var _zone_shown: String = ""         # welcher Ort zuletzt angesagt wurde
 var _zone_t: float = 0.0             # Restzeit der Einblendung
@@ -502,7 +536,7 @@ func _build_environment() -> void:
 	# Schattenkarte. 60 m Reichweite deckt alles ab, was ueberhaupt im Bild landen kann, und
 	# gibt der Nahzone dafuer die volle Aufloesung.
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 60.0
+	sun.directional_shadow_max_distance = CAM_SHADOW_M
 	sun.directional_shadow_split_1 = 0.12
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.4
@@ -1252,7 +1286,8 @@ func _build_player() -> void:
 	_cam.rotation_degrees = Vector3(-CAM_PITCH, CAM_YAW, 0.0)
 	_cam.far = 8000.0   # Kraterrand & Herz bleiben trotzdem am Horizont sichtbar (Landmark-Navigation)
 	add_child(_cam)
-	_cam.position = _player.position + CAM_OFFSET
+	_cam_dist = float(CAM_ZOOM_STEPS[_zoom_step()])
+	_cam.position = _player.position + _cam_offset(_cam_dist)
 
 
 ## Hängt das Waffenmodell in die rechte Hand der Figur. Das Spieler-Rig bringt Gewehr-Clips mit
@@ -1350,6 +1385,21 @@ func _build_hud() -> void:
 	_actions.custom_minimum_size = Vector2(280.0, 0.0)
 	_actions.add_theme_constant_override("separation", 6)
 	layer.add_child(_actions)
+	# Zoom-Knoepfe unter der Minikarte. Auf dem Handy der verlaessliche Weg — die Kneifgeste
+	# gibt es zwar, aber beide Daumen liegen dort meist auf Joystick und Abzug.
+	_zoom_btns = HBoxContainer.new()
+	_zoom_btns.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_zoom_btns.position = Vector2(-Minimap.MAP_PX - 14.0, 12.0 + Minimap.MAP_PX + 8.0)
+	_zoom_btns.add_theme_constant_override("separation", 6)
+	for entry in [["－", -1], ["＋", 1]]:
+		var zb := Button.new()
+		zb.text = String(entry[0])
+		zb.custom_minimum_size = Vector2(46.0, 42.0)
+		zb.add_theme_font_size_override("font_size", 19)
+		zb.pressed.connect(_zoom_by.bind(int(entry[1])))
+		_zoom_btns.add_child(zb)
+		_hud_buttons.append(zb)
+	layer.add_child(_zoom_btns)
 	# Charakter-Knopf oben links unter der Statuszeile. Ohne ihn waere der Bildschirm auf dem
 	# Handy unerreichbar — dort gibt es kein [C].
 	_char_btn = Button.new()
@@ -1361,6 +1411,7 @@ func _build_hud() -> void:
 	_char_btn.add_theme_font_size_override("font_size", 20)
 	_char_btn.pressed.connect(_toggle_character)
 	layer.add_child(_char_btn)
+	_hud_buttons.append(_char_btn)
 	# Weltkarte ZULETZT: In einem CanvasLayer ist die Kindreihenfolge die Zeichenreihenfolge,
 	# und eine Vollbildkarte, unter der die Aktionsleiste hervorlugt, ist keine.
 	_build_world_map(layer)
@@ -1402,6 +1453,26 @@ func _map_is_open() -> bool:
 	return _map_overlay != null and _map_overlay.visible
 
 
+## Aktuelle Zoomstufe, gegen die Tabelle geklemmt — ein Altstand koennte einen Index tragen,
+## den es nicht mehr gibt.
+func _zoom_step() -> int:
+	return clampi(GameState.cam_zoom, 0, CAM_ZOOM_STEPS.size() - 1)
+
+
+## Zoomstufe setzen. Meldet die Stufe nur, wenn sie sich wirklich aendert — beim Kneifen
+## kaeme sonst pro Frame eine Einblendung.
+func _set_zoom(step: int) -> void:
+	var neu: int = clampi(step, 0, CAM_ZOOM_STEPS.size() - 1)
+	if neu == _zoom_step():
+		return
+	GameState.cam_zoom = neu
+	_say("🔍 %s (%.1f m)" % [String(CAM_ZOOM_NAMES[neu]), float(CAM_ZOOM_STEPS[neu])], 1.2)
+
+
+func _zoom_by(delta_steps: int) -> void:
+	_set_zoom(_zoom_step() + delta_steps)
+
+
 ## Liegt IRGENDEIN Vollbild-Overlay ueber der Welt? Karte und Laden sperren beide dasselbe:
 ## Bewegung und Abzug. Eine gemeinsame Abfrage, damit ein spaeter dazukommender Bildschirm
 ## nicht wieder an zwei Stellen nachgetragen werden muss.
@@ -1420,6 +1491,8 @@ func _set_hud_hidden(hidden: bool) -> void:
 		_ammo_lbl.visible = not hidden
 	if _char_btn != null:
 		_char_btn.visible = not hidden
+	if _zoom_btns != null:
+		_zoom_btns.visible = not hidden
 
 
 ## Oeffnet Werkstatt oder Geschaefte.
@@ -1847,6 +1920,13 @@ func sfx_equip() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed:
+			_touch_pos[event.index] = event.position
+		else:
+			_touch_pos.erase(event.index)
+			if event.index == _pinch_a or event.index == _pinch_b:
+				_pinch_a = -1
+				_pinch_b = -1
+		if event.pressed:
 			# Reihenfolge ist hier alles: Karte, dann Schuss-Knopf, dann erst der Joystick.
 			# Der Joystick beansprucht sonst jeden Finger, der irgendwo aufsetzt.
 			if _handle_overlay_tap(event.position):
@@ -1854,6 +1934,18 @@ func _input(event: InputEvent) -> void:
 			if _fire_touch_id == -1 and _fire_btn != null and _fire_btn.hits(event.position):
 				_fire_touch_id = event.index
 				get_viewport().set_input_as_handled()
+				return
+			# Kneifen zum Zoomen. Der Joystick beansprucht den ERSTEN freien Finger — ein
+			# zweiter waere danach nie eine Geste. Deshalb die Umdeutung: Kommt ein zweiter
+			# Finger, waehrend der erste noch in der Totzone liegt (man hat also noch nicht
+			# gelenkt), war es von Anfang an ein Kneifen. Wer schon steuert, behaelt den Stick.
+			if _touch_id != -1 and _touch_id != MOUSE_STICK_ID and _pinch_a == -1 \
+					and _touch_vec == Vector2.ZERO:
+				_pinch_a = _touch_id
+				_pinch_b = event.index
+				_pinch_ref = _touch_start.distance_to(event.position)
+				_pinch_zoom0 = _zoom_step()
+				_end_stick()
 				return
 			if _touch_id == -1:
 				_begin_stick(event.position, event.index)
@@ -1864,8 +1956,14 @@ func _input(event: InputEvent) -> void:
 				_fire_touch_id = -1
 			if event.index == _touch_id:
 				_end_stick()
-	elif event is InputEventScreenDrag and event.index == _touch_id:
-		_drag_stick(event.position)
+	elif event is InputEventScreenDrag:
+		_touch_pos[event.index] = event.position
+		if _pinch_a != -1 and _touch_pos.has(_pinch_a) and _touch_pos.has(_pinch_b):
+			var spread: float = Vector2(_touch_pos[_pinch_a]).distance_to(Vector2(_touch_pos[_pinch_b]))
+			# Auseinanderziehen holt heran (kleinere Stufe), zusammenziehen zoomt heraus.
+			_set_zoom(_pinch_zoom0 - int((spread - _pinch_ref) / PINCH_PX_PER_STEP))
+		elif event.index == _touch_id:
+			_drag_stick(event.position)
 	# Maus verhält sich exakt wie ein Finger — derselbe Joystick, damit man am Rechner das
 	# testet, was auf dem Handy auch passiert (statt einer zweiten, abweichenden Steuerung).
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1886,6 +1984,13 @@ func _input(event: InputEvent) -> void:
 	# Rechte Maustaste feuert direkt — links ist mit dem Joystick belegt.
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_fire_mouse = event.pressed
+	# Mausrad zoomt. Hoch = naeher heran, also eine Stufe KLEINER.
+	elif event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		_zoom_by(-1)
+	elif event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		_zoom_by(1)
 	elif event is InputEventMouseMotion and _touch_id == MOUSE_STICK_ID:
 		_drag_stick(event.position)
 	# Leertaste: Halten feuert. Sie braucht auch das LOSLASSEN, deshalb steht sie vor dem
@@ -1899,6 +2004,10 @@ func _input(event: InputEvent) -> void:
 			_close_world_map()
 		elif event.keycode == KEY_C:
 			_toggle_character()
+		elif event.keycode == KEY_PLUS or event.keycode == KEY_EQUAL or event.keycode == KEY_KP_ADD:
+			_zoom_by(-1)
+		elif event.keycode == KEY_MINUS or event.keycode == KEY_KP_SUBTRACT:
+			_zoom_by(1)
 		elif event.keycode == KEY_M:
 			if _map_is_open():
 				_close_world_map()
@@ -1955,9 +2064,11 @@ func _handle_overlay_tap(at: Vector2) -> bool:
 		_open_world_map()
 		get_viewport().set_input_as_handled()
 		return true
-	# Der Charakter-Knopf ist ein echter Button: fernhalten vom Joystick, aber durchreichen.
-	if _char_btn != null and _char_btn.visible and _char_btn.get_global_rect().has_point(at):
-		return true
+	# Echte Knoepfe im HUD: vom Joystick fernhalten, aber an die GUI durchreichen.
+	for b in _hud_buttons:
+		var btn: Button = b
+		if btn.visible and btn.is_visible_in_tree() and btn.get_global_rect().has_point(at):
+			return true
 	return false
 
 
@@ -2050,7 +2161,10 @@ func _move_vector() -> Vector2:
 func _process_camera(delta: float) -> void:
 	if _cam == null:
 		return
-	var want: Vector3 = _player.position + CAM_OFFSET
+	# Zoom weich nachziehen, dann die Position — beides mit derselben Zeitkonstanten-Logik.
+	_cam_dist = lerpf(_cam_dist, float(CAM_ZOOM_STEPS[_zoom_step()]),
+		clampf(delta * CAM_ZOOM_RATE, 0.0, 1.0))
+	var want: Vector3 = _player.position + _cam_offset(_cam_dist)
 	_cam.position = _cam.position.lerp(want, clampf(delta * CAM_FOLLOW, 0.0, 1.0))
 
 

@@ -29,6 +29,7 @@ static func serialize() -> Dictionary:
 		"equip": GameState.equip.duplicate(true),
 		"bag": GameState.bag.duplicate(true),
 		"ammo": GameState.ammo.duplicate(true),
+		"cam_zoom": GameState.cam_zoom,
 		"economy": GameState.economy.duplicate(true),
 		"kills": GameState.kills,
 		"quests": GameState.quests.duplicate(true),
@@ -61,6 +62,8 @@ static func deserialize(data: Dictionary) -> void:
 	# ein geladenes Spiel, in dem man nicht schiessen kann, waere schlimmer als eines mit
 	# geschenkter Munition.
 	GameState.ammo = _int_dict_with_defaults(data.get("ammo", {}), AmmoData.fresh())
+	GameState.cam_zoom = clampi(int(data.get("cam_zoom", OverworldView.CAM_ZOOM_DEFAULT)),
+		0, OverworldView.CAM_ZOOM_STEPS.size() - 1)
 	GameState.economy = _int_dict_with_defaults(data.get("economy", {}), { "saloon": 0, "forge": 0, "distillery": 0, "laboratory": 0 })
 	GameState.kills = maxi(0, int(data.get("kills", 0)))
 	GameState.quests = (data.get("quests", {}) as Dictionary).duplicate(true)

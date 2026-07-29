@@ -75,6 +75,11 @@ var memorials_seen: Array = []     ## ids besuchter Erinnerungspunkte in Provide
 var family_buried: bool = false    ## alle Walzen an den drei Gräbern beigesetzt (16/16)
 var codex: Array = []              ## freigeschaltete Codex-Einträge (ids)
 
+## Kamera-Zoomstufe (Index in OverworldView.CAM_ZOOM_STEPS). Gehoert in den Spielstand, weil
+## die Wahl zwischen "nah in der Stadt" und "weit in der Wueste" eine Entscheidung ist — man
+## soll sie nicht jede Sitzung neu treffen muessen.
+var cam_zoom: int = 1
+
 # ── Ablauf-Flags (nur backend-relevante; UI-Only-Flags leben in der UI-Schicht) ─
 var flags_ui: Dictionary = { "reveal_playing": false }
 

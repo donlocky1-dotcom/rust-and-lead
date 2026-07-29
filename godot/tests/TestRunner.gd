@@ -31,6 +31,7 @@ func _ready() -> void:
 	_test_ammo()
 	_test_weapons()
 	_test_terrain()
+	_test_camera_zoom()
 	_test_bag()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
@@ -806,6 +807,70 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+## Zoom: von Hand, nicht automatisch (siehe CAM_ZOOM_STEPS).
+##
+## Der Kamera-Abstand war eine Konstante, aus der ein konstanter Versatz abgeleitet wurde. Jetzt
+## ist er verstellbar — und damit haengen zwei Dinge daran, die stillschweigend brechen koennen:
+## die Groesse der Figur im Bild und die Reichweite der Schattenkaskaden.
+func _test_camera_zoom() -> void:
+	print("· Kamera-Zoom")
+	var steps: Array = OverworldView.CAM_ZOOM_STEPS
+	_check("Mehrere Zoomstufen vorhanden", steps.size() >= 3)
+	_check("Zu jeder Stufe gehoert ein Name",
+		OverworldView.CAM_ZOOM_NAMES.size() == steps.size())
+	var steigend: bool = true
+	for i in range(1, steps.size()):
+		if float(steps[i]) <= float(steps[i - 1]):
+			steigend = false
+	_check("Stufen sind aufsteigend sortiert", steigend)
+	_check("Vorgabestufe liegt im gueltigen Bereich",
+		OverworldView.CAM_ZOOM_DEFAULT >= 0 and OverworldView.CAM_ZOOM_DEFAULT < steps.size())
+	_check("Spanne mindestens Faktor 2", float(steps[-1]) / float(steps[0]) >= 2.0,
+		"%.1f bis %.1f m" % [float(steps[0]), float(steps[-1])])
+
+	# Bildanteil der Figur: Sichthoehe = 2 * Abstand * tan(FOV/2).
+	var ow := OverworldView.new()
+	var anteil: Callable = func(d: float) -> float:
+		return 1.8 / (2.0 * d * tan(deg_to_rad(OverworldView.CAM_FOV * 0.5))) * 100.0
+	var weit: float = anteil.call(float(steps[-1]))
+	var nah: float = anteil.call(float(steps[0]))
+	_check("Weiteste Stufe trifft die Diablo-Spanne (12–15 %% der Bildhoehe)",
+		weit >= 11.5 and weit <= 15.5, "%.1f %%" % weit)
+	_check("Naechste Stufe zeigt die Figur deutlich groesser (> 22 %%)", nah > 22.0,
+		"%.1f %%" % nah)
+	_check("Auch die weiteste Stufe bleibt lesbar (> 10 %%)", weit > 10.0)
+
+	# Schatten: Die hintere Bildkante darf nicht aus den Kaskaden fallen. Der obere
+	# Frustumrand liegt (Neigung − halbes Sichtfeld) unter der Waagerechten.
+	var rand_deg: float = OverworldView.CAM_PITCH - OverworldView.CAM_FOV * 0.5
+	var schlimmster: float = 0.0
+	for d in steps:
+		var hoehe: float = float(d) * sin(deg_to_rad(OverworldView.CAM_PITCH))
+		schlimmster = maxf(schlimmster, hoehe / sin(deg_to_rad(rand_deg)))
+	_check("Schattenkaskaden reichen bis zur hintersten Bildkante (%.1f m von %.0f m)"
+		% [schlimmster, OverworldView.CAM_SHADOW_M],
+		schlimmster < OverworldView.CAM_SHADOW_M)
+
+	# Der Versatz muss den Abstand exakt einhalten — er wird jetzt gerechnet statt konstant.
+	for d in steps:
+		var off: Vector3 = ow._cam_offset(float(d))
+		if not is_equal_approx(off.length(), float(d)):
+			_check("Versatz haelt den Abstand bei %.1f m" % float(d), false, "%.3f m" % off.length())
+	_check("Versatz haelt bei jeder Stufe exakt den Abstand", true)
+	var off0: Vector3 = ow._cam_offset(float(steps[0]))
+	_check("Neigung bleibt bei jeder Stufe gleich (%.0f°)" % OverworldView.CAM_PITCH,
+		is_equal_approx(rad_to_deg(asin(off0.y / off0.length())), OverworldView.CAM_PITCH))
+
+	# Klemmung an beiden Enden.
+	GameState.cam_zoom = -5
+	_check("Zu kleiner Index wird auf die naechste Stufe geklemmt", ow._zoom_step() == 0)
+	GameState.cam_zoom = 99
+	_check("Zu grosser Index wird auf die weiteste Stufe geklemmt",
+		ow._zoom_step() == steps.size() - 1)
+	GameState.cam_zoom = OverworldView.CAM_ZOOM_DEFAULT
+	ow.free()
 
 
 ## Topografie: Die Senke ist eine FORMEL, kein Modell.
