@@ -71,6 +71,27 @@ jedem Aufstieg anfallen; gesperrte Perks nennen daneben, was ihnen fehlt.
 Tastatur: `[Leertaste]` schießen, `[Tab]` Waffe, `[E]` aufheben/öffnen/ansprechen, `[C]`
 Charakter, `[M]` Karte, `[Esc]` schließen, `[1]`–`[5]` Iron Rail (nur am Bahnsteig, GDD §1.4a).
 
+## Licht: Schatten sind der Unterschied
+
+Bis zuletzt warf in der Szene **nichts einen Schatten** — eine einzelne Sonne ohne
+`shadow_enabled`, dazu Umgebungslicht auf 0,8. Zwischen Licht- und Schattenseite lag damit nur
+der Faktor **2,4**, und deshalb wirkte jedes Objekt flach aufgeklebt statt auf dem Boden
+stehend. Jetzt sind es **6,0** (Sonne 1,6 gegen Umgebung 0,32), plus:
+
+* **Zwei Schattenkaskaden auf 60 m.** Wir sehen 15 m weit; 60 m decken alles ab, was ins Bild
+  kommt, und geben der Nahzone die volle Auflösung einer 2048er Karte. Der flache Boden ist vom
+  Schattenwurf ausgenommen — er kann keinen werfen und ist die größte Geometrie der Szene.
+* **Filmic-Tonemapping** statt Godots linearer Vorgabe, die helle Sandflächen ausbleichen lässt.
+* **Dünne Luftperspektive** (Nebeldichte 0,0007), damit Entfernung sichtbar wird — bewusst
+  schwach, weil Kraterrand und Eisernes Herz als Landmarken am Horizont lesbar bleiben müssen.
+
+> Der Renderer steht auf **mobile** (wegen Xogot). Damit gibt es kein SSAO und keine
+> volumetrische Beleuchtung — Schatten, Tonemapping und Tiefennebel dagegen schon.
+
+**Ortsschrift:** Beim Betreten eines Ortes zieht sein Name groß und gesperrt über die
+Bildmitte und blendet über vier Sekunden wieder weg. Auch das Verlassen wird angesagt
+(„OFFENE WÜSTE"), damit die Wildnis ein Ort ist und kein Nichts.
+
 ## Topografie: Senken sind eine Formel, kein Modell
 
 Der Boden war eine flache Platte bei y = 0, und die Figur bekam ihr y nie von irgendwoher — ein

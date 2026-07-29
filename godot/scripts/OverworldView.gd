@@ -238,6 +238,9 @@ var _shimmer: float = 0.0            # Phase des Schimmerns am nächstgelegenen 
 var _dry_cd: float = 0.0             # Drossel für den "Waffe leer"-Hinweis
 var _ground_tile_m: float = 2.5      # Kantenlaenge einer Bodentextur-Kachel (gemessen)
 var _ammo_lbl: Label                 # Vorrat der getragenen Waffe, unter dem Schuss-Knopf
+var _zone_lbl: Label                 # Ortsschrift beim Betreten
+var _zone_shown: String = ""         # welcher Ort zuletzt angesagt wurde
+var _zone_t: float = 0.0             # Restzeit der Einblendung
 var _npcs: Array = []                # { giver, name, node, label, pos: Vector3 }
 var _actions: VBoxContainer          # Aktionsleiste unten (Sprechen, Bahnreise)
 var _ctx: String = ""                # was gerade in Reichweite ist ("npc:silas", "station:…")
@@ -451,6 +454,9 @@ func _add_ground_quad(r: Rect2, mat: Material) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = mat
+	# Eine waagerechte Flaeche kann keinen sinnvollen Schatten werfen — das spart auf dem Handy
+	# die groesste Geometrie der Szene in jedem Schattendurchlauf.
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 
 
@@ -485,15 +491,42 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 func _build_environment() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52.0, 35.0, 0.0)
-	sun.light_energy = 1.15
+	sun.light_energy = 1.6
+	sun.light_color = Color(1.0, 0.94, 0.80)   # tiefstehende Wuestensonne, warm
+	# ── Schatten: der groesste einzelne Unterschied zur Referenz ──────────────
+	# Bis hierher warf NICHTS einen Schatten. Ohne ihn steht eine Figur nicht auf dem Boden,
+	# sie klebt darauf — man sieht weder, wo sie aufsetzt, noch wie hoch etwas ist. In den
+	# Diablo-Vorlagen wirft selbst der vorbeifliegende Rabe einen harten Schatten auf den Sand.
+	sun.shadow_enabled = true
+	# Zwei Kaskaden statt vier: Wir sehen 15 m weit, und auf dem Handy zaehlt jede eingesparte
+	# Schattenkarte. 60 m Reichweite deckt alles ab, was ueberhaupt im Bild landen kann, und
+	# gibt der Nahzone dafuer die volle Aufloesung.
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 60.0
+	sun.directional_shadow_split_1 = 0.12
+	sun.shadow_bias = 0.04
+	sun.shadow_normal_bias = 1.4
 	add_child(sun)
 	var we := WorldEnvironment.new()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.55, 0.55, 0.42)   # grüner Bronzehimmel (Story-Bibel)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.75, 0.72, 0.62)
-	env.ambient_light_energy = 0.8
+	env.ambient_light_color = Color(0.62, 0.66, 0.78)   # kuehler Himmelsanteil gegen die warme Sonne
+	# Von 0,8 auf 0,32: Bei 0,8 Umgebung gegen 1,15 Sonne lag zwischen Licht- und Schattenseite
+	# nur der Faktor 2,4 — deshalb wirkte jedes Objekt flach. Jetzt sind es rund 6.
+	env.ambient_light_energy = 0.32
+	# Godots Vorgabe ist lineares Tonemapping; helle Flaechen laufen damit aus und Sand wirkt
+	# ausgewaschen. Filmic haelt die Lichter zusammen und vertieft die Schatten.
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_white = 1.5
+	# Luftperspektive: In der Ferne blasst alles zum Himmel aus, das erzeugt Tiefe. Bewusst
+	# duenn — Kraterrand und Eisernes Herz sollen als Landmarken am Horizont sichtbar bleiben.
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.62, 0.62, 0.52)
+	env.fog_density = 0.0007
+	env.fog_aerial_perspective = 0.5
+	env.fog_sky_affect = 0.0
 	we.environment = env
 	add_child(we)
 
@@ -1267,6 +1300,20 @@ func _build_hud() -> void:
 	_hud.position = Vector2(14.0, 10.0)
 	_hud.add_theme_font_size_override("font_size", 15)
 	layer.add_child(_hud)
+	# Ortsschrift: Beim Betreten eines Ortes zieht sein Name gross und gesperrt ueber die Mitte
+	# und blendet wieder weg. Kostet nichts und macht aus einem Punkt auf der Karte einen Ort,
+	# an dem man ANGEKOMMEN ist — genau die Einblendung aus den Diablo-Vorlagen.
+	_zone_lbl = Label.new()
+	_zone_lbl.set_anchors_preset(Control.PRESET_CENTER)
+	_zone_lbl.position = Vector2(-300.0, -40.0)
+	_zone_lbl.custom_minimum_size = Vector2(600.0, 0.0)
+	_zone_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_zone_lbl.add_theme_font_size_override("font_size", 34)
+	_zone_lbl.add_theme_constant_override("outline_size", 6)
+	_zone_lbl.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.03, 0.9))
+	_zone_lbl.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_zone_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_zone_lbl)
 	_toast = Label.new()
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_toast.position = Vector2(0.0, 64.0)
@@ -1598,6 +1645,33 @@ func _spawn_chest_at(raw: Vector3) -> void:
 	add_child(node)
 	var label: Label3D = _label(pos + Vector3(0.0, 1.3, 0.0), "📦 Truhe", Color(1.0, 0.85, 0.4), 90, 120.0)
 	_chests.append({ "node": node, "label": label, "pos": pos, "looted": false, "cd": 0.0 })
+
+
+## Ortsschrift. Sperrt den Namen mit Leerzeichen, damit er wie eine Inschrift wirkt und nicht
+## wie eine Beschriftung, und blendet ihn ueber vier Sekunden ein und wieder aus.
+##
+## Ausgeloest wird beim WECHSEL der Zone — beim Verlassen genauso wie beim Betreten, damit die
+## offene Wueste auch als Ort benannt ist. Wer an der Grenze hin und her laeuft, bekommt sie
+## trotzdem nur einmal: Der zuletzt angesagte Ort bleibt gemerkt.
+const ZONE_TITLE_SEC: float = 4.0
+
+func _process_zone_title(delta: float) -> void:
+	if _zone_lbl == null:
+		return
+	var rel: Vector2 = WorldManager.scene_to_world(_player.position)
+	var zone: String = WorldManager.zone_at(rel)
+	if zone != _zone_shown:
+		_zone_shown = zone
+		_zone_t = ZONE_TITLE_SEC
+		var name: String = "Offene Wüste" if zone == "" else String(WorldManager.poi(zone)["name"])
+		_zone_lbl.text = " ".join(name.to_upper().split(""))
+	if _zone_t <= 0.0:
+		return
+	_zone_t -= delta
+	# Eine Sekunde auf, zwei stehen, eine ab.
+	var t: float = ZONE_TITLE_SEC - _zone_t
+	var a: float = clampf(t, 0.0, 1.0) * clampf(_zone_t, 0.0, 1.0)
+	_zone_lbl.modulate = Color(0.98, 0.93, 0.80, a * 0.92)
 
 
 ## Naechste ungeoeffnete Truhe in Reichweite ({} = keine). Grundlage fuer das Hand-Symbol.
@@ -1989,6 +2063,7 @@ func _process(delta: float) -> void:
 	_process_spawns(delta)
 	_process_chests(delta)
 	_process_ground(delta)
+	_process_zone_title(delta)
 	_process_interactions(delta)
 	_process_autosave(delta)
 	_update_hud()
