@@ -47,9 +47,21 @@ Seltenheit** (grau · blau · violett · gold), und das nächstgelegene Stück b
 **Schimmer** und seinen vollen Namen — nur das lässt sich mit der Hand aufheben. Gegner lassen
 ihre Beute genauso fallen.
 
-**Munition (GDD §7.1.1):** Feuern verbraucht Vorrat, Dauerfeuer gibt es nicht. Der Karabiner
-zieht 🧨 Munition (180), die drei Energiewaffen teilen sich 🔷 Energiekristalle (120). Der
-Vorrat steht unter dem Schuss-Knopf, gelb ab 10, rot bei leer.
+**Waffen (GDD §7.1):** Fünf Profile, die sich wirklich unterscheiden — der Feuertakt spannt sich
+über den **Faktor zwölf**. Der 🔫 **Blei-Karabiner** kracht einmal pro Sekunde und trifft hart
+und genau; die 🌀 **Messing-Gatling** feuert vierzehnmal pro Sekunde, streut aber so weit, dass
+sie auf voller Reichweite nur noch gut ein Drittel trifft. Dazwischen ⚡ Volt-Karabiner,
+🧪 Säure-Sprüher und 🔥 Dampf-Brenner. `[Tab]` schaltet um.
+
+> **Streuung** ist keine Zufallszahl, sondern Geometrie: Die Abweichung wird gegen die
+> Winkelbreite des Gegners geprüft, und ein Fehlschuss ist an der Leuchtspur zu sehen. Deshalb
+> wird die Gatling nah tödlich und weit nutzlos, ohne dass das als Regel irgendwo steht.
+> Verengen lässt sich der Kegel über den Mod-Wert **`accuracy`** auf Ausrüstung.
+
+**Munition (GDD §7.1.1):** Feuern verbraucht Vorrat, Dauerfeuer gibt es nicht. Was Blei
+verschießt, zieht 🧨 Munition (180), der Rest 🔷 Energiekristalle (120). Das ist die zweite
+Hälfte der Waffenwahl: Der Karabiner kommt mit vollem Vorrat **zweieinhalb Minuten** weit, die
+Gatling **dreizehn Sekunden**. Der Vorrat steht unter dem Schuss-Knopf, gelb ab 10, rot bei leer.
 
 **Charakter (`[C]` oder 🎽 oben links):** zwei Reiter. **Ausrüstung** zeigt Getragenes, das
 Werte-Blatt und den Beutel — anlegen, ablegen, verschrotten. Der Beutel ist ein Grid: eine

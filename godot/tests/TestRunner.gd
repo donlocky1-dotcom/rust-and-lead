@@ -29,6 +29,7 @@ func _ready() -> void:
 	_test_wall_classification()
 	_test_workshop()
 	_test_ammo()
+	_test_weapons()
 	_test_bag()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
@@ -727,8 +728,13 @@ func _test_player_stats() -> void:
 	GameState.ammo = AmmoData.fresh()
 
 	# Basiswerte ohne Boni.
-	_check("Basis-Schaden Karabiner = 20", PlayerStats.damage_per_bullet("karabiner") == 20)
-	_check("Basis-Feuerrate Karabiner = 200", PlayerStats.fire_ms("karabiner") == 200)
+	# Gegen die TABELLE geprueft, nicht gegen abgeschriebene Zahlen: Balance-Werte aendern sich,
+	# die Formel „ohne Boni kommt die Basis heraus" nicht.
+	var kb: Dictionary = CombatData.WEAPONS["karabiner"]
+	_check("Basis-Schaden Karabiner = Tabellenwert (%d)" % int(kb["base"]),
+		PlayerStats.damage_per_bullet("karabiner") == int(kb["base"]))
+	_check("Basis-Feuerrate Karabiner = Tabellenwert (%d ms)" % int(kb["fire_ms"]),
+		PlayerStats.fire_ms("karabiner") == int(kb["fire_ms"]))
 	_check("Basis max_hp (L1) = 100", PlayerStats.max_hp() == 100)
 	_check("Basis Krit = 0", is_equal_approx(PlayerStats.crit_chance(), 0.0))
 	_check("Krit-Mult = 2.0", is_equal_approx(PlayerStats.crit_mult(), 2.0))
@@ -740,7 +746,9 @@ func _test_player_stats() -> void:
 	GameState.level = 1
 	GameState.perk_points = 3
 	ProgressionManager.buy_perk("scharf"); ProgressionManager.buy_perk("scharf"); ProgressionManager.buy_perk("scharf")
-	_check("Perk Scharfschütze: Schaden 20+12 = 32", PlayerStats.damage_per_bullet("karabiner") == 32)
+	var basis: int = int(CombatData.WEAPONS["karabiner"]["base"])
+	_check("Perk Scharfschütze: Schaden %d+12" % basis,
+		PlayerStats.damage_per_bullet("karabiner") == basis + 12)
 
 	# Werkstatt-Upgrade + Ausrüstung + Legendär-Kraft (overcharge x1.18).
 	_reset_state(); GameState.equip = {}
@@ -749,7 +757,7 @@ func _test_player_stats() -> void:
 	var wpn: Dictionary = ProgressionManager.make_gear("weapon", "legendary", "overcharge", rng)
 	var dmg_stat: int = ProgressionManager.gear_stat_of(wpn, "damage")
 	EquipManager.equip_item(wpn, "weapon")
-	var expected: int = roundi((20 + 12 + dmg_stat) * 1.18)
+	var expected: int = roundi((int(CombatData.WEAPONS["karabiner"]["base"]) + 12 + dmg_stat) * 1.18)
 	_check("Upgrade+Ausrüstung+Golem-Faust (x1.18)", PlayerStats.damage_per_bullet("karabiner") == expected)
 
 	# Set-Integration: Direktorat verleiht cap_grit -> max_hp x1.2 & Schaden-genommen x0.8.
@@ -797,6 +805,87 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+## Waffenprofile & Streuung (GDD §7.1): Jede Waffe muss sich anders ANFUEHLEN, nicht nur
+## anders faerben.
+##
+## Vorher lagen alle vier Takte zwischen 170 und 240 ms — die Waffenwahl war eine reine
+## Schadensart-Frage. Diese Tests halten fest, dass Takt, Schaden und Streuung jetzt
+## auseinanderliegen und sich gegenseitig aufwiegen.
+func _test_weapons() -> void:
+	print("· Waffenprofile & Streuung")
+	_reset_state()
+	var kb: Dictionary = CombatData.WEAPONS["karabiner"]
+	var gat: Dictionary = CombatData.WEAPONS["gatling"]
+	_check("Der Karabiner schiesst langsam (>= 700 ms)", int(kb["fire_ms"]) >= 700,
+		"%d ms" % int(kb["fire_ms"]))
+	_check("Die Gatling schiesst sehr schnell (<= 90 ms)", int(gat["fire_ms"]) <= 90,
+		"%d ms" % int(gat["fire_ms"]))
+	_check("Takt-Spanne ueber Faktor 10", float(kb["fire_ms"]) / float(gat["fire_ms"]) >= 10.0,
+		"Faktor %.1f" % (float(kb["fire_ms"]) / float(gat["fire_ms"])))
+	_check("Dafuer trifft der Karabiner haerter (>= 4x Schaden je Schuss)",
+		int(kb["base"]) >= 4 * int(gat["base"]), "%d gegen %d" % [int(kb["base"]), int(gat["base"])])
+	# Kein Ausreisser: Der Dauerschaden darf sich unterscheiden, aber nicht um Groessenordnungen.
+	var dps: Dictionary = {}
+	for id in CombatData.WEAPONS:
+		var w: Dictionary = CombatData.WEAPONS[id]
+		dps[id] = float(w["base"]) * 1000.0 / float(w["fire_ms"])
+	var lo: float = 1e9
+	var hi: float = 0.0
+	for id in dps:
+		lo = minf(lo, float(dps[id]))
+		hi = maxf(hi, float(dps[id]))
+	_check("Kein Dauerschaden-Ausreisser (Spanne < 3x)", hi / lo < 3.0,
+		"%.0f bis %.0f Schaden/s" % [lo, hi])
+	# Jede Waffe hat eine eigene Munitionsquelle und eine eigene Streuung.
+	_check("Gatling zieht aus demselben Pool wie der Karabiner (kinetisch)",
+		AmmoData.pool_for("gatling") == AmmoData.pool_for("karabiner"))
+	_check("Der Karabiner streut fast nicht (< 1°)", PlayerStats.spread_deg("karabiner") < 1.0)
+	_check("Die Gatling sprueht (>= 5°)", PlayerStats.spread_deg("gatling") >= 5.0)
+
+	# Der Kern: Streuung ist eine REICHWEITEN-Frage. Trefferwahrscheinlichkeit = Winkelbreite
+	# des Ziels geteilt durch den Streukegel (gedeckelt bei 100 %).
+	var radius: float = 0.55   # normal grosser Gegner
+	for w in ["karabiner", "gatling"]:
+		var cone: float = PlayerStats.spread_deg(String(w))
+		var nah: float = _hit_chance(cone, radius, 3.0)
+		var weit: float = _hit_chance(cone, radius, 11.0)
+		print("    %-10s Kegel %.1f°  ->  auf 3 m %.0f %%, auf 11 m %.0f %%"
+			% [w, cone, nah * 100.0, weit * 100.0])
+	_check("Der Karabiner trifft auf volle Reichweite noch sicher",
+		_hit_chance(PlayerStats.spread_deg("karabiner"), radius, 11.0) > 0.99)
+	_check("Die Gatling trifft nah sicher, weit aber nicht",
+		_hit_chance(PlayerStats.spread_deg("gatling"), radius, 3.0) > 0.99
+		and _hit_chance(PlayerStats.spread_deg("gatling"), radius, 11.0) < 0.6)
+
+	# Mods verengen den Kegel — genau darum ging es.
+	_reset_state()
+	var vorher: float = PlayerStats.spread_deg("gatling")
+	GameState.equip = { "weapon": { "uid": 1, "slot": "weapon", "rarity": "epic", "req": 1,
+		"name": "Testlauf", "stat": { "key": "accuracy", "val": 40, "q": 1.0 }, "affixes": [] } }
+	var nachher: float = PlayerStats.spread_deg("gatling")
+	_check("Praezisions-Mod verengt den Kegel", nachher < vorher,
+		"%.2f° -> %.2f°" % [vorher, nachher])
+	_check("Der Mod verbessert die Trefferchance auf Distanz spuerbar",
+		_hit_chance(nachher, radius, 11.0) > _hit_chance(vorher, radius, 11.0) + 0.15,
+		"%.0f %% -> %.0f %%" % [_hit_chance(vorher, radius, 11.0) * 100.0,
+			_hit_chance(nachher, radius, 11.0) * 100.0])
+	GameState.equip = { "weapon": { "uid": 1, "slot": "weapon", "rarity": "legendary", "req": 1,
+		"name": "Testlauf", "stat": { "key": "accuracy", "val": 500, "q": 1.0 }, "affixes": [] } }
+	_check("Auch vollgemoddet bleibt die Gatling eine Gatling (Deckel 85 %)",
+		PlayerStats.spread_deg("gatling") > float(CombatData.WEAPONS["gatling"]["spread_deg"]) * 0.14,
+		"%.2f°" % PlayerStats.spread_deg("gatling"))
+	_reset_state()
+
+
+## Trefferchance aus Streukegel, Zielradius und Entfernung — dieselbe Rechnung wie in
+## `OverworldView._process_combat`, hier zum Pruefen nachgezogen.
+func _hit_chance(cone_deg: float, radius_m: float, dist_m: float) -> float:
+	if cone_deg <= 0.0:
+		return 1.0
+	var half_deg: float = rad_to_deg(atan2(radius_m, dist_m))
+	return minf(1.0, half_deg / cone_deg)
 
 
 ## Munition (GDD §7.1.1): begrenzter Vorrat statt Dauerfeuer.

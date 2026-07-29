@@ -41,10 +41,12 @@ const SWARM_SPREAD_M: float = 4.5
 
 # ── Waffen (alle vier Schadensarten testbar — Kapitel-Gating folgt später über
 # das Quest-/Reveal-System; dieser Sandbox-Screen ist bewusst ungesperrt). ────
-const WEAPON_ORDER: Array = ["karabiner", "voltgun", "saeure", "brenner"]
-const WEAPON_ICON: Dictionary = { "karabiner": "🔫", "voltgun": "⚡", "saeure": "🧪", "brenner": "🔥" }
+const WEAPON_ORDER: Array = ["karabiner", "gatling", "voltgun", "saeure", "brenner"]
+const WEAPON_ICON: Dictionary = { "karabiner": "🔫", "gatling": "🌀", "voltgun": "⚡",
+	"saeure": "🧪", "brenner": "🔥" }
 const TRACER_COLOR: Dictionary = {
-	"karabiner": Color(0.98, 0.75, 0.14), "voltgun": Color(0.35, 0.75, 0.98),
+	"karabiner": Color(0.98, 0.75, 0.14), "gatling": Color(0.95, 0.86, 0.55),
+	"voltgun": Color(0.35, 0.75, 0.98),
 	"saeure": Color(0.55, 0.85, 0.25), "brenner": Color(0.95, 0.42, 0.15),
 }
 
@@ -1378,8 +1380,12 @@ func _make_enemy(type_id: String) -> Dictionary:
 	# sonst gleitet die Figur reglos über den Sand, was bei einem Rudel besonders auffällt.
 	var animated: bool = model != null \
 		and AssetRegistry.find_clip(AssetRegistry.animation_player(model), "walk") != ""
+	# Trefferradius aus der Zielhoehe des Modells: Ein Kessel-Klaeffer (0,8 m) ist ein deutlich
+	# kleineres Ziel als der Schwere Ernter (4 m), und genau das soll die Streuung spueren.
+	# Gedeckelt, damit weder eine Ratte unmoeglich noch ein Boss trivial wird.
+	var radius: float = clampf(AssetRegistry.height_of(asset) * 0.30, 0.32, 1.40)
 	return { "node": node, "target": target, "bar": bar, "model": model,
-		"animated": animated, "phase": randf() * TAU }
+		"animated": animated, "phase": randf() * TAU, "radius": radius }
 
 
 func _spawn_pack() -> void:
@@ -1973,12 +1979,28 @@ func _process_combat(delta: float) -> void:
 			_say("🔫 %s leer — Waffe wechseln [Tab]" % String(AmmoData.POOLS[AmmoData.pool_for(_weapon_id)]["name"]), 1.5)
 		return
 	_fire_cd = float(PlayerStats.fire_ms(_weapon_id)) / 1000.0
+	# ── Streuung: Der Schuss kann DANEBENGEHEN ────────────────────────────────
+	# Gezielt wird automatisch, das bleibt so — aber Zielen und Treffen sind zweierlei. Die
+	# Abweichung wird aus dem Streukegel der Waffe gewuerfelt und gegen die WINKELBREITE des
+	# Gegners geprueft: Wie breit er aus dieser Entfernung erscheint, entscheidet, ob die
+	# Abweichung noch auf ihm landet. Damit wird Streuung automatisch zur Reichweitenfrage,
+	# ohne dass irgendwo eine Trefferwahrscheinlichkeit von Hand gesetzt waere.
+	var to: Vector3 = (e["node"] as Node3D).position - _player.position
+	var dist: float = maxf(Vector2(to.x, to.z).length(), 0.5)
+	var half_deg: float = rad_to_deg(atan2(float(e["radius"]), dist))
+	var dev_deg: float = randf_range(-1.0, 1.0) * PlayerStats.spread_deg(_weapon_id)
+	var hit: bool = absf(dev_deg) <= half_deg
+	# Der Leuchtspur folgt der ABWEICHUNG, nicht dem Ziel: Ein Fehlschuss muss zu sehen sein,
+	# sonst wirkt er wie ein verschluckter Treffer.
+	var aim: Vector3 = _player.position + Vector3(to.x, 0.0, to.z).rotated(Vector3.UP, deg_to_rad(dev_deg))
+	_spawn_tracer(aim)
+	if not hit:
+		return
 	var target: CombatTarget = e["target"]
 	var damage_type: String = String(CombatData.WEAPONS[_weapon_id]["type"])
 	var acid: int = CombatData.weapon_acid(_weapon_id, 0)
 	var res: Dictionary = CombatEngine.resolve_hit(
 		damage_type, target, PlayerStats.damage_per_bullet(_weapon_id), acid, Time.get_ticks_msec())
-	_spawn_tracer(e["node"].position)
 	var frac: float = clampf(float(target.health) / float(target.max_health), 0.0, 1.0)
 	(e["bar"] as MeshInstance3D).scale.x = maxf(frac, 0.02)
 	if bool(res["killed"]):

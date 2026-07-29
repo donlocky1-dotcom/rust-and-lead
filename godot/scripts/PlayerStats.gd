@@ -25,8 +25,11 @@ static func _cap(branch: String) -> bool:
 static func _up(key: String) -> int:
 	return int(GameState.upgrades.get(key, 0))
 
+## Energiewaffe? Entscheidet über Überladungs-Boni. Dieselbe Trennung wie bei der Munition
+## (`AmmoData.pool_for`) und aus demselben Grund an der Schadensart festgemacht: Die Gatling
+## ist schnell, aber sie ist Mechanik und kein Kessel — sie darf keinen Energie-Bonus ziehen.
 static func _energy(weapon_id: String) -> bool:
-	return weapon_id != "karabiner"   # alle außer Karabiner nutzen Energiekristalle
+	return String(CombatData.WEAPONS[weapon_id]["type"]) != CombatData.KINETIC
 
 # ── Offense ───────────────────────────────────────────────────────────────────
 
@@ -60,6 +63,19 @@ static func crit_mult() -> float:
 
 static func armor_pen() -> int:
 	return ProgressionManager.perk_val("brecher")
+
+## Streuung der getragenen Waffe in Grad (halber Kegelwinkel; 0 = trifft immer).
+##
+## NICHT zu verwechseln mit `spread_count()` direkt darunter — das ist der Faecher des
+## Spezialschusses (sieben Projektile auf einmal). Hier geht es um Zielgenauigkeit.
+##
+## Verbessert wird sie ueber den Mod-Wert `accuracy` aus Ausruestung und Tech-Modulen: je Punkt
+## ein Prozent weniger Kegel. Gedeckelt bei 85 %, damit auch eine vollgemoddete Gatling eine
+## Gatling bleibt und nicht zum Scharfschuetzengewehr wird.
+static func spread_deg(weapon_id: String) -> float:
+	var base: float = float(CombatData.WEAPONS[weapon_id].get("spread_deg", 0.0))
+	var acc: float = float(EquipManager.stat_total("accuracy")) / 100.0
+	return maxf(0.0, base * (1.0 - clampf(acc, 0.0, 0.85)))
 
 ## Projektile des Spezialschusses (+4 mit Dolores' letzter Trommel).
 static func spread_count() -> int:

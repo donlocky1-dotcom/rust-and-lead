@@ -35,11 +35,36 @@ const BOSS_GOLD: int = 20
 const SUPERBOSS_MULT: int = 4
 
 ## Waffen-Loadout (Schadensart-Umschalter). Karabiner immer verfügbar; Rest nach Reveal.
+## Waffen (GDD §7.1). Jede hat ein eigenes PROFIL aus vier Zahlen, nicht nur eine Schadensart:
+##
+##   `base`       Schaden pro Schuss
+##   `fire_ms`    Takt zwischen zwei Schuessen
+##   `spread_deg` Streuung als halber Oeffnungswinkel des Kegels — 0 = Laser
+##   `acid`       Saeure-Potenz (nur Spruerer)
+##
+## Vorher lagen alle vier Waffen zwischen 170 und 240 ms: Der Karabiner feuerte so schnell wie
+## der Dampf-Brenner, und die Wahl war eine reine Farbfrage. Jetzt spannt sich der Takt ueber
+## den Faktor ZWOELF — vom Repetierer, der einmal pro Sekunde kracht, bis zur Gatling mit
+## vierzehn Schuss pro Sekunde.
+##
+## Die Streuung macht daraus eine Reichweiten-Entscheidung: Bei 11 m misst ein normaler Gegner
+## rund 2,6° Winkelbreite. Der Karabiner (0,8°) trifft auf jede Entfernung, die Gatling (7,0°)
+## nur aus der Naehe zuverlaessig — auf volle Distanz geht knapp zwei Drittel daneben. Ein
+## Praezisions-Mod (`accuracy`) verengt den Kegel.
+##
+## Munitionsverbrauch ist ein Schuss pro Schuss (AmmoData): Die Gatling leert 180 Schuss in
+## dreizehn Sekunden, der Karabiner braucht dafuer zweieinhalb Minuten.
 const WEAPONS: Dictionary = {
-	"karabiner": { "name": "Blei-Karabiner", "type": KINETIC, "base": 20, "fire_ms": 200, "acid": 0, "always": true },
-	"voltgun":   { "name": "Leydener Volt-Karabiner", "type": GALVANIC, "base": 16, "fire_ms": 240, "acid": 0, "always": false },
-	"saeure":    { "name": "Säure-Sprüher", "type": ALCHEMICAL, "base": 12, "fire_ms": 210, "acid": 10, "always": false },
-	"brenner":   { "name": "Dampf-Brenner", "type": THERMAL, "base": 14, "fire_ms": 170, "acid": 0, "always": false },
+	"karabiner": { "name": "Blei-Karabiner", "type": KINETIC, "base": 34, "fire_ms": 850,
+		"spread_deg": 0.8, "acid": 0, "always": true },
+	"gatling":   { "name": "Messing-Gatling", "type": KINETIC, "base": 6, "fire_ms": 70,
+		"spread_deg": 7.0, "acid": 0, "always": false },
+	"voltgun":   { "name": "Leydener Volt-Karabiner", "type": GALVANIC, "base": 22, "fire_ms": 420,
+		"spread_deg": 1.6, "acid": 0, "always": false },
+	"saeure":    { "name": "Säure-Sprüher", "type": ALCHEMICAL, "base": 11, "fire_ms": 240,
+		"spread_deg": 4.5, "acid": 10, "always": false },
+	"brenner":   { "name": "Dampf-Brenner", "type": THERMAL, "base": 9, "fire_ms": 130,
+		"spread_deg": 5.5, "acid": 0, "always": false },
 }
 
 ## Gegner-Statblöcke (Master-GDD §7.3). `ranged` = Fernkämpfer-Parameter.

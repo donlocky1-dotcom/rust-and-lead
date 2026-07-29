@@ -893,12 +893,33 @@ const EncounterSystem = {
 
 ## 7.1 Waffen-Loadout (Schadensart-Umschalter)
 Karabiner immer verfügbar; die übrigen drei erst **nach dem Reveal** (Steampunk-Armaturen).
-| ID | Name | Schadensart | Basis | Feuertakt (ms) | Sonder |
-| :-- | :-- | :-- | --: | --: | :-- |
-| `karabiner` | Blei-Karabiner | KINETIC | 20 | 200 | immer verfügbar |
-| `voltgun`   | Leydener Volt-Karabiner | GALVANIC | 16 | 240 | Anti-Automat |
-| `saeure`    | Säure-Sprüher | ALCHEMICAL | 12 | 210 | Säure-Potenz 10 (skaliert mit Level) |
-| `brenner`   | Dampf-Brenner | THERMAL | 14 | 170 | schnellster Takt |
+| ID | Name | Schadensart | Basis | Feuertakt (ms) | Streuung | Vorrat | Sonder |
+| :-- | :-- | :-- | --: | --: | --: | :-- | :-- |
+| `karabiner` | Blei-Karabiner | KINETIC | 34 | 850 | 0,8° | 🧨 | immer verfügbar; langsam, hart, genau |
+| `gatling`   | Messing-Gatling | KINETIC | 6 | 70 | 7,0° | 🧨 | 14 Schuss/s; leert den Vorrat in 13 s |
+| `voltgun`   | Leydener Volt-Karabiner | GALVANIC | 22 | 420 | 1,6° | 🔷 | Anti-Automat |
+| `saeure`    | Säure-Sprüher | ALCHEMICAL | 11 | 240 | 4,5° | 🔷 | Säure-Potenz 10 (skaliert mit Level) |
+| `brenner`   | Dampf-Brenner | THERMAL | 9 | 130 | 5,5° | 🔷 | schnellster Energie-Takt |
+
+**Jede Waffe ist ein eigenes Profil, keine Farbvariante.** Der Feuertakt spannt sich über den
+Faktor zwölf, der Schaden pro Schuss gegenläufig dazu — der Dauerschaden liegt zwischen 40 und
+86 pro Sekunde, also in derselben Größenordnung. Unterschieden wird über *wie* man ihn abliefert.
+
+**Streuung** (halber Öffnungswinkel des Kegels) macht daraus eine Reichweiten-Entscheidung. Ein
+normal großer Gegner misst auf 11 m rund 2,6° Winkelbreite; ist die gewürfelte Abweichung
+größer, geht der Schuss vorbei — die Leuchtspur zeigt es. Gemessen im laufenden Spiel:
+
+| | 3 m | 7 m | 10,5 m |
+| :-- | --: | --: | --: |
+| Blei-Karabiner | 100 % | 100 % | 100 % |
+| Messing-Gatling | 100 % | 58 % | 37 % |
+
+Die Gatling ist damit eine Nahkampfwaffe, ohne dass das irgendwo als Regel steht. Verengt wird
+der Kegel über den Mod-Wert **`accuracy`** (Ausrüstung/Tech-Module): ein Prozent je Punkt,
+gedeckelt bei 85 % — auch vollgemoddet bleibt eine Gatling eine Gatling.
+
+**Munitionspool folgt der Schadensart**, nicht dem Namen: KINETIC zieht 🧨 Munition, alles
+andere 🔷 Energiekristalle.
 
 Waffen-Armaturen (Werkstatt): pro Waffe +5 Basisschaden/Stufe (max 5); Säure-Sprüher
 zusätzlich +2 Säure-Potenz/Stufe.

@@ -15,11 +15,14 @@ const POOLS: Dictionary = {
 const ORDER: Array = ["muni", "kristall"]
 
 
-## Welcher Pool speist diese Waffe? Der Karabiner ist die einzige kinetische Waffe und die
-## einzige, die immer verfügbar ist — alle anderen laufen auf Kristallen (vgl.
-## `PlayerStats._energy`, das dieselbe Trennung für die Schadensrechnung benutzt).
+## Welcher Pool speist diese Waffe?
+##
+## Entschieden wird an der SCHADENSART, nicht am Namen: Was Blei verschießt (KINETIC), zieht
+## Munition, alles andere Kristalle. Vorher stand hier `weapon_id == "karabiner"` — das ging
+## gut, solange der Karabiner die einzige kinetische Waffe war, und wurde in dem Moment falsch,
+## in dem die Gatling dazukam: Eine Kurbelkanone mit Messingläufen bekam Energiekristalle.
 static func pool_for(weapon_id: String) -> String:
-	return "muni" if weapon_id == "karabiner" else "kristall"
+	return "muni" if String(CombatData.WEAPONS[weapon_id]["type"]) == CombatData.KINETIC else "kristall"
 
 
 static func cap(pool: String) -> int:
