@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/buildings/gate.glb" id="1_b3ij7"]
+
+[node name="gate" type="Node3D"]
+metadata/asset_name = "gate"
+metadata/asset = "gate"
+
+[node name="gate" type="Node3D" parent="." instance=ExtResource("1_b3ij7")]
+transform = Transform3D(4.24759, 0, 0, 0, 4.24759, 0, 0, 0, 4.24759, 0, 3.00564, 0)

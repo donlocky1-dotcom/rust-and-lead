@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/buildings/saloon.glb" id="1_4vnag"]
+
+[node name="saloon" type="Node3D"]
+metadata/asset_name = "saloon"
+metadata/asset = "saloon"
+
+[node name="saloon" type="Node3D" parent="." instance=ExtResource("1_4vnag")]
+transform = Transform3D(7.03066, 0, 0, 0, 7.03066, 0, 0, 0, 7.03066, 0, 4.28167, 0)

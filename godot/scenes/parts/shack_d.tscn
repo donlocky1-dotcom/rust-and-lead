@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_d.glb" id="1_bacml"]
+
+[node name="shack_d" type="Node3D"]
+metadata/asset_name = "shack_d"
+metadata/asset = "shack_d"
+
+[node name="shack_d" type="Node3D" parent="." instance=ExtResource("1_bacml")]
+transform = Transform3D(3.00811, 0, 0, 0, 3.00811, 0, 0, 0, 3.00811, 0, 2.62953, 0)

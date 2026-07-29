@@ -26,6 +26,7 @@ func _ready() -> void:
 	_test_walkable_zones()
 	_test_minimap()
 	_test_fire_control()
+	_test_wall_classification()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
 	_test_overworld_quest_flow()
@@ -789,6 +790,43 @@ func _test_world_scale() -> void:
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
 
 
+## Mauerstuecke: Kollision darf NICHT geschrumpft werden.
+##
+## Die Palisade wird nicht mehr vom Code als Kreis gebaut, sondern von Hand in `Rustwater.tscn`
+## gestellt. Damit haengt die Dichtheit der Mauer daran, dass `_register_town_node` ein
+## Wandstueck als solches erkennt: Der Schrumpf-Faktor fuer Gebaeude (0,82) liesse zwischen
+## zwei aneinandergesetzten Stuecken 18 % Luecke, und die Kollision prueft einen Punkt — man
+## liefe mitten durch die Palisade.
+func _test_wall_classification() -> void:
+	print("· Mauerteile (Kollision ohne Schrumpf)")
+	for name in ["palisade_a", "palisade_b", "palisade_c", "palisade_d", "palisade_e", "gate"]:
+		_check("%s gilt als Wand" % name, AssetRegistry.is_wall(name))
+	for name in ["saloon", "forge", "water_tower", "shack_a", "npc_mabel", "rock_small"]:
+		_check("%s gilt NICHT als Wand" % name, not AssetRegistry.is_wall(name))
+	_check("Neue Varianten greifen von selbst (palisade_f)", AssetRegistry.is_wall("palisade_f"))
+
+	# Die Namensregel gibt es, WEIL die Formregel hier versagt: gemessen liegt `palisade_e` bei
+	# 2,13:1 und damit naeher an einer Huette (bis 1,56:1) als an den uebrigen Mauerstuecken
+	# (ab 3,71:1). Dieser Test haelt fest, dass die Einstufung eben nicht an der Form haengt.
+	var ratios: Dictionary = {}
+	for name in ["shack_a", "palisade_e"]:
+		if not AssetRegistry.has_model(name):
+			continue
+		var m: Node3D = AssetRegistry.instantiate(name, AssetRegistry.height_of(name))
+		var s: Vector3 = AssetRegistry.local_bounds(m).size
+		ratios[name] = maxf(s.x, s.z) / maxf(minf(s.x, s.z), 0.01)
+		m.free()
+	if ratios.has("palisade_e") and ratios.has("shack_a"):
+		_check("Gegenprobe: palisade_e (%.2f:1) ist formaehnlich zu shack_a (%.2f:1) und wird trotzdem richtig eingestuft"
+			% [ratios["palisade_e"], ratios["shack_a"]],
+			AssetRegistry.is_wall("palisade_e") and not AssetRegistry.is_wall("shack_a"))
+		_check("Notfall-Formregel trennt beide sauber (Grenze liegt dazwischen)",
+			ratios["shack_a"] < OverworldView.WALL_ASPECT
+			and ratios["palisade_e"] > OverworldView.WALL_ASPECT,
+			"shack_a %.2f, palisade_e %.2f, Grenze %.2f"
+			% [ratios["shack_a"], ratios["palisade_e"], OverworldView.WALL_ASPECT])
+
+
 ## Abzug: geschossen wird NUR auf Befehl.
 ##
 ## Die wichtigste Zeile ist die erste Pruefung. Vorher feuerte die Figur von allein, sobald
@@ -1232,11 +1270,11 @@ func _test_town_layout() -> void:
 		var half: Vector2 = p[2]
 		if absf(centre.x) - half.x < OverworldView.STREET_HALF_W and absf(centre.x) < 30.0:
 			blocked = String(p[0])
-		if centre.length() + maxf(half.x, half.y) > OverworldView.PALISADE_R - 2.0:
+		if centre.length() + maxf(half.x, half.y) > OverworldView.TOWN_R - 2.0:
 			in_wall = String(p[0])
 	_check("Die Hauptstrasse bleibt frei (%.0f m breit)" % (2.0 * OverworldView.STREET_HALF_W),
 		blocked == "", blocked)
-	_check("Alle Bauten stehen innerhalb der Palisade", in_wall == "", in_wall)
+	_check("Alle Bauten stehen innerhalb des Ortsradius", in_wall == "", in_wall)
 
 	# NPCs: auf der Strasse, vor ihrem Haus, nicht in einer Wand.
 	var npc_bad: String = ""
@@ -1247,8 +1285,8 @@ func _test_town_layout() -> void:
 			if d2.x < float(p[2].x) and d2.y < float(p[2].y):
 				npc_bad = "%s steckt in %s" % [String(n[0]), String(p[0])]
 	_check("Kein NPC steht in einer Hauswand", npc_bad == "", npc_bad)
-	_check("Der Bahnhof liegt ausserhalb der Palisade",
-		OverworldView.STATION_OFFSET_M > OverworldView.PALISADE_R)
+	_check("Der Bahnhof liegt ausserhalb des Ortes",
+		OverworldView.STATION_OFFSET_M > OverworldView.TOWN_R)
 
 
 ## Grundflaeche eines geplanten Bauwerks: gemessenes Modell (falls vorhanden), sonst Ersatzmass.

@@ -37,19 +37,43 @@ steht sichtbar da.
 
 Beim Start lädt `OverworldView` diese Szene und leitet die **Kollision aus den tatsächlichen
 Positionen** ab — verschobene Häuser nehmen ihre Sperre mit, ohne dass im Code eine Zahl
-geändert wird. Ein neues Haus dazustellen heißt: GLB aus dem Dateisystem in die Szene ziehen,
-hinschieben, fertig.
+geändert wird. Das gilt auch für die **Palisade**: Sie wird nicht mehr vom Code als Kreis
+gebaut, sondern hier von Hand gestellt.
+
+### Bauteile aus `scenes/parts/`
+
+**Nicht die GLBs aus `assets/models/` in die Szene ziehen** — die kommen im Rohmaßstab. Ein
+Palisadenstück ist so 1,91 m lang und 0,75 m hoch (kniehoch) und steckt zur Hälfte im Boden.
+
+Stattdessen liegen unter **`scenes/parts/`** fertige Bauteile: richtige Größe, richtige
+Blickrichtung, Unterkante exakt auf Y = 0. Hineinziehen, hinschieben, fertig — Häuser
+(`saloon`, `forge`, `water_tower`, `shack_a`–`d`), Mauerstücke (`palisade_a`–`e`) und das Tor
+(`gate`). Neu erzeugen, wenn ein Asset dazukommt:
+
+```
+godot --headless --path . res://tools/MakeParts.tscn
+```
+
+**Gruppieren ist erlaubt:** Dreißig Mauerstücke unter einem gemeinsamen `Node3D` bleiben
+einzeln kollidierbar — `_register_town` läuft durch Ordnerknoten hindurch und vermisst die
+Teile darin, nicht die Gruppe als Ganzes.
+
+**Mauern werden nicht geschrumpft.** Häuser bekommen 18 % Abzug auf ihre Kollision, weil
+Vordächer und Schornsteine in der Bounding-Box stecken. Bei einer Mauer wäre derselbe Abzug ein
+Loch: Gemessen ergeben drei aneinandergesetzte Stücke mit Gebäude-Schrumpf **sieben begehbare
+Lücken auf 17 m**, ohne ihn null. Erkannt wird das am Asset-Namen
+(`AssetRegistry.is_wall` — alles mit `palisade`, `gate`, `wall`, `mauer`, `zaun`, `fence`).
 
 **Zwei Regeln beim Umstellen:**
 * **Fassaden zur Kamera.** Die Kamera steht immer 20° südöstlich (`CAM_YAW`) — Häuser, die
   einander anschauen, zeigen dem Spieler die Rückseite. Alle Fronten sollten in etwa dieselbe
   Richtung weisen, mit ein paar Grad Streuung.
-* **Unterkante auf Y = 0.** Sonst schwebt das Haus oder steckt im Sand.
+* **Unterkante auf Y = 0.** Die Bauteile aus `scenes/parts/` bringen das schon mit.
 
 **Warum die Overworld-Szene im Editor leer aussieht:** Boden, Biome, Kraterrand, Straßen,
-Trasse, Palisade und Dekor entstehen zur Laufzeit aus den `WorldManager`-Daten — 5000 × 5000 m
-lassen sich nicht sinnvoll von Hand stellen. Sichtbar wird das erst mit **Play**. Nur die Stadt
-ist als echte Szene ausgelagert, weil genau dort Layout-Arbeit anfällt.
+Trasse und Dekor entstehen zur Laufzeit aus den `WorldManager`-Daten — 5000 × 5000 m lassen
+sich nicht sinnvoll von Hand stellen. Sichtbar wird das erst mit **Play**. Nur die Stadt ist
+als echte Szene ausgelagert, weil genau dort Layout-Arbeit anfällt.
 
 ## Dateien
 - `scripts/GameState.gd` — globaler Laufzeit-Zustand (Single Source of Truth).

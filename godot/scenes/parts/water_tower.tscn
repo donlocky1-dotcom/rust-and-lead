@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/buildings/water_tower.glb" id="1_s5bmp"]
+
+[node name="water_tower" type="Node3D"]
+metadata/asset_name = "water_tower"
+metadata/asset = "water_tower"
+
+[node name="water_tower" type="Node3D" parent="." instance=ExtResource("1_s5bmp")]
+transform = Transform3D(9.47219, 0, 0, 0, 9.47219, 0, 0, 0, 9.47219, 0, 9.00832, 0)

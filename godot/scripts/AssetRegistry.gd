@@ -131,6 +131,25 @@ static func enemy_asset(type_id: String) -> String:
 static func has_model(name: String) -> bool:
 	return resolve(name) != ""
 
+
+## Ist das ein wandartiges Bauteil (Palisadenstück, Tor, Mauerabschnitt)?
+##
+## Entscheidet über die Kollision: Gebäude bekommen einen Schrumpf-Faktor, weil Vordächer und
+## Schornsteine in ihrer Bounding-Box stecken. Bei einer Wand wäre derselbe Faktor ein Loch —
+## 18 % Schwund je Stück sind 18 % Lücke zwischen zwei aneinandergesetzten Stücken, und die
+## Kollision prüft einen Punkt.
+##
+## Bewusst am NAMEN und nicht an der Form: Gemessen liegen die Häuser bei 1,0–1,6:1 Seiten-
+## verhältnis und die Palisadenstücke bei 3,7–16:1, ABER `palisade_e` fällt mit 2,13:1 mitten
+## dazwischen. Eine reine Formregel hätte genau dieses Stück falsch eingestuft — und dort wäre
+## dann ein begehbares Loch in der Mauer gewesen. Präfixe statt fester Liste, damit ein
+## `palisade_f` von selbst richtig behandelt wird.
+static func is_wall(name: String) -> bool:
+	for prefix in ["palisade", "gate", "wall", "mauer", "zaun", "fence"]:
+		if name.begins_with(prefix):
+			return true
+	return false
+
 ## Erster existierender Pfad für den Namen ("" = kein Asset vorhanden → Platzhalter nutzen).
 static func resolve(name: String) -> String:
 	for path in PATHS.get(name, []):

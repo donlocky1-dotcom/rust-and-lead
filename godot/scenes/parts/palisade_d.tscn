@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/buildings/palisade_d.glb" id="1_m1e81"]
+
+[node name="palisade_d" type="Node3D"]
+metadata/asset_name = "palisade_d"
+metadata/asset = "palisade_d"
+
+[node name="palisade_d" type="Node3D" parent="." instance=ExtResource("1_m1e81")]
+transform = Transform3D(4.01455, 0, 0, 0, 4.01455, 0, 0, 0, 4.01455, 0, 1.69657, 0)
