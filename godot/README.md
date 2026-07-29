@@ -71,6 +71,41 @@ jedem Aufstieg anfallen; gesperrte Perks nennen daneben, was ihnen fehlt.
 Tastatur: `[Leertaste]` schießen, `[Tab]` Waffe, `[E]` aufheben/öffnen/ansprechen, `[C]`
 Charakter, `[M]` Karte, `[Esc]` schließen, `[1]`–`[5]` Iron Rail (nur am Bahnsteig, GDD §1.4a).
 
+## Topografie: Senken sind eine Formel, kein Modell
+
+Der Boden war eine flache Platte bei y = 0, und die Figur bekam ihr y nie von irgendwoher — ein
+modelliertes Gelände wäre Kulisse geblieben, durch die man hindurchspaziert.
+
+Stattdessen liefert **`WorldManager.height_at(x, z)`** für jeden Punkt der Welt die Bodenhöhe.
+Aus derselben Funktion entstehen das sichtbare Netz **und** die Höhe, auf der Spieler, Gegner
+und Beute stehen. Eine Quelle, mehrere Verbraucher — ein Modell mit getrennter Kollision liefe
+früher oder später auseinander.
+
+Formen stehen als Daten in **`WorldManager.TERRAIN`** — vier Zahlen je Senke:
+
+| Feld | Bedeutung |
+| :-- | :-- |
+| `radius` | Rand der Senke; dort ist die Höhe wieder 0 |
+| `depth` | Tiefe in der Mitte |
+| `rim` | Höhe des Auswurfwalls direkt außerhalb |
+| `rim_width` | Breite des Walls als Anteil des Radius |
+
+Das Profil hat zwei Abschnitte, beide mit **waagerechtem Anschluss** — es gibt keine Kante:
+
+1. **Schale** `-depth · (1 − smoothstep(t))` — in der Mitte flach (dort steht etwas gerade), am
+   Rand flach, am steilsten auf halbem Weg.
+2. **Wall** `rim · sin²(…)` — der Auswurf eines Einschlags, ebenfalls an beiden Enden waagerecht.
+
+**Die Schrotthalde** (an den Schrott-Minen) misst 30 m im Durchmesser bei 4 m Tiefe. Gemessen:
+steilste Stelle **21,8°** auf halber Flanke, größter Höhensprung auf 5 cm Weg **unter 4 cm**,
+außerhalb des Walls exakt 0,000 m. Das Netz kostet 16 200 Dreiecke.
+
+Die flache Restfläche wird um jede Form **ausgeschnitten** (Rechteck-Subtraktion), sonst läge
+sie über der Senke. Ein Test prüft, dass Restfläche + Löcher exakt die Weltfläche ergeben.
+
+> Wo Gelände geformt ist, entfällt die Landmarken-Säule des Ortes — sie stand sonst mitten im
+> Kratergrund und sperrte ihn.
+
 ## Die Stadt im Editor bearbeiten
 
 `scenes/Rustwater.tscn` ist eine **normale, editierbare Szene**: jedes Haus ein Knoten, den man

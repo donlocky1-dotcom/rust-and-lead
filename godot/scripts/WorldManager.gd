@@ -33,6 +33,82 @@ static func poi_scene_position(poi_id: String) -> Vector3:
 	return world_to_scene(poi_position(poi_id))
 
 
+# ── Topografie: Senken und Wälle als FORMEL, nicht als Modell ─────────────────
+## Der Boden war bis hierher eine flache Platte bei y = 0, und die Figur bekam ihr y nie von
+## irgendwoher. Ein modellierter Krater wäre deshalb Kulisse geblieben, durch die man
+## hindurchspaziert.
+##
+## Statt Geometrie steht hier eine Funktion: `height_at(x, z)` liefert für JEDEN Punkt der Welt
+## die Bodenhöhe. Aus derselben Funktion entsteht das sichtbare Netz UND die Höhe, auf der
+## Spieler, Gegner und Beute stehen — eine Quelle, mehrere Verbraucher. Ein Modell mit
+## getrennter Kollision läuft dagegen früher oder später auseinander.
+##
+## Warum keine Textur-Heightmap: Bei der festen Kamera sind 15 m Bildbreite rund 128 Pixel pro
+## Meter. Ein unikal texturiertes Gelände dieser Schärfe wäre für einen 30-m-Krater schon
+## 15 Megapixel und ließe sich nicht kacheln. Eine Formel kostet null Byte, ist überall exakt
+## und in beide Richtungen ableitbar (Normalen ohne Nachbarschaftssuche).
+
+## Geländeformen. `poi` verankert sie an einem Ort, alle Maße in METERN.
+##  • `radius`      Rand der Senke — dort ist die Höhe wieder 0
+##  • `depth`       Tiefe in der Mitte
+##  • `rim`         Höhe des Auswurfwalls direkt außerhalb
+##  • `rim_width`   Breite des Walls als Anteil des Radius
+const TERRAIN: Array = [
+	# Die Schrotthalde: Einschlagtrichter, in dem der Held erwacht. 30 m Durchmesser — groß
+	# genug für eine Szene, klein genug, dass man den Rand von der Mitte aus sieht.
+	{ "id": "schrotthalde", "poi": "schrott_minen",
+		"radius": 15.0, "depth": 4.0, "rim": 0.8, "rim_width": 0.36 },
+]
+
+
+## Bodenhöhe an einem Punkt (Szenenmeter). Ausserhalb aller Formen exakt 0.
+static func height_at(x: float, z: float) -> float:
+	var h: float = 0.0
+	for f in TERRAIN:
+		var c: Vector3 = poi_scene_position(String(f["poi"]))
+		h += _feature_height(f, Vector2(x - c.x, z - c.z).length())
+	return h
+
+
+## Höhenprofil einer Form über den Abstand zur Mitte.
+##
+## Zwei Abschnitte, beide mit waagerechtem Anschluss — es gibt also keine Kante, an der man
+## hängenbleibt oder die als harter Knick auffällt:
+##
+##   1. **Schale** (0 … radius): `-depth * (1 - smoothstep(t))`. In der Mitte flach (dort liegt
+##      man beim Erwachen und dort stehen Dinge gerade), am Rand wieder flach, am steilsten auf
+##      halbem Weg. Bei 15 m Radius und 4 m Tiefe sind das höchstens 21,8° — bequem begehbar.
+##   2. **Wall** (radius … radius·(1+rim_width)): `rim * sin²(…)`. Der Auswurf, den ein
+##      Einschlag nach außen wirft. Sinus-Quadrat, weil es an beiden Enden waagerecht ansetzt.
+static func _feature_height(f: Dictionary, dist: float) -> float:
+	var radius: float = float(f["radius"])
+	var t: float = dist / radius
+	if t <= 1.0:
+		return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, t))
+	var w: float = float(f["rim_width"])
+	if t >= 1.0 + w:
+		return 0.0
+	var s: float = sin(PI * (t - 1.0) / w)
+	return float(f["rim"]) * s * s
+
+
+## Normale des Bodens — aus der Formel abgeleitet statt aus Nachbardreiecken gemittelt.
+static func normal_at(x: float, z: float, eps: float = 0.25) -> Vector3:
+	var dx: float = height_at(x + eps, z) - height_at(x - eps, z)
+	var dz: float = height_at(x, z + eps) - height_at(x, z - eps)
+	return Vector3(-dx, 2.0 * eps, -dz).normalized()
+
+
+## Aussenradius einer Form inklusive Wall — bis hierhin muss ein Geländeflicken reichen.
+static func feature_reach(f: Dictionary) -> float:
+	return float(f["radius"]) * (1.0 + float(f["rim_width"]))
+
+
+## Mittelpunkt einer Form in Szenenmetern.
+static func feature_center(f: Dictionary) -> Vector3:
+	return poi_scene_position(String(f["poi"]))
+
+
 # ── Weltstruktur: offene Wildnis + baulich begrenzte Aktionszonen (GDD §1.4a) ──
 ## Gemischtes Modell statt „alles offen" oder „alles Schlauch":
 ##  • **Wildnis** — die Wüste zwischen den Orten ist FREI begehbar. Weite, Reisezeit,

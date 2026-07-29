@@ -30,6 +30,7 @@ func _ready() -> void:
 	_test_workshop()
 	_test_ammo()
 	_test_weapons()
+	_test_terrain()
 	_test_bag()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
@@ -805,6 +806,116 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+## Topografie: Die Senke ist eine FORMEL, kein Modell.
+##
+## Der Boden war eine flache Platte bei y = 0, und die Figur bekam ihr y nie von irgendwoher.
+## Ein modelliertes Gelaende waere Kulisse geblieben, durch die man hindurchspaziert. Diese
+## Tests halten die Eigenschaften fest, auf die sich alles andere verlaesst: exakt flach
+## ausserhalb, stetig ueberall, begehbar steil.
+func _test_terrain() -> void:
+	print("· Topografie (Senken als Formel)")
+	_check("Genau eine Gelaendeform definiert", WorldManager.TERRAIN.size() >= 1)
+	var f: Dictionary = WorldManager.TERRAIN[0]
+	var c: Vector3 = WorldManager.feature_center(f)
+	var R: float = float(f["radius"])
+	var reach: float = WorldManager.feature_reach(f)
+	_check("Krater ist %.0f m im Durchmesser" % (R * 2.0), is_equal_approx(R * 2.0, 30.0),
+		"%.1f m" % (R * 2.0))
+	_check("In der Mitte volle Tiefe (-%.1f m)" % float(f["depth"]),
+		is_equal_approx(WorldManager.height_at(c.x, c.z), -float(f["depth"])))
+	_check("Am Kraterrand wieder auf null",
+		is_zero_approx(WorldManager.height_at(c.x + R, c.z)))
+	_check("Hinter dem Wall exakt flach",
+		is_zero_approx(WorldManager.height_at(c.x + reach + 1.0, c.z)))
+	_check("Der Rest der Welt bleibt unberuehrt",
+		is_zero_approx(WorldManager.height_at(100.0, -100.0))
+		and is_zero_approx(WorldManager.height_at(2500.0, -2500.0)))
+	_check("Der Auswurfwall ragt heraus",
+		WorldManager.height_at(c.x + R * (1.0 + float(f["rim_width"]) * 0.5), c.z) > 0.3)
+	# Rotationssymmetrie — sonst haette der Krater eine bevorzugte Richtung.
+	var sym: bool = true
+	for deg in [0, 37, 90, 143, 180, 271]:
+		var a: float = deg_to_rad(float(deg))
+		if not is_equal_approx(WorldManager.height_at(c.x + cos(a) * 7.0, c.z + sin(a) * 7.0),
+				WorldManager.height_at(c.x + 7.0, c.z)):
+			sym = false
+	_check("Rundum gleich tief (keine bevorzugte Richtung)", sym)
+
+	# Stetigkeit und Begehbarkeit: dicht abtasten, groessten Sprung messen.
+	var max_step: float = 0.0
+	var max_slope: float = 0.0
+	var wo: float = 0.0
+	var d: float = 0.0
+	var prev: float = WorldManager.height_at(c.x, c.z)
+	while d <= reach + 3.0:
+		d += 0.05
+		var h: float = WorldManager.height_at(c.x + d, c.z)
+		var step: float = absf(h - prev)
+		if step > max_step:
+			max_step = step
+		var sl: float = rad_to_deg(atan2(step, 0.05))
+		if sl > max_slope:
+			max_slope = sl
+			wo = d
+		prev = h
+	_check("Keine Kante im Profil (groesster Sprung auf 5 cm < 4 cm)", max_step < 0.04,
+		"%.3f m" % max_step)
+	_check("Steilste Stelle bleibt begehbar (< 35°)", max_slope < 35.0,
+		"%.1f° bei %.1f m" % [max_slope, wo])
+
+	# Normalen kommen aus derselben Formel — in der Mitte senkrecht, an der Flanke geneigt.
+	_check("Normale in der Mitte zeigt nach oben",
+		WorldManager.normal_at(c.x, c.z).is_equal_approx(Vector3.UP))
+	var n: Vector3 = WorldManager.normal_at(c.x + R * 0.5, c.z)
+	_check("Normale an der Flanke ist geneigt und zeigt bergab",
+		n.y < 0.97 and n.x < 0.0, "%s" % n)
+
+	# Die Restflaeche: Ausschneiden darf keine Flaeche verlieren und keine doppelt zaehlen.
+	var ow := OverworldView.new()
+	var rects: Array = ow._ground_rects()
+	var w: float = WorldManager.WORLD_METERS
+	var flaeche: float = 0.0
+	for r in rects:
+		flaeche += r.size.x * r.size.y
+	var loch: float = 0.0
+	for tf in WorldManager.TERRAIN:
+		var rr: float = WorldManager.feature_reach(tf) + OverworldView.TERRAIN_MARGIN_M
+		loch += (rr * 2.0) * (rr * 2.0)
+	_check("Restflaeche + Loecher = Weltflaeche (nichts verloren, nichts doppelt)",
+		absf(flaeche + loch - w * w) < 1.0,
+		"%.0f + %.0f = %.0f statt %.0f" % [flaeche, loch, flaeche + loch, w * w])
+	# Ueber die SCHMALSTE Kante geprueft, nicht ueber die Flaeche: Aneinanderstossende
+	# Rechtecke ueberlappen sich in float32 um rund 2 Hundertstel Millimeter — mal 4600 m
+	# Kantenlaenge ergibt das 0,1 m² Scheinflaeche. Eine echte Ueberlappung ist dagegen in
+	# BEIDEN Richtungen breit.
+	var ueberlappt: String = ""
+	var groesster_sliver: float = 0.0
+	for i in rects.size():
+		for j in range(i + 1, rects.size()):
+			var ov: Rect2 = (rects[i] as Rect2).intersection(rects[j])
+			var schmal: float = minf(ov.size.x, ov.size.y)
+			groesster_sliver = maxf(groesster_sliver, schmal)
+			if schmal > 0.01:
+				ueberlappt = "%s und %s (%.3f m breit)" % [rects[i], rects[j], schmal]
+	_check("Keine zwei Restflaechen ueberlappen sich (groesste Naht %.5f m)" % groesster_sliver,
+		ueberlappt == "", ueberlappt)
+	# Und das Loch ist wirklich frei.
+	var im_loch: bool = false
+	for r in rects:
+		if r.has_point(Vector2(c.x, c.z)):
+			im_loch = true
+	_check("Ueber dem Krater liegt keine flache Platte mehr", not im_loch)
+
+	# Regression: Am Kratergrund stand der Platzhalter-Klotz des Ortes und sperrte ihn mit
+	# 6,6 m Radius — man lief die Flanke hinunter und blieb unten stehen. Orte mit geformtem
+	# Gelaende bekommen deshalb keine Landmarken-Saeule mehr; der Krater IST die Landmarke.
+	_check("Der Krater-Ort ist als geformt erkannt",
+		not ow._terrain_at_poi(String(f["poi"])).is_empty())
+	_check("Ein Ort ohne Gelaende bleibt unveraendert",
+		ow._terrain_at_poi("rustwater").is_empty())
+	ow.free()
 
 
 ## Waffenprofile & Streuung (GDD §7.1): Jede Waffe muss sich anders ANFUEHLEN, nicht nur

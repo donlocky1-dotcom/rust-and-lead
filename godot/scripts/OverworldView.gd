@@ -144,6 +144,13 @@ const WEAPON_GRIP_ROT: Vector3 = Vector3(0.0, 0.0, 0.0)   # Radiant (X, Y, Z)
 ## durch unsichtbare Wände: jedes Haus, jeder Palisadenpfosten, jedes Turmbein trägt sich
 ## beim Bauen selbst als Sperre ein (`_solid_box` / `_solid_pillar`). Was man sieht, blockt.
 const PLAYER_RADIUS_M: float = 0.6
+## Aufloesung des Gelaendenetzes. 0,5 m ergibt fuer die Schrotthalde (20 m Aussenradius)
+## rund 6 800 Vierecke — bei 242 Meshes im Spiel faellt das nicht ins Gewicht, und die
+## Flanke bleibt bei 22° Neigung glatt.
+const TERRAIN_STEP_M: float = 0.5
+## Zuschlag um jede Gelaendeform, damit der Flicken sicher auf y = 0 ausklingt, bevor die
+## flache Restflaeche anschliesst.
+const TERRAIN_MARGIN_M: float = 2.0
 ## Ausdehnung von Rustwater. Frueher war das der Palisadenradius, aus dem der Code die Mauer
 ## als Kreis gebaut hat — die Palisade wird inzwischen von Hand in `Rustwater.tscn` gestellt
 ## (siehe `_register_town`), und ein Kreis ist ohnehin nicht die einzige denkbare Form.
@@ -229,6 +236,7 @@ var _chests: Array = []              # { node, label, pos: Vector3, looted: bool
 var _ground: Array = []
 var _shimmer: float = 0.0            # Phase des Schimmerns am nächstgelegenen Fundstück
 var _dry_cd: float = 0.0             # Drossel für den "Waffe leer"-Hinweis
+var _ground_tile_m: float = 2.5      # Kantenlaenge einer Bodentextur-Kachel (gemessen)
 var _ammo_lbl: Label                 # Vorrat der getragenen Waffe, unter dem Schuss-Knopf
 var _npcs: Array = []                # { giver, name, node, label, pos: Vector3 }
 var _actions: VBoxContainer          # Aktionsleiste unten (Sprechen, Bahnreise)
@@ -384,9 +392,94 @@ func _ground_material() -> BaseMaterial3D:
 		var sz: Vector3 = AssetRegistry.local_size(probe)
 		tile_m = maxf(sz.x, sz.z)
 		probe.queue_free()
-	var repeats: float = WorldManager.WORLD_METERS / maxf(tile_m, 0.1)
-	mat.uv1_scale = Vector3(repeats, repeats, 1.0)
+	# UVs kommen jetzt in KACHEL-EINHEITEN direkt aus der Weltposition (siehe `_add_ground_quad`),
+	# nicht mehr aus dem 0..1-Bereich einer Plane. Nur so passen Flicken und Restflaeche
+	# nahtlos aneinander — sonst haette jedes Teilstueck seine eigene Kachelphase.
+	_ground_tile_m = maxf(tile_m, 0.1)
+	mat.uv1_scale = Vector3.ONE
 	return mat
+
+
+## Restflaechen des Bodens: die Weltflaeche minus der Bereiche, in denen Gelaende liegt.
+## Rechteck-Subtraktion — je Form zerfaellt ein Rechteck in bis zu vier neue.
+func _ground_rects() -> Array:
+	var w: float = WorldManager.WORLD_METERS
+	var rects: Array = [Rect2(Vector2(0.0, -w), Vector2(w, w))]
+	for f in WorldManager.TERRAIN:
+		var c: Vector3 = WorldManager.feature_center(f)
+		var reach: float = WorldManager.feature_reach(f) + TERRAIN_MARGIN_M
+		var hole := Rect2(Vector2(c.x - reach, c.z - reach), Vector2(reach * 2.0, reach * 2.0))
+		var next: Array = []
+		for r in rects:
+			next.append_array(_subtract_rect(r, hole))
+		rects = next
+	return rects
+
+
+## `a` minus `b` als Liste von Rechtecken (0 bis 4 Stueck).
+func _subtract_rect(a: Rect2, b: Rect2) -> Array:
+	if not a.intersects(b):
+		return [a]
+	var out: Array = []
+	var x0: float = maxf(a.position.x, b.position.x)
+	var x1: float = minf(a.end.x, b.end.x)
+	if b.position.y > a.position.y:                       # Streifen oberhalb
+		out.append(Rect2(a.position, Vector2(a.size.x, b.position.y - a.position.y)))
+	if b.end.y < a.end.y:                                 # Streifen unterhalb
+		out.append(Rect2(Vector2(a.position.x, b.end.y), Vector2(a.size.x, a.end.y - b.end.y)))
+	var top: float = maxf(a.position.y, b.position.y)
+	var bot: float = minf(a.end.y, b.end.y)
+	if b.position.x > a.position.x:                       # Streifen links
+		out.append(Rect2(Vector2(a.position.x, top), Vector2(b.position.x - a.position.x, bot - top)))
+	if b.end.x < a.end.x:                                 # Streifen rechts
+		out.append(Rect2(Vector2(b.end.x, top), Vector2(a.end.x - b.end.x, bot - top)))
+	return out
+
+
+## Flaches Bodenstueck. UV = Weltposition in Kacheln, damit alle Teilstuecke dieselbe
+## Kachelphase haben und die Naht unsichtbar bleibt.
+func _add_ground_quad(r: Rect2, mat: Material) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var corners: Array = [Vector2(r.position.x, r.position.y), Vector2(r.end.x, r.position.y),
+		Vector2(r.end.x, r.end.y), Vector2(r.position.x, r.end.y)]
+	for idx in [0, 2, 1, 0, 3, 2]:
+		var p: Vector2 = corners[idx]
+		st.set_normal(Vector3.UP)
+		st.set_uv(p / _ground_tile_m)
+		st.add_vertex(Vector3(p.x, 0.0, p.y))
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	add_child(mi)
+
+
+## Verformter Flicken ueber einer Gelaendeform. Die Hoehe kommt aus `WorldManager.height_at`,
+## die Normale aus `normal_at` — also aus DERSELBEN Formel, aus der auch die Spielerhoehe
+## kommt. Gemittelte Dreiecksnormalen waeren an der Naht zur flachen Flaeche sichtbar.
+func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
+	var c: Vector3 = WorldManager.feature_center(f)
+	var reach: float = WorldManager.feature_reach(f) + TERRAIN_MARGIN_M
+	var n: int = maxi(8, int(ceil(reach * 2.0 / TERRAIN_STEP_M)))
+	var step: float = reach * 2.0 / float(n)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for iz in n:
+		for ix in n:
+			var x0: float = c.x - reach + float(ix) * step
+			var z0: float = c.z - reach + float(iz) * step
+			for q in [Vector2(0, 0), Vector2(1, 1), Vector2(1, 0),
+					Vector2(0, 0), Vector2(0, 1), Vector2(1, 1)]:
+				var px: float = x0 + q.x * step
+				var pz: float = z0 + q.y * step
+				st.set_normal(WorldManager.normal_at(px, pz))
+				st.set_uv(Vector2(px, pz) / _ground_tile_m)
+				st.add_vertex(Vector3(px, WorldManager.height_at(px, pz), pz))
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.name = "terrain_" + String(f["id"])
+	add_child(mi)
 
 
 func _build_environment() -> void:
@@ -406,15 +499,14 @@ func _build_environment() -> void:
 
 
 func _build_ground_and_biomes() -> void:
-	var half: float = WorldManager.WORLD_METERS / 2.0
-	# Kraterboden: Wüsten-Sand über die volle Produktionsfläche.
-	var ground := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(WorldManager.WORLD_METERS, WorldManager.WORLD_METERS)
-	ground.mesh = plane
-	ground.material_override = _ground_material()
-	ground.position = Vector3(half, 0.0, -half)
-	add_child(ground)
+	# Der Boden ist nicht mehr EINE Platte: Wo Gelände liegt (WorldManager.TERRAIN), wird ein
+	# Loch ausgespart und mit einem verformten Flicken gefuellt. Sonst laege die flache Platte
+	# ueber der Senke und man saehe von der Vertiefung nichts.
+	var mat: BaseMaterial3D = _ground_material()
+	for r in _ground_rects():
+		_add_ground_quad(r, mat)
+	for f in WorldManager.TERRAIN:
+		_add_terrain_patch(f, mat)
 	# Benannte Biom-Kreiszonen (WorldManager.BIOMES) als getönte Scheiben.
 	var tint: Dictionary = {
 		"oasis": Color(0.31, 0.56, 0.31), "salt": Color(0.85, 0.84, 0.78),
@@ -433,6 +525,7 @@ func _build_ground_and_biomes() -> void:
 		disc.position = WorldManager.world_to_scene(Vector2(float(b["cx"]), float(b["cy"]))) + Vector3(0.0, 0.15, 0.0)
 		add_child(disc)
 	# Smog-Senke: alles nördlich der Smog-Linie liegt unter giftgrünem Schleier.
+	var half: float = WorldManager.WORLD_METERS / 2.0
 	var smog_depth_m: float = (float(WorldManager.WORLD_SIZE) - float(WorldManager.SMOG_LINE_Y)) * WorldManager.METERS_PER_UNIT
 	var smog_z: float = -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT + smog_depth_m / 2.0)
 	_box(Vector3(WorldManager.WORLD_METERS, 0.4, smog_depth_m), Vector3(half, 0.35, smog_z), Color(0.35, 0.65, 0.30), 0.35)
@@ -500,6 +593,14 @@ func _build_pois() -> void:
 		if String(id) == "rustwater" and ResourceLoader.exists(TOWN_SCENE):
 			_label(pos + Vector3(0.0, 26.0, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
 			continue
+		# Dasselbe gilt fuer geformtes Gelaende: Wo ein Krater liegt, IST er die Landmarke.
+		# Die Saeule stand sonst mitten im Kratergrund und sperrte ihn mit 6,6 m Radius — man
+		# lief die Flanke hinunter und blieb unten stehen.
+		var shaped: Dictionary = _terrain_at_poi(String(id))
+		if not shaped.is_empty():
+			_label(pos + Vector3(0.0, WorldManager.height_at(pos.x, pos.z) + 22.0, 0.0),
+				String(p["name"]), col.lightened(0.35), 130, 420.0)
+			continue
 		var pillar := MeshInstance3D.new()
 		var cyl := CylinderMesh.new()
 		cyl.top_radius = 4.0
@@ -511,6 +612,14 @@ func _build_pois() -> void:
 		add_child(pillar)
 		_solid_pillar(pos, 6.0)   # die Landmarke steht im Weg — man läuft um sie herum
 		_label(pos + Vector3(0.0, 41.0, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
+
+
+## Gelaendeform an einem Ort ({} = keine).
+func _terrain_at_poi(id: String) -> Dictionary:
+	for f in WorldManager.TERRAIN:
+		if String(f["poi"]) == id:
+			return f
+	return {}
 
 
 ## Zeichnet die Routen aus `WorldManager.ROUTES` als gestampfte Pisten. Sie SPERREN nichts —
@@ -1471,7 +1580,8 @@ func _build_chests() -> void:
 		_spawn_chest_at(WorldManager.poi_scene_position(String(id)))
 
 
-func _spawn_chest_at(pos: Vector3) -> void:
+func _spawn_chest_at(raw: Vector3) -> void:
+	var pos: Vector3 = Vector3(raw.x, WorldManager.height_at(raw.x, raw.z), raw.z)
 	var node := Node3D.new()
 	var model: Node3D = AssetRegistry.instantiate("chest", AssetRegistry.height_of("chest"))
 	if model != null:
@@ -1541,6 +1651,7 @@ func _drop(at: Vector3, kind: String, data: Dictionary) -> void:
 	var ang: float = randf() * TAU
 	var r: float = sqrt(randf()) * LOOT_SCATTER_M   # Wurzel: gleichmaessig ueber die Flaeche
 	var pos: Vector3 = at + Vector3(cos(ang) * r, 0.0, sin(ang) * r)
+	pos.y = WorldManager.height_at(pos.x, pos.z)   # Beute liegt auf dem Boden, nicht auf y = 0
 	var text: String = ""
 	var col: Color = Color.WHITE
 	match kind:
@@ -1928,6 +2039,9 @@ func _process_movement(delta: float) -> void:
 		else:
 			return   # in eine Ecke gelaufen — Position halten
 		step = next - _player.position
+	# Die Figur folgt dem Gelaende. Ohne diese Zeile liefe sie auf y = 0 durch jede Senke
+	# hindurch — die Vertiefung waere blosse Kulisse.
+	next.y = WorldManager.height_at(next.x, next.z)
 	_player.position = next
 	# Drehung weich nachziehen statt hart umzuschnappen: bei einem Joystick wechselt die
 	# Richtung stufenlos, und eine Figur, die pro Frame springt, wirkt wie ein Blechspielzeug.
@@ -2053,6 +2167,7 @@ func _process_enemies(delta: float) -> void:
 			var dir: Vector3 = (_player.position - node.position).normalized()
 			node.position += dir * _enemy_speed(e) * delta
 			node.rotation.y = atan2(-dir.x, -dir.z)   # Gegner schaut, wohin er läuft
+			node.position.y = WorldManager.height_at(node.position.x, node.position.z)
 			AssetRegistry.play_clip(e["model"], _gait(_enemy_speed(e)))
 			_scurry(e, true)
 		else:
