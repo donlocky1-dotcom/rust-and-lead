@@ -38,13 +38,13 @@ const GEAR_SLOTS: Dictionary = {
 	"plate":  { "name": "Panzerplatte", "stat": "armor", "base": 3 },
 }
 const SUB_BASE: Dictionary = { "damage": 5, "firerate": 10, "hp": 12, "armor": 3, "speed": 14,
-	"crit": 5, "accuracy": 8 }   ## `accuracy` verengt den Streukegel (PlayerStats.spread_deg)
+	"crit": 5, "accuracy": 8, "reload": 8 }   ## `accuracy` verengt den Streukegel (PlayerStats.spread_deg)
 ## Zusatz-Affixe je Slot (Haupt-Stat ergibt sich aus GEAR_SLOTS).
 const AFFIX_POOL: Dictionary = {
-	"weapon": ["firerate", "crit", "damage", "accuracy"],
+	"weapon": ["firerate", "crit", "damage", "accuracy", "reload"],
 	"armor":  ["hp", "speed", "armor"],
 	"helmet": ["armor", "hp", "crit", "accuracy"],
-	"gadget": ["damage", "firerate", "crit", "accuracy"],
+	"gadget": ["damage", "firerate", "crit", "accuracy", "reload"],
 	"boots":  ["armor", "hp", "speed"],
 }
 const GEAR_FLAVOR: Dictionary = {

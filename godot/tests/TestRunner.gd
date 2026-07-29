@@ -29,6 +29,7 @@ func _ready() -> void:
 	_test_wall_classification()
 	_test_workshop()
 	_test_ammo()
+	_test_reload()
 	_test_weapons()
 	_test_terrain()
 	_test_camera_zoom()
@@ -70,7 +71,7 @@ func _reset_state() -> void:
 	GameState.xp = 0
 	GameState.perk_points = 0
 	GameState.perks = {}
-	GameState.upgrades = { "damage": 0, "firerate": 0, "hp": 0, "speed": 0, "regen": 0, "magnet": 0 }
+	GameState.upgrades = { "damage": 0, "firerate": 0, "reload": 0, "hp": 0, "speed": 0, "regen": 0, "magnet": 0 }
 	GameState.ng_plus = 0
 	GameState.gold = 0
 	GameState.potions = 3
@@ -79,6 +80,7 @@ func _reset_state() -> void:
 	GameState.equip = {}
 	GameState.bag = []
 	GameState.ammo = AmmoData.fresh()
+	GameState.mag = AmmoData.fresh_mags()
 	GameState.economy = { "saloon": 0, "forge": 0, "distillery": 0, "laboratory": 0 }
 	GameState.quests = {}
 	GameState.quest_base = {}
@@ -666,6 +668,7 @@ func _test_equip_manager() -> void:
 	GameState.equip = {}
 	GameState.bag = []
 	GameState.ammo = AmmoData.fresh()
+	GameState.mag = AmmoData.fresh_mags()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 
@@ -728,6 +731,7 @@ func _test_player_stats() -> void:
 	GameState.equip = {}
 	GameState.bag = []
 	GameState.ammo = AmmoData.fresh()
+	GameState.mag = AmmoData.fresh_mags()
 
 	# Basiswerte ohne Boni.
 	# Gegen die TABELLE geprueft, nicht gegen abgeschriebene Zahlen: Balance-Werte aendern sich,
@@ -1073,17 +1077,94 @@ func _test_ammo() -> void:
 		_check("%s zieht aus den Kristallen" % w, AmmoData.pool_for(w) == "kristall")
 	_check("Startvorrat Munition = 90", AmmoData.amount("muni") == 90)
 	_check("Startvorrat Kristalle = 45", AmmoData.amount("kristall") == 45)
-	_check("Ein Schuss kostet genau eins",
-		AmmoData.consume("karabiner") and AmmoData.amount("muni") == 89)
+	# Zweistufig: Geschossen wird aus dem MAGAZIN, nachgefuellt aus dem Vorrat.
+	_check("Ein Schuss kostet genau einen aus dem Magazin",
+		AmmoData.consume("karabiner")
+		and AmmoData.in_mag("karabiner") == AmmoData.mag_size("karabiner") - 1)
+	_check("Der Vorrat bleibt dabei unberuehrt", AmmoData.amount("muni") == 90)
 	# Kapazitaet deckelt, und `add` meldet ehrlich, wie viel wirklich ankam.
 	GameState.ammo["muni"] = 175
 	_check("Nachschub ueber die Kapazitaet wird gekappt und ehrlich gemeldet",
 		AmmoData.add("muni", 20) == 5 and AmmoData.amount("muni") == 180,
 		"jetzt %d" % AmmoData.amount("muni"))
-	GameState.ammo["muni"] = 0
-	_check("Leer heisst leer", AmmoData.is_empty("karabiner"))
-	_check("Aus leerem Vorrat faellt kein Schuss", not AmmoData.consume("karabiner"))
-	_check("Die andere Waffe funktioniert weiter", not AmmoData.is_empty("voltgun"))
+	AmmoData.set_mag("karabiner", 0)
+	_check("Leeres Magazin heisst leer", AmmoData.is_empty("karabiner"))
+	_check("Aus leerem Magazin faellt kein Schuss", not AmmoData.consume("karabiner"))
+	_check("Die andere Waffe hat ihr eigenes Magazin", not AmmoData.is_empty("voltgun"))
+	_reset_state()
+
+
+## Nachladen: Magazingroesse und Dauer je Waffe, beides verbesserbar.
+##
+## Ohne diese zweite Stufe waere Munition nur ein langsam sinkender Zaehler. Erst das Magazin
+## erzeugt den Rhythmus aus Feuern und Deckungsuche — und erst dadurch ist die Gatling eine
+## Entscheidung: 60 Schuss am Stueck, danach viereinhalb Sekunden wehrlos.
+func _test_reload() -> void:
+	print("· Magazin & Nachladen")
+	_reset_state()
+	_check("Der Karabiner haelt 10 Schuss", AmmoData.mag_size("karabiner") == 10)
+	_check("Die Gatling haelt sechsmal so viel", AmmoData.mag_size("gatling") == 60)
+	_check("Dafuer laedt sie mehr als doppelt so lang nach",
+		PlayerStats.reload_sec("gatling") > PlayerStats.reload_sec("karabiner") * 2.0,
+		"%.1f s gegen %.1f s" % [PlayerStats.reload_sec("gatling"), PlayerStats.reload_sec("karabiner")])
+	_check("Jede Waffe hat ein eigenes Magazin und eine eigene Dauer",
+		AmmoData.mag_size("saeure") != AmmoData.mag_size("brenner")
+		and PlayerStats.reload_sec("saeure") != PlayerStats.reload_sec("brenner"))
+
+	# Der Zyklus: leerschiessen, nachladen, wieder voll.
+	_reset_state()
+	var schuss: int = 0
+	while AmmoData.consume("karabiner"):
+		schuss += 1
+	_check("Magazin leergeschossen nach genau %d Schuss" % AmmoData.mag_size("karabiner"),
+		schuss == AmmoData.mag_size("karabiner"), "%d" % schuss)
+	_check("Leeres Magazin laesst sich nachladen", AmmoData.can_reload("karabiner"))
+	var geladen: int = AmmoData.refill_mag("karabiner")
+	_check("Nachladen fuellt das Magazin voll", geladen == 10 and AmmoData.mag_full("karabiner"))
+	_check("Und nimmt die Schuesse aus dem Vorrat", AmmoData.amount("muni") == 80,
+		"%d" % AmmoData.amount("muni"))
+	_check("Volles Magazin braucht kein Nachladen", not AmmoData.can_reload("karabiner"))
+
+	# Teil-Nachladen, wenn der Vorrat nicht reicht — und ehrliche Rueckmeldung darueber.
+	_reset_state()
+	AmmoData.set_mag("karabiner", 0)
+	GameState.ammo["muni"] = 3
+	_check("Knapper Vorrat laedt nur teilweise",
+		AmmoData.refill_mag("karabiner") == 3 and AmmoData.in_mag("karabiner") == 3)
+	_check("Danach ist der Vorrat leer", AmmoData.amount("muni") == 0)
+	_check("Ohne Vorrat hilft auch Nachladen nicht", not AmmoData.can_reload("karabiner"))
+	AmmoData.set_mag("karabiner", 0)
+	_check("Voellig trocken ist etwas anderes als nur leer",
+		AmmoData.is_dry("karabiner") and AmmoData.is_empty("karabiner"))
+	AmmoData.add("muni", 50)
+	_check("Nach Nachschub ist es nur noch 'leer', nicht 'trocken'",
+		AmmoData.is_empty("karabiner") and not AmmoData.is_dry("karabiner"))
+
+	# Verbesserbarkeit: Werkstatt UND Ausruestung, beide gedeckelt.
+	_reset_state()
+	var voll: float = PlayerStats.reload_sec("gatling")
+	GameState.upgrades["reload"] = 3          # -24 %
+	var werkstatt: float = PlayerStats.reload_sec("gatling")
+	_check("Werkstatt-Ausbau verkuerzt das Nachladen", werkstatt < voll,
+		"%.2f s -> %.2f s" % [voll, werkstatt])
+	_reset_state()
+	GameState.equip = { "weapon": { "uid": 1, "slot": "weapon", "rarity": "epic", "req": 1,
+		"name": "Testlauf", "stat": { "key": "reload", "val": 30, "q": 1.0 }, "affixes": [] } }
+	var item: float = PlayerStats.reload_sec("gatling")
+	_check("Ein besseres Item verkuerzt es ebenfalls", item < voll,
+		"%.2f s -> %.2f s" % [voll, item])
+	GameState.upgrades["reload"] = 5
+	GameState.equip["weapon"]["stat"]["val"] = 500
+	_check("Auch alles zusammen bleibt bei 60 %% Ersparnis gedeckelt",
+		is_equal_approx(PlayerStats.reload_sec("gatling"), voll * 0.4),
+		"%.2f s von %.2f s" % [PlayerStats.reload_sec("gatling"), voll])
+
+	# Der bislang wirkungslose Munitionsgurt-Perk hebt endlich den Vorrat.
+	_reset_state()
+	var cap0: int = AmmoData.cap("muni")
+	GameState.perks["gurt"] = 2
+	_check("Perk 'Munitionsgurt' hebt die Vorratsgrenze (+25 je Rang)",
+		AmmoData.cap("muni") == cap0 + 50, "%d -> %d" % [cap0, AmmoData.cap("muni")])
 	_reset_state()
 
 

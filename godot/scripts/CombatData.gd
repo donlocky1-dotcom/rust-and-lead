@@ -52,19 +52,28 @@ const SUPERBOSS_MULT: int = 4
 ## nur aus der Naehe zuverlaessig — auf volle Distanz geht knapp zwei Drittel daneben. Ein
 ## Praezisions-Mod (`accuracy`) verengt den Kegel.
 ##
+## `mag` ist die Magazingroesse, `reload_ms` die Nachladedauer. Beides trennt die Waffen ein
+## zweites Mal, und zwar gegenlaeufig zur Feuerrate: Die Gatling haelt 60 Schuss, verfeuert sie
+## aber in 4,2 Sekunden und braucht danach 4,5 Sekunden zum Trommelwechsel. Der Karabiner
+## kommt mit 10 Schuss ueber 8,5 Sekunden und ist in 2,2 Sekunden wieder voll.
+##
+## Gerechnet ueber den ganzen Zyklus liegt der Dauerschaden aller fuenf zwischen 31 und 43 pro
+## Sekunde — der Spitzenschaden dagegen zwischen 40 und 86. Die Waffen unterscheiden sich also
+## stark darin, WIE sie ihren Schaden abliefern, und nur wenig darin, wie viel.
+##
 ## Munitionsverbrauch ist ein Schuss pro Schuss (AmmoData): Die Gatling leert 180 Schuss in
 ## dreizehn Sekunden, der Karabiner braucht dafuer zweieinhalb Minuten.
 const WEAPONS: Dictionary = {
 	"karabiner": { "name": "Blei-Karabiner", "type": KINETIC, "base": 34, "fire_ms": 850,
-		"spread_deg": 0.8, "acid": 0, "always": true },
+		"spread_deg": 0.8, "mag": 10, "reload_ms": 2200, "acid": 0, "always": true },
 	"gatling":   { "name": "Messing-Gatling", "type": KINETIC, "base": 6, "fire_ms": 70,
-		"spread_deg": 7.0, "acid": 0, "always": false },
+		"spread_deg": 7.0, "mag": 60, "reload_ms": 4500, "acid": 0, "always": false },
 	"voltgun":   { "name": "Leydener Volt-Karabiner", "type": GALVANIC, "base": 22, "fire_ms": 420,
-		"spread_deg": 1.6, "acid": 0, "always": false },
+		"spread_deg": 1.6, "mag": 10, "reload_ms": 2400, "acid": 0, "always": false },
 	"saeure":    { "name": "Säure-Sprüher", "type": ALCHEMICAL, "base": 11, "fire_ms": 240,
-		"spread_deg": 4.5, "acid": 10, "always": false },
+		"spread_deg": 4.5, "mag": 24, "reload_ms": 2800, "acid": 10, "always": false },
 	"brenner":   { "name": "Dampf-Brenner", "type": THERMAL, "base": 9, "fire_ms": 130,
-		"spread_deg": 5.5, "acid": 0, "always": false },
+		"spread_deg": 5.5, "mag": 40, "reload_ms": 3200, "acid": 0, "always": false },
 }
 
 ## Gegner-Statblöcke (Master-GDD §7.3). `ranged` = Fernkämpfer-Parameter.

@@ -58,10 +58,30 @@ sie auf voller Reichweite nur noch gut ein Drittel trifft. Dazwischen ⚡ Volt-K
 > wird die Gatling nah tödlich und weit nutzlos, ohne dass das als Regel irgendwo steht.
 > Verengen lässt sich der Kegel über den Mod-Wert **`accuracy`** auf Ausrüstung.
 
-**Munition (GDD §7.1.1):** Feuern verbraucht Vorrat, Dauerfeuer gibt es nicht. Was Blei
-verschießt, zieht 🧨 Munition (180), der Rest 🔷 Energiekristalle (120). Das ist die zweite
-Hälfte der Waffenwahl: Der Karabiner kommt mit vollem Vorrat **zweieinhalb Minuten** weit, die
-Gatling **dreizehn Sekunden**. Der Vorrat steht unter dem Schuss-Knopf, gelb ab 10, rot bei leer.
+**Munition & Nachladen (GDD §7.1.1):** Zweistufig — geschossen wird aus dem **Magazin**,
+nachgefüllt aus dem **Vorrat**. Was Blei verschießt, zieht 🧨 Munition (180), der Rest
+🔷 Energiekristalle (120). Erst das Magazin erzeugt den Rhythmus aus Feuern und Deckung:
+
+| Waffe | Magazin | Feuerdauer | Nachladen | Zyklus |
+| :-- | --: | --: | --: | --: |
+| Blei-Karabiner | 10 | 8,5 s | 2,2 s | 10,8 s |
+| Messing-Gatling | 60 | 4,2 s | **4,5 s** | 9,0 s |
+| Volt-Karabiner | 10 | 4,2 s | 2,4 s | 6,7 s |
+| Säure-Sprüher | 24 | 5,8 s | 2,8 s | 8,6 s |
+| Dampf-Brenner | 40 | 5,2 s | 3,2 s | 8,6 s |
+
+Über den ganzen Zyklus gerechnet liegen alle fünf zwischen 31 und 43 Schaden pro Sekunde — der
+**Spitzenschaden** dagegen zwischen 40 und 86. Die Waffen unterscheiden sich also stark darin,
+*wie* sie liefern, und wenig darin, *wie viel*. Die Gatling kauft ihre 86 mit viereinhalb
+Sekunden Wehrlosigkeit.
+
+Nachgeladen wird automatisch bei leerem Magazin oder von Hand mit `[R]`, auch halbvoll. Ein
+Waffenwechsel **bricht ab** — sonst wäre Umschalten ein kostenloser Weg um die Wartezeit herum.
+Verkürzen lässt sich die Dauer über den Werkstatt-Ausbau **Schnellader** (−8 % je Stufe) und den
+Item-Wert **`reload`** (−1 % je Punkt), zusammen gedeckelt bei 60 %. Der Perk **Munitionsgurt**
+hebt jetzt endlich den Vorrat (+25 je Rang) — er stand seit jeher in der Tabelle und wirkte
+nirgends. Unter dem Schuss-Knopf steht `Magazin/Größe  Vorrat`, beim Nachladen ein Balken mit
+Restzeit.
 
 **Charakter (`[C]` oder 🎽 oben links):** zwei Reiter. **Ausrüstung** zeigt Getragenes, das
 Werte-Blatt und den Beutel — anlegen, ablegen, verschrotten. Der Beutel ist ein Grid: eine

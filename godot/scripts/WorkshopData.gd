@@ -10,7 +10,7 @@ class_name WorkshopData
 ## hängt die gesamte Kampfbalance, und die ist im Prototyp durchgespielt.
 
 ## Reihenfolge = Anzeigereihenfolge im Bildschirm.
-const ORDER: Array = ["damage", "firerate", "hp", "speed", "regen", "magnet"]
+const ORDER: Array = ["damage", "firerate", "reload", "hp", "speed", "regen", "magnet"]
 
 ## `name` trägt ZWEI Bezeichnungen: vor und nach dem Reveal. Das ist kein Kosmetikwechsel,
 ## sondern die zentrale Wendung der Geschichte — der Held hält sich für einen Menschen und
@@ -30,6 +30,10 @@ const UPGRADES: Dictionary = {
 		"icon": "🦿", "desc": "Tempo", "base": 60, "max": 5, "body": true },
 	"regen":    { "name": ["—", "Kühlsystem"],
 		"icon": "❄", "desc": "Regeneration", "base": 50, "max": 5, "body": true },
+	# Nicht aus dem Prototyp uebernommen, sondern neu: Dort gab es kein Nachladen, also auch
+	# nichts zu beschleunigen. Basis und Hoechststufe folgen der Kurve der uebrigen Eintraege.
+	"reload":   { "name": ["Schnellader", "Auswurf-Servo"],
+		"icon": "🔄", "desc": "Nachladedauer (−8 % je Stufe)", "base": 55, "max": 5, "body": false },
 	"magnet":   { "name": ["—", "Magnet-Spule"],
 		"icon": "🧲", "desc": "Loot-Magnet", "base": 40, "max": 4, "body": false },
 }

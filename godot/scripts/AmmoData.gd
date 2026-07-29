@@ -25,16 +25,76 @@ static func pool_for(weapon_id: String) -> String:
 	return "muni" if String(CombatData.WEAPONS[weapon_id]["type"]) == CombatData.KINETIC else "kristall"
 
 
+## Vorratsgrenze eines Pools — inklusive des Perks „Munitionsgurt" (+25 je Rang).
+## Der Perk stand seit jeher in der Tabelle und wirkte nirgends; im Prototyp hebt er genau das.
 static func cap(pool: String) -> int:
-	return int(POOLS[pool]["cap"])
+	return int(POOLS[pool]["cap"]) + ProgressionManager.perk_val("gurt")
+
+
+# ── Magazin & Nachladen ───────────────────────────────────────────────────────
+## Geschossen wird aus dem MAGAZIN, nachgefuellt wird aus dem Vorrat. Ohne diese zweite Stufe
+## waere „Munition" nur ein langsam sinkender Zaehler; erst das Magazin erzeugt den Rhythmus
+## aus Feuern und Deckungsuche, und erst dadurch ist die Gatling eine Entscheidung: 60 Schuss
+## am Stueck, danach 4,5 Sekunden wehrlos.
+
+static func mag_size(weapon_id: String) -> int:
+	return int(CombatData.WEAPONS[weapon_id].get("mag", 1))
+
+
+static func in_mag(weapon_id: String) -> int:
+	return int(GameState.mag.get(weapon_id, mag_size(weapon_id)))
+
+
+static func set_mag(weapon_id: String, count: int) -> void:
+	GameState.mag[weapon_id] = clampi(count, 0, mag_size(weapon_id))
+
+
+static func mag_full(weapon_id: String) -> bool:
+	return in_mag(weapon_id) >= mag_size(weapon_id)
+
+
+## Kann ueberhaupt nachgeladen werden? Ein leerer Vorrat macht das Nachladen sinnlos — und ein
+## Nachladeversuch, der nichts bewirkt, ist schlimmer als gar keiner.
+static func can_reload(weapon_id: String) -> bool:
+	return not mag_full(weapon_id) and amount(pool_for(weapon_id)) > 0
+
+
+## Magazin auffuellen: nimmt aus dem Vorrat, so viel fehlt und da ist. Liefert die geladene
+## Menge, damit der Aufrufer ein Teil-Nachladen ehrlich melden kann.
+## HEISST BEWUSST NICHT `reload`: Das gibt es bereits auf `GDScript` selbst (Skript neu laden),
+## und ein statischer Aufruf `AmmoData.refill_mag(...)` landet dort statt hier — mit einer
+## Typfehlermeldung ueber ein `bool`, die nichts mit Munition zu tun hat.
+static func refill_mag(weapon_id: String) -> int:
+	var fehlt: int = mag_size(weapon_id) - in_mag(weapon_id)
+	var pool: String = pool_for(weapon_id)
+	var nimm: int = mini(fehlt, amount(pool))
+	if nimm <= 0:
+		return 0
+	GameState.ammo[pool] = amount(pool) - nimm
+	set_mag(weapon_id, in_mag(weapon_id) + nimm)
+	return nimm
+
+
+## Alle Magazine voll — fuer ein neues Spiel.
+static func fresh_mags() -> Dictionary:
+	var out: Dictionary = {}
+	for id in CombatData.WEAPONS:
+		out[String(id)] = mag_size(String(id))
+	return out
 
 
 static func amount(pool: String) -> int:
 	return int(GameState.ammo.get(pool, 0))
 
 
+## Waffe schussbereit? Leeres Magazin zaehlt als leer, auch wenn der Vorrat voll ist.
 static func is_empty(weapon_id: String) -> bool:
-	return amount(pool_for(weapon_id)) <= 0
+	return in_mag(weapon_id) <= 0
+
+
+## Gar nichts mehr da — weder im Magazin noch im Vorrat. Nur dann hilft auch Nachladen nicht.
+static func is_dry(weapon_id: String) -> bool:
+	return in_mag(weapon_id) <= 0 and amount(pool_for(weapon_id)) <= 0
 
 
 ## Legt Nachschub an, gedeckelt auf die Kapazität. Liefert, wie viel WIRKLICH ankam — der Rest
@@ -48,13 +108,13 @@ static func add(pool: String, count: int) -> int:
 	return after - before
 
 
-## Einen Schuss abbuchen. `false` = leer, es darf nicht gefeuert werden.
+## Einen Schuss abbuchen — aus dem MAGAZIN, nicht aus dem Vorrat.
+## `false` = Magazin leer, es muss nachgeladen werden.
 static func consume(weapon_id: String) -> bool:
-	var pool: String = pool_for(weapon_id)
-	var have: int = amount(pool)
+	var have: int = in_mag(weapon_id)
 	if have <= 0:
 		return false
-	GameState.ammo[pool] = have - 1
+	set_mag(weapon_id, have - 1)
 	return true
 
 

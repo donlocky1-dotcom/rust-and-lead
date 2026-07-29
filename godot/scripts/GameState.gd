@@ -39,7 +39,8 @@ var xp: int = 0
 var perk_points: int = 0
 var perks: Dictionary = {}   ## perk_id (String) -> Rang (int)
 ## Werkstatt-Upgrades (Stufen) — fließen in die effektiven Werte (PlayerStats).
-var upgrades: Dictionary = { "damage": 0, "firerate": 0, "hp": 0, "speed": 0, "regen": 0, "magnet": 0 }
+var upgrades: Dictionary = { "damage": 0, "firerate": 0, "reload": 0, "hp": 0, "speed": 0,
+	"regen": 0, "magnet": 0 }
 ## New Game+-Zyklus (Beute-/Skalierungs-Ertrag).
 var ng_plus: int = 0
 
@@ -56,6 +57,9 @@ var equip: Dictionary = {}
 var bag: Array = []
 ## Munitionsvorräte (GDD §7.1.1): pool -> Menge. Siehe `AmmoData`.
 var ammo: Dictionary = { "muni": 90, "kristall": 45 }
+## Geladene Schüsse je Waffe. Zwei Stufen statt einer: aus dem MAGAZIN wird geschossen, aus
+## `ammo` wird nachgeladen. Erst das erzeugt den Rhythmus aus Feuern und Deckung.
+var mag: Dictionary = {}
 
 ## Township-Gebäude: id -> Ausbaustufe (int). Flache Form (im GDD-Schema §2.3 verschachtelt
 ## als {level:int} beschrieben; hier vereinfacht, `building_level()` kapselt den Zugriff).

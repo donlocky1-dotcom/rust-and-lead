@@ -156,7 +156,8 @@ def emissive_verdict(gltf: dict, binary: bytes, mat: dict) -> tuple[bool, str]:
     return (False, "")
 
 
-def clean_materials(gltf: dict, binary: bytes, log: list[str], watertight: bool = True) -> None:
+def clean_materials(gltf: dict, binary: bytes, log: list[str], watertight: bool = True,
+                    min_roughness: float = 0.75) -> None:
     for mat in gltf.get("materials", []):
         name = mat.get("name", "?")
         drop, why = emissive_verdict(gltf, binary, mat)
@@ -183,6 +184,19 @@ def clean_materials(gltf: dict, binary: bytes, log: list[str], watertight: bool 
             pbr["metallicFactor"] = 0.0
             log.append(f"  · {name}: metallicFactor {was} -> 0.0 "
                        "(war vollmetallisch = schwarz ohne Spiegelung)")
+        # Rauheit: glTFs Vorgabe ist 1.0 (voellig matt), aber Generatoren schreiben oft einen
+        # niedrigen festen Wert hinein. Zusammen mit metallicFactor 0 ergibt das die typische
+        # Nassplastik-Optik — gemessen hatte das Spieler-Modell 0.41, waehrend die NPCs
+        # derselben Herkunft bei 1.0 lagen und matt aussahen.
+        #
+        # Nur bei FLACHEM Wert eingegriffen: Liegt eine Metallic-Roughness-Textur bei, traegt
+        # sie echte Variation (blanke Nieten neben stumpfem Holz), die man nicht plattbuegeln
+        # darf. Stoff, Leder und Haut liegen bei 0,75 bis 0,9.
+        rough = pbr.get("roughnessFactor", 1.0)
+        if "metallicRoughnessTexture" not in pbr and rough < min_roughness:
+            pbr["roughnessFactor"] = min_roughness
+            log.append(f"  · {name}: roughnessFactor {rough:.2f} -> {min_roughness:.2f} "
+                       "(zu glaenzend, wirkte wie Plastik)")
         if mat.get("alphaMode") == "BLEND":
             mat["alphaMode"] = "OPAQUE"
             log.append(f"  · {name}: alphaMode BLEND -> OPAQUE")
@@ -586,6 +600,9 @@ def main() -> int:
                     help="Dreiecks-Budget je Mesh (Standard 20000, 0 = nicht reduzieren)")
     ap.add_argument("--crease", type=float, default=45.0,
                     help="Knickwinkel in Grad: darueber bleibt eine Kante hart (Standard 45)")
+    ap.add_argument("--min-roughness", type=float, default=0.75,
+                    help="Untergrenze fuer flache Rauheit (Standard 0.75; 0 = nicht anfassen). "
+                         "Materialien MIT Metallic-Roughness-Textur bleiben unberuehrt.")
     ap.add_argument("--keep-png", action="store_true", help="nicht nach JPEG wandeln")
     args = ap.parse_args()
 
@@ -599,7 +616,7 @@ def main() -> int:
         binary, extra = decimate(gltf, binary, args.max_tris, log, args.crease)
         replaced.update(extra)
         watertight = _is_watertight(gltf, binary, replaced)
-    clean_materials(gltf, binary, log, watertight)
+    clean_materials(gltf, binary, log, watertight, args.min_roughness)
     drop_unused(gltf, log)
     for img in gltf.get("images", []):
         if "bufferView" not in img:

@@ -261,7 +261,9 @@ var _chests: Array = []              # { node, label, pos: Vector3, looted: bool
 ## | "material" | "gear" — die ersten vier sammeln sich von selbst auf, Ausrüstung nicht.
 var _ground: Array = []
 var _shimmer: float = 0.0            # Phase des Schimmerns am nächstgelegenen Fundstück
-var _dry_cd: float = 0.0             # Drossel für den "Waffe leer"-Hinweis
+var _dry_cd: float = 0.0             # Drossel für den "kein Nachschub"-Hinweis
+var _reload_left: float = 0.0        # Restdauer des laufenden Nachladens (0 = feuerbereit)
+var _reload_total: float = 0.0       # Gesamtdauer, für die Fortschrittsanzeige
 var _ground_tile_m: float = 2.5      # Kantenlaenge einer Bodentextur-Kachel (gemessen)
 var _ammo_lbl: Label                 # Vorrat der getragenen Waffe, unter dem Schuss-Knopf
 var _cam_dist: float = CAM_DIST      # aktueller Abstand, weich nachgezogen
@@ -2002,6 +2004,8 @@ func _input(event: InputEvent) -> void:
 			_close_character()
 			_close_shop()
 			_close_world_map()
+		elif event.keycode == KEY_R:
+			_begin_reload()
 		elif event.keycode == KEY_C:
 			_toggle_character()
 		elif event.keycode == KEY_PLUS or event.keycode == KEY_EQUAL or event.keycode == KEY_KP_ADD:
@@ -2136,6 +2140,9 @@ func _fast_travel(idx: int) -> void:
 func _cycle_weapon() -> void:
 	var i: int = WEAPON_ORDER.find(_weapon_id)
 	_weapon_id = WEAPON_ORDER[(i + 1) % WEAPON_ORDER.size()]
+	# Der Wechsel bricht ein laufendes Nachladen ab. Sonst waere Umschalten ein kostenloser
+	# Weg, die Wartezeit zu ueberspringen — jede Waffe haelt ihr eigenes Magazin.
+	_reload_left = 0.0
 	# Bisher gibt es nur ein Waffenmodell. Statt den Karabiner in der Hand zu lassen, während
 	# der Säure-Sprüher feuert, verschwindet er — lieber leere Hand als falsche Waffe.
 	if _weapon_model != null:
@@ -2253,7 +2260,25 @@ func _nearest_enemy(max_dist: float) -> Dictionary:
 ## Liegt der Abzug an? Halten feuert dauerhaft im Waffentakt — bei 3 Schuss pro Sekunde waere
 ## Einzeltippen auf einem Touchscreen keine Steuerung, sondern eine Zumutung.
 func _fire_wanted() -> bool:
-	return (_fire_key or _fire_mouse or _fire_touch_id != -1) and not _overlay_open()
+	return (_fire_key or _fire_mouse or _fire_touch_id != -1) and not _overlay_open() \
+		and _reload_left <= 0.0
+
+
+## Nachladen anstossen. Laeuft ueber die Zeit und blockiert solange den Abzug — das ist der
+## Preis, den eine Waffe mit grossem Magazin zahlt (die Gatling steht viereinhalb Sekunden
+## wehrlos da). Ohne Vorrat passiert nichts ausser einem gedrosselten Hinweis: Ein Nachladen,
+## das nichts bewirkt, waere schlimmer als gar keines.
+func _begin_reload() -> void:
+	if _reload_left > 0.0 or AmmoData.mag_full(_weapon_id):
+		return
+	if not AmmoData.can_reload(_weapon_id):
+		if _dry_cd <= 0.0:
+			_dry_cd = 1.5
+			_say("🔫 %s aus — Waffe wechseln [Tab]"
+				% String(AmmoData.POOLS[AmmoData.pool_for(_weapon_id)]["name"]), 1.5)
+		return
+	_reload_total = PlayerStats.reload_sec(_weapon_id)
+	_reload_left = _reload_total
 
 
 ## Kampf. Gezielt wird automatisch auf den naechsten Gegner in Reichweite — es gibt keinen
@@ -2266,6 +2291,13 @@ func _process_combat(delta: float) -> void:
 	# Bei -1 s ist der naechste Druck ohnehin sofort ein Schuss.
 	_fire_cd = maxf(_fire_cd - delta, -1.0)
 	_dry_cd = maxf(_dry_cd - delta, 0.0)
+	if _reload_left > 0.0:
+		_reload_left -= delta
+		if _reload_left <= 0.0:
+			var geladen: int = AmmoData.refill_mag(_weapon_id)
+			_reload_left = 0.0
+			if geladen > 0 and geladen < AmmoData.mag_size(_weapon_id):
+				_say("🔄 Nur %d Schuss geladen — der Vorrat geht zur Neige." % geladen, 2.0)
 	var e: Dictionary = _nearest_enemy(SHOOT_RANGE_M)
 	var wants: bool = _fire_wanted()
 	# Der Knopf zeigt beides an: dass gedrueckt ist UND ob ueberhaupt jemand in Reichweite ist.
@@ -2274,12 +2306,10 @@ func _process_combat(delta: float) -> void:
 		_fire_btn.set_state(wants, not e.is_empty())
 	if not wants or e.is_empty() or _fire_cd > 0.0:
 		return
-	# Vorrat statt Dauerfeuer (GDD §7.1.1). Der Hinweis ist gedrosselt: Bei fuenf Schuss pro
-	# Sekunde waere eine Meldung je Frame eine Textwand.
+	# Magazin statt Dauerfeuer (GDD §7.1.1). Ist es leer, wird von selbst nachgeladen — von
+	# Hand geht es mit [R], bevor es leer ist.
 	if not AmmoData.consume(_weapon_id):
-		if _dry_cd <= 0.0:
-			_dry_cd = 1.5
-			_say("🔫 %s leer — Waffe wechseln [Tab]" % String(AmmoData.POOLS[AmmoData.pool_for(_weapon_id)]["name"]), 1.5)
+		_begin_reload()
 		return
 	_fire_cd = float(PlayerStats.fire_ms(_weapon_id)) / 1000.0
 	# ── Streuung: Der Schuss kann DANEBENGEHEN ────────────────────────────────
@@ -2460,13 +2490,21 @@ func _update_hud() -> void:
 		_hud.text += "\n📜 " + q
 	if _ammo_lbl != null:
 		var pool: String = AmmoData.pool_for(_weapon_id)
-		var have: int = AmmoData.amount(pool)
-		_ammo_lbl.text = "%s %d/%d" % [String(AmmoData.POOLS[pool]["icon"]), have, AmmoData.cap(pool)]
+		var mag: int = AmmoData.in_mag(_weapon_id)
 		var col := Color(0.92, 0.90, 0.84)
-		if have <= 0:
-			col = Color(1.0, 0.34, 0.30)
-		elif have <= 10:
-			col = Color(1.0, 0.82, 0.25)
+		if _reload_left > 0.0:
+			# Waehrend des Nachladens zaehlt die Restzeit — man muss WISSEN, wie lange man
+			# noch wehrlos ist, sonst wirkt der blockierte Abzug wie ein Fehler.
+			var voll: int = int(round((1.0 - _reload_left / maxf(_reload_total, 0.01)) * 8.0))
+			_ammo_lbl.text = "🔄 %s%s  %.1f s" % ["▮".repeat(voll), "▯".repeat(8 - voll), _reload_left]
+			col = Color(0.55, 0.78, 1.0)
+		else:
+			_ammo_lbl.text = "%s %d/%d   %d" % [String(AmmoData.POOLS[pool]["icon"]), mag,
+				AmmoData.mag_size(_weapon_id), AmmoData.amount(pool)]
+			if mag <= 0:
+				col = Color(1.0, 0.34, 0.30)
+			elif mag <= maxi(1, AmmoData.mag_size(_weapon_id) / 4):
+				col = Color(1.0, 0.82, 0.25)
 		_ammo_lbl.add_theme_color_override("font_color", col)
 	_hud.text += "\n🔩 %d  ⚙ %d  🔆 %d" % [
 		GameState.item_count("schrott"), GameState.item_count("zahnrad"), GameState.item_count("dampfkern")]

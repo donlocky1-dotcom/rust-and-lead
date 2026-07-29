@@ -64,6 +64,18 @@ static func crit_mult() -> float:
 static func armor_pen() -> int:
 	return ProgressionManager.perk_val("brecher")
 
+## Nachladedauer der getragenen Waffe in Sekunden.
+##
+## Zwei Wege, sie zu druecken — beide vom Spieler beeinflussbar:
+##  • **Werkstatt** (`reload`): je Stufe 8 % schneller.
+##  • **Ausruestung** (`reload`-Affix): je Punkt 1 % schneller.
+## Gedeckelt bei 60 % Ersparnis, damit die Gatling ihre 4,5 Sekunden Verwundbarkeit nicht
+## vollstaendig verliert — das ist ihr Preis fuer 86 Schaden pro Sekunde.
+static func reload_sec(weapon_id: String) -> float:
+	var base: float = float(CombatData.WEAPONS[weapon_id].get("reload_ms", 2000)) / 1000.0
+	var rabatt: float = _up("reload") * 0.08 + float(EquipManager.stat_total("reload")) / 100.0
+	return base * (1.0 - clampf(rabatt, 0.0, 0.60))
+
 ## Streuung der getragenen Waffe in Grad (halber Kegelwinkel; 0 = trifft immer).
 ##
 ## NICHT zu verwechseln mit `spread_count()` direkt darunter — das ist der Faecher des

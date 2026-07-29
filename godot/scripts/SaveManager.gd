@@ -29,6 +29,7 @@ static func serialize() -> Dictionary:
 		"equip": GameState.equip.duplicate(true),
 		"bag": GameState.bag.duplicate(true),
 		"ammo": GameState.ammo.duplicate(true),
+		"mag": GameState.mag.duplicate(true),
 		"cam_zoom": GameState.cam_zoom,
 		"economy": GameState.economy.duplicate(true),
 		"kills": GameState.kills,
@@ -51,7 +52,7 @@ static func deserialize(data: Dictionary) -> void:
 	GameState.xp = maxi(0, int(data.get("xp", 0)))
 	GameState.perk_points = maxi(0, int(data.get("perk_points", 0)))
 	GameState.perks = _int_dict(data.get("perks", {}))
-	GameState.upgrades = _int_dict_with_defaults(data.get("upgrades", {}), { "damage": 0, "firerate": 0, "hp": 0, "speed": 0, "regen": 0, "magnet": 0 })
+	GameState.upgrades = _int_dict_with_defaults(data.get("upgrades", {}), { "damage": 0, "firerate": 0, "reload": 0, "hp": 0, "speed": 0, "regen": 0, "magnet": 0 })
 	GameState.ng_plus = maxi(0, int(data.get("ng_plus", 0)))
 	GameState.gold = maxi(0, int(data.get("gold", 0)))
 	GameState.potions = maxi(0, int(data.get("potions", 3)))
@@ -62,6 +63,7 @@ static func deserialize(data: Dictionary) -> void:
 	# ein geladenes Spiel, in dem man nicht schiessen kann, waere schlimmer als eines mit
 	# geschenkter Munition.
 	GameState.ammo = _int_dict_with_defaults(data.get("ammo", {}), AmmoData.fresh())
+	GameState.mag = _int_dict_with_defaults(data.get("mag", {}), AmmoData.fresh_mags())
 	GameState.cam_zoom = clampi(int(data.get("cam_zoom", OverworldView.CAM_ZOOM_DEFAULT)),
 		0, OverworldView.CAM_ZOOM_STEPS.size() - 1)
 	GameState.economy = _int_dict_with_defaults(data.get("economy", {}), { "saloon": 0, "forge": 0, "distillery": 0, "laboratory": 0 })
