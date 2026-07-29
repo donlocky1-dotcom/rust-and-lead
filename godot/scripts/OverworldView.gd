@@ -247,6 +247,13 @@ const RAIL_GAUGE_M: float = 3.2        # Spurweite der Iron Rail (Breitspur, Pan
 const STATION_RANGE_M: float = 45.0    # so nah muss man am Bahnsteig stehen, um zu fahren
 ## Abstand des Bahnsteigs vom Ortsmittelpunkt — außerhalb von Rustwaters Palisade (52 m).
 const STATION_OFFSET_M: float = 68.0
+## Länge der Bahnsteighalle. Steht hier statt in `AssetRegistry`, weil daraus auch die
+## Sperrfläche und der Abstand zum Gleis folgen — eine Zahl, drei Nutzer.
+const STATION_LEN_M: float = 20.0
+## Anteil der Gebäudetiefe, der SPERRT. Der Rest ist Bahnsteig unter dem Vordach: Dort steht
+## man beim Einsteigen, dort erscheint die Fahrplan-Abfrage. Gemessen am Modell endet die
+## Rückwand bei 67 % der Tiefe, davor liegt nur noch das Dach auf Stützen.
+const STATION_SOLID_SHARE: float = 0.67
 
 func _in_town(pos: Vector3) -> bool:
 	return pos.distance_to(WorldManager.poi_scene_position("rustwater")) < TOWN_SAFE_M
@@ -324,6 +331,8 @@ func _ready() -> void:
 	_build_pois()
 	_build_township()
 	_scatter_decor()
+	_scatter_props()
+	_fill_craters()
 	_build_player()
 	_build_hud()
 	_build_npcs()
@@ -845,18 +854,94 @@ func _build_station(poi_id: String) -> void:
 	station.look_at(platform + dir, Vector3.UP)   # Laengsachse parallel zum Gleis
 	# Bahnsteig NEBEN dem Gleis, nicht darauf: Versatz quer zur Fahrtrichtung.
 	var side: float = RAIL_GAUGE_M * 0.5 + 4.6
+	if not _build_station_hall(station, side):
+		_build_station_boxes(station, side)
+	_dress_station(station, side, poi_id)
+	# Ueber den First, nicht davor: Bei 6,4 m hing die Schrift mitten in der Fassade und war
+	# breiter als die Halle. Die Halle misst 9,8 m — 13 m sind knapp darueber, und die kleinere
+	# Schrift laesst das Gebaeude die Hauptsache bleiben.
+	var label_at: Vector3 = platform + Vector3(0.0, 13.0, 0.0)
+	_label(label_at, "🚂 Bahnhof " + String(WorldManager.poi(poi_id)["name"]),
+		Color(0.92, 0.86, 0.70), 64, 200.0)
+	_stations.append({ "id": poi_id, "pos": platform })
+
+
+## Bahnsteighalle aus dem Modell — `false`, wenn keins vorhanden ist.
+##
+## `station` schaut mit seinem lokalen −Z die Trasse entlang, lokales +X zeigt quer vom Gleis
+## weg. Das Modell dagegen ist wie jedes Gebaeude gebaut: Laengsachse X, Front −Z (die
+## Korrektur dahin steht in `AssetRegistry.YAW_DEG`). Beides passt erst nach einer weiteren
+## Vierteldrehung zusammen — dann liegt die Halle laengs zum Gleis und schaut es an.
+func _build_station_hall(station: Node3D, side: float) -> bool:
+	var hall: Node3D = AssetRegistry.instantiate("bahnhof", STATION_LEN_M)
+	if hall == null:
+		return false
+	var b: AABB = AssetRegistry.local_bounds(hall)
+	var depth: float = maxf(b.size.z, 0.01)   # nach der Vierteldrehung die Tiefe zum Gleis hin
+	hall.rotation.y = PI * 0.5
+	# `side` ist der Abstand der Bahnsteig-VORDERKANTE zur Gleismitte, nicht der Hallenmitte:
+	# Sonst haengt bei jeder Modellaenderung die halbe Halle ueber den Schienen.
+	hall.position = Vector3(side + depth * 0.5, 0.0, 0.0)
+	station.add_child(hall)
+	# Gesperrt wird nur die Rueckwand-Haelfte. Der Bahnsteig unter dem Vordach ist der Ort, an
+	# dem man auf den Zug wartet — waere er sperrend, koennte man den Bahnhof nicht betreten.
+	var solid: float = depth * STATION_SOLID_SHARE
+	var mid_local := Vector3(side + depth - solid * 0.5, 0.0, 0.0)
+	_solid_rect_rot(station.global_transform * mid_local,
+		Vector2(solid * 0.5, STATION_LEN_M * 0.5), station.rotation.y)
+	return true
+
+
+## Fracht und Licht auf dem Bahnsteig. Ein leerer Bahnsteig sieht aus wie ein Modell, das man
+## vergessen hat einzurichten; drei Fassstapel und eine Laterne machen daraus einen Ort, an dem
+## gearbeitet wird. Alles im Kollisionsschatten der Halle — nichts davon sperrt zusätzlich,
+## sonst steht der Spieler beim Einsteigen im Weg seiner eigenen Kisten.
+##
+## Die Gaslaterne bekommt ein echtes Licht: Meshy hat die Flamme nur in die Farbtextur gemalt,
+## die Emissive-Map ist schwarz (die Aufbereitung hat sie als tote Daten verworfen). Ohne
+## `OmniLight3D` wäre die Laterne bei Nacht eine dunkle Stange mit einem hellen Fleck.
+func _dress_station(station: Node3D, side: float, poi_id: String) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(poi_id)
+	var stacks: Array = ["barrels", "barrels_b", "barrels_c"]
+	for i in 3:
+		var kind: String = stacks[i % stacks.size()]
+		var node: Node3D = AssetRegistry.instantiate(kind,
+			AssetRegistry.height_of(kind) * rng.randf_range(0.85, 1.15))
+		if node == null:
+			continue
+		node.position = Vector3(side + 1.6 + rng.randf_range(0.0, 1.2),
+			0.0, float(i - 1) * 6.0 + rng.randf_range(-1.2, 1.2))
+		node.rotation.y = rng.randf() * TAU
+		station.add_child(node)
+	var lamp: Node3D = AssetRegistry.instantiate("street_lamp", AssetRegistry.height_of("street_lamp"))
+	if lamp != null:
+		lamp.position = Vector3(side + 1.0, 0.0, -STATION_LEN_M * 0.42)
+		station.add_child(lamp)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(1.0, 0.72, 0.36)
+		glow.light_energy = 2.6
+		glow.omni_range = 11.0
+		glow.position = Vector3(side + 1.0, AssetRegistry.height_of("street_lamp") * 0.92,
+			-STATION_LEN_M * 0.42)
+		station.add_child(glow)
+	var trough: Node3D = AssetRegistry.instantiate("hitching_post", AssetRegistry.length_of("hitching_post"))
+	if trough != null:
+		# Quer zur Halle und mit der Trogseite zum Bahnsteig — man tritt von vorn heran.
+		trough.position = Vector3(side + 1.4, 0.0, STATION_LEN_M * 0.62)
+		trough.rotation.y = PI * 0.5
+		station.add_child(trough)
+
+
+## Platzhalter-Bahnsteig aus Kisten — nur noch in Betrieb, solange `bahnhof.glb` fehlt.
+func _build_station_boxes(station: Node3D, side: float) -> void:
 	_child_box(station, Vector3(7.0, 0.9, 26.0), Vector3(side, 0.45, 0.0), Color(0.44, 0.38, 0.30))
 	for z in [-11.0, 0.0, 11.0]:
 		_child_box(station, Vector3(0.5, 3.4, 0.5), Vector3(side + 2.6, 2.6, z), Color(0.30, 0.26, 0.22))
 	_child_box(station, Vector3(6.4, 0.4, 26.0), Vector3(side + 0.6, 4.5, 0.0), Color(0.34, 0.28, 0.22))
-	# Depot hinter dem Bahnsteig — das sperrt, der Bahnsteig selbst nicht (man steht darauf).
 	var depot_local := Vector3(side + 8.0, 2.5, 8.0)
 	_child_box(station, Vector3(9.0, 5.0, 6.0), depot_local, Color(0.38, 0.31, 0.24))
 	_solid_rect_rot(station.global_transform * depot_local, Vector2(4.5, 3.0), station.rotation.y)
-	var label_at: Vector3 = platform + Vector3(0.0, 6.4, 0.0)
-	_label(label_at, "🚂 Bahnhof " + String(WorldManager.poi(poi_id)["name"]),
-		Color(0.92, 0.86, 0.70), 100, 200.0)
-	_stations.append({ "id": poi_id, "pos": platform })
 
 
 ## Box als Kind eines gedrehten Knotens (lokale Koordinaten) — fuer alles, was an einer
@@ -1287,6 +1372,106 @@ func _scatter_decor() -> void:
 		rock.position = pos
 		rock.rotation.y = rng.randf() * TAU
 		add_child(rock)
+
+
+## Wüsten-Requisiten: Kakteen, Tierskelette, verwehte Schrotthaufen.
+##
+## Getrennt von `_scatter_decor`, obwohl beide streuen — die Regeln sind andere. Ein Felsen
+## darf ueberall liegen; ein Kaktus, der mitten auf der Piste steht, sieht aus wie ein Fehler,
+## und ein Skelett gehoert an den Wegrand, wo man es SIEHT. Die Wegnaehe ist hier also ein
+## Ziel und kein Ausschlusskriterium.
+const PROP_SCATTER_COUNT: int = 64
+const PROP_SCATTER_R_M: float = 620.0
+func _scatter_props() -> void:
+	# Gewichte statt Gleichverteilung: Kakteen praegen die Wueste, Skelette sind der seltene
+	# Fund, an dem man kurz stehenbleibt. Gleich verteilt waere die Wueste ein Beinhaus.
+	var kinds: Array = [
+		["cactus", 5], ["cactus", 5], ["bones", 1], ["bones_b", 1],
+		["scrap_heap", 2], ["scrap_heap_b", 2],
+	]
+	var pool: Array = []
+	for k in kinds:
+		if AssetRegistry.has_model(String(k[0])):
+			for _i in int(k[1]):
+				pool.append(String(k[0]))
+	if pool.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4711
+	var origin: Vector3 = WorldManager.poi_scene_position("rustwater")
+	for i in PROP_SCATTER_COUNT:
+		var kind: String = pool[rng.randi_range(0, pool.size() - 1)]
+		var goal: float = AssetRegistry.length_of(kind)
+		if goal <= 0.0:
+			goal = AssetRegistry.height_of(kind)
+		var node: Node3D = AssetRegistry.instantiate(kind, goal * rng.randf_range(0.75, 1.35))
+		if node == null:
+			continue
+		var ang: float = rng.randf() * TAU
+		var dist: float = rng.randf_range(TOWN_SAFE_M + 18.0, PROP_SCATTER_R_M)
+		var pos: Vector3 = origin + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
+		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
+		pos.z = clampf(pos.z, -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT), -20.0)
+		if _in_town(pos) or WorldManager.on_route(WorldManager.scene_to_world(pos)):
+			node.queue_free()
+			continue
+		pos.y = WorldManager.height_at(pos.x, pos.z)   # Senken mitnehmen, sonst schwebt es
+		node.position = pos
+		node.rotation.y = rng.randf() * TAU
+		add_child(node)
+		# Nur der Kaktus sperrt. Ein Skelett tritt man beiseite, einen Schrotthaufen ueber-
+		# steigt man — aber in einen zwei Meter dicken Saeulenkaktus laeuft niemand hinein.
+		if kind == "cactus":
+			_solid_pillar(pos, 0.9)
+
+
+## Füllt jede Geländesenke mit dem, wonach sie benannt ist — bei der Schrotthalde also mit
+## Schrott. Bisher war der Trichter eine leere Mulde: Man sah, dass es abwärts geht, aber
+## nicht wozu. Der Schrott macht aus der Topographie einen Ort.
+##
+## Bewusst NICHT gleichmäßig: Das Zeug ist von den Rändern nach innen gerutscht, liegt also in
+## der Mitte am dichtesten. `sqrt(randf())` würde gleichmäßig über die Fläche streuen — hier
+## ist `randf()²`-nah das richtige, weil die Mitte voll sein soll.
+const CRATER_PROP_COUNT: int = 26
+func _fill_craters() -> void:
+	# Gewichtet zugunsten der Schrotthaufen: Der Ort heisst Schrotthalde, nicht Lagerhof.
+	# Gleich verteilt sah der Trichter aus, als waere ein Frachtwagen umgekippt.
+	var pool: Array = []
+	for k in [["scrap_heap", 4], ["scrap_heap_b", 4], ["barrels", 1], ["barrels_b", 1],
+			["barrels_c", 1], ["bones", 1]]:
+		if AssetRegistry.has_model(String(k[0])):
+			for _i in int(k[1]):
+				pool.append(String(k[0]))
+	if pool.is_empty():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9001
+	for f in WorldManager.TERRAIN:
+		var c: Vector3 = WorldManager.feature_center(f)
+		var radius: float = float(f["radius"])
+		for i in CRATER_PROP_COUNT:
+			var kind: String = pool[rng.randi_range(0, pool.size() - 1)]
+			var goal: float = AssetRegistry.length_of(kind)
+			if goal <= 0.0:
+				goal = AssetRegistry.height_of(kind)
+			var node: Node3D = AssetRegistry.instantiate(kind, goal * rng.randf_range(0.6, 1.25))
+			if node == null:
+				continue
+			var ang: float = rng.randf() * TAU
+			var t: float = rng.randf()
+			# Die inneren 4 m bleiben frei: Dort erwacht der Held (GDD), und dort muss Platz
+			# für ihn, die Kamera und den ersten Schritt sein.
+			var dist: float = 4.0 + t * t * (radius * 0.95 - 4.0)
+			var pos := Vector3(c.x + cos(ang) * dist, 0.0, c.z + sin(ang) * dist)
+			pos.y = WorldManager.height_at(pos.x, pos.z)
+			node.position = pos
+			node.rotation.y = rng.randf() * TAU
+			# Leicht in die Hangneigung kippen — ein waagerechtes Fass an einer 20°-Böschung
+			# verrät die Formel sofort.
+			var n: Vector3 = WorldManager.normal_at(pos.x, pos.z)
+			node.rotation.x = atan2(n.z, n.y) * 0.7
+			node.rotation.z = -atan2(n.x, n.y) * 0.7
+			add_child(node)
 
 
 func _rustwater_spawn() -> Vector3:

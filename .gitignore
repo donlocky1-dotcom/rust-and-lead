@@ -18,3 +18,15 @@ dist/
 # Python-Cache der Asset-Werkzeuge
 __pycache__/
 *.pyc
+
+# ── Godot ────────────────────────────────────────────────────────────────────
+# Import-Cache: wird beim Oeffnen aus den Quelldateien neu erzeugt.
+.godot/
+# Import-EINSTELLUNGEN: absichtlich NICHT versioniert.
+#
+# Godot schreibt jede .import-Datei beim Oeffnen neu und traegt dabei die Optionen der
+# jeweiligen Editor-Version nach. Sobald zwei Godot-Versionen dasselbe Projekt anfassen —
+# hier: 4.3 headless fuer die Tests, eine neuere fuer die Arbeit am Rechner — aendern sich
+# bei jedem Start 120 Dateien, und jeder Pull scheitert an "would be overwritten".
+# Die Dateien tragen keine Entscheidung, die man nicht in zehn Sekunden neu erzeugt.
+*.import

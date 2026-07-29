@@ -35,6 +35,7 @@ const PATHS: Dictionary = {
 	"shack_d":         ["res://assets/models/buildings/shack_d.glb"],
 	"water_tower":     ["res://assets/models/buildings/water_tower.glb"],
 	"gate":            ["res://assets/models/buildings/gate.glb"],
+	"bahnhof":         ["res://assets/models/buildings/bahnhof.glb"],
 	"palisade_a":      ["res://assets/models/buildings/palisade_a.glb"],
 	"palisade_b":      ["res://assets/models/buildings/palisade_b.glb"],
 	"palisade_c":      ["res://assets/models/buildings/palisade_c.glb"],
@@ -47,6 +48,21 @@ const PATHS: Dictionary = {
 	"rock_boulder":    ["res://assets/models/environment/namaqualand_boulder_03_1k/namaqualand_boulder_03_1k.gltf"],
 	"cliff":           ["res://assets/models/environment/namaqualand_cliff_02_1k/namaqualand_cliff_02_1k.gltf"],
 	"ground_sand":     ["res://assets/models/environment/gravelly_sand_1k/gravelly_sand_1k.gltf"],
+	# ── Requisiten (docs/PROMPTS_PROPS.md) ──
+	# Drei Fass-/Kisten-Stapel statt einem: Ein einziger Stapel, zwanzigmal an dieselbe Gasse
+	# gestellt, liest sich sofort als Kopie. Drei Varianten reichen, damit das Auge aufhoert
+	# zu zaehlen.
+	"barrels":         ["res://assets/models/props/barrels.glb"],
+	"barrels_b":       ["res://assets/models/props/barrels_b.glb"],
+	"barrels_c":       ["res://assets/models/props/barrels_c.glb"],
+	"hitching_post":   ["res://assets/models/props/hitching_post.glb"],
+	"street_lamp":     ["res://assets/models/props/street_lamp.glb"],
+	"bounty_board":    ["res://assets/models/props/bounty_board.glb"],
+	"cactus":          ["res://assets/models/props/cactus.glb"],
+	"scrap_heap":      ["res://assets/models/props/scrap_heap.glb"],
+	"scrap_heap_b":    ["res://assets/models/props/scrap_heap_b.glb"],
+	"bones":           ["res://assets/models/props/bones.glb"],
+	"bones_b":         ["res://assets/models/props/bones_b.glb"],
 	# ── Props / Items ──
 	"chest":           ["res://assets/models/items/treasure_chest_1k/treasure_chest_1k.gltf"],
 	"ammo_box":        ["res://assets/models/props/ammo_box_1k/ammo_box_1k.gltf"],
@@ -86,6 +102,11 @@ const TARGET_HEIGHT: Dictionary = {
 	"gate": 6.0,
 	"palisade_a": 3.4, "palisade_b": 3.4, "palisade_c": 3.4,
 	"palisade_d": 3.4, "palisade_e": 3.4,
+	# ── Requisiten, die AUFRECHT stehen (Masse aus docs/PROMPTS_PROPS.md) ──
+	"barrels": 1.6, "barrels_b": 1.6, "barrels_c": 1.6,
+	"street_lamp": 3.6,
+	"bounty_board": 2.2,
+	"cactus": 2.6,               # Saeulenkaktus — ueberragt den Spieler deutlich
 }
 const TARGET_HEIGHT_DEFAULT: float = 1.6
 
@@ -101,6 +122,13 @@ const TARGET_LENGTH: Dictionary = {
 	"rock_boulder": 2.4,
 	"cliff": 4.5,            # Felsnase am Wegrand. Bei 9 m wurde daraus ein 18-m-Klotz, den
 	                         # man aus der Nähe für ein zerfallenes Gebäude hielt.
+	# ── Flaches und Langgestrecktes (docs/PROMPTS_PROPS.md) ──
+	"bahnhof": 20.0,         # Bahnsteighalle: 20 m lang, daraus folgen 9,8 m Höhe (mit
+	                         # Wasserturm) und 11,4 m Tiefe. Über die Höhe skaliert wäre das
+	                         # Gebäude 37 m lang geworden — eine Kathedrale statt eines Depots.
+	"hitching_post": 2.6,    # Trog mit Anbindestange
+	"scrap_heap": 3.2, "scrap_heap_b": 3.6,
+	"bones": 1.8, "bones_b": 1.8,
 }
 
 ## Ziel-Länge eines Assets (0.0 = wird über die Höhe skaliert).
@@ -121,6 +149,11 @@ const YAW_DEG: Dictionary = {
 	# Dieselbe Herkunft, dasselbe Rig, dieselbe Blickrichtung — die NPCs schauten sonst
 	# von ihrem Platz weg statt auf den Stadtplatz.
 	"npc_mabel": 180.0, "npc_silas": 180.0, "npc_doc": 180.0,
+	# Gemessen durch Rendern aus vier Richtungen: Bahnsteigdach, Uhr und Tür des Bahnhofs
+	# liegen auf +Z, ebenso die beschriftete Seite des Auftragsbretts und die Trogseite des
+	# Anbindepfostens. Ungedreht stünde der Bahnhof mit dem Rücken zum Gleis und das
+	# Auftragsbrett zeigte seine leere Rückwand zur Straße.
+	"bahnhof": 180.0, "bounty_board": 180.0, "hitching_post": 180.0,
 }
 
 ## Gegner-Typ (CombatData.ENEMY_TYPES) → logischer Asset-Name.

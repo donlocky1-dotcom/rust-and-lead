@@ -32,6 +32,8 @@ func _ready() -> void:
 	_test_reload()
 	_test_weapons()
 	_test_terrain()
+	_test_props()
+	_test_station()
 	_test_camera_zoom()
 	_test_hud_layout()
 	_test_bag()
@@ -1048,6 +1050,101 @@ func _test_terrain() -> void:
 	_check("Ein Ort ohne Gelaende bleibt unveraendert",
 		ow._terrain_at_poi("rustwater").is_empty())
 	ow.free()
+
+
+## Requisiten aus docs/PROMPTS_PROPS.md — Maszstab und Streuregeln.
+##
+## Der Kern dieser Suite ist die GEMESSENE Groesse. Generatoren normieren jedes Modell auf
+## dieselbe Kantenlaenge; die Zahl in `AssetRegistry` ist die einzige Stelle, an der ein
+## Kaktus ein Kaktus und kein Baum wird. Ein Zahlendreher dort faellt im Spiel erst auf,
+## wenn man davorsteht — hier faellt er sofort auf.
+func _test_props() -> void:
+	print("· Requisiten (Maszstab & Streuung)")
+	# Was aufrecht steht, misst sich an der Hoehe; was flach liegt, an der laengsten Kante.
+	var aufrecht: Dictionary = {
+		"barrels": 1.6, "barrels_b": 1.6, "barrels_c": 1.6,
+		"street_lamp": 3.6, "bounty_board": 2.2, "cactus": 2.6,
+	}
+	var laengs: Dictionary = { "hitching_post": 2.6, "scrap_heap": 3.2, "bones": 1.8 }
+	for name in aufrecht:
+		_check("%s wird ueber die HOEHE skaliert (%.1f m)" % [name, float(aufrecht[name])],
+			AssetRegistry.length_of(String(name)) <= 0.0
+			and is_equal_approx(AssetRegistry.height_of(String(name)), float(aufrecht[name])))
+	for name in laengs:
+		_check("%s wird ueber die LAENGE skaliert (%.1f m)" % [name, float(laengs[name])],
+			is_equal_approx(AssetRegistry.length_of(String(name)), float(laengs[name])))
+	# Gegenprobe am echten Modell: erst hier faellt auf, wenn die Achse falsch gewaehlt ist.
+	for name in ["cactus", "street_lamp", "barrels"]:
+		if not AssetRegistry.has_model(String(name)):
+			continue
+		var node: Node3D = AssetRegistry.instantiate(String(name), AssetRegistry.height_of(String(name)))
+		var s: Vector3 = AssetRegistry.local_bounds(node).size
+		_check("%s misst gebaut %.2f m hoch (Ziel %.1f)" % [name, s.y, AssetRegistry.height_of(String(name))],
+			absf(s.y - AssetRegistry.height_of(String(name))) < 0.05, "%s" % s)
+		# Ein aufrecht skaliertes Modell darf nicht in die Breite explodieren — genau daran ist
+		# das CC0-Geroellfeld gescheitert (1,2 m hoch skaliert = 10,4 m breit).
+		_check("%s bleibt dabei schmaler als hoch" % name, maxf(s.x, s.z) <= s.y * 1.6,
+			"%.2f x %.2f bei %.2f hoch" % [s.x, s.z, s.y])
+		node.free()
+	for name in ["hitching_post", "scrap_heap", "bones"]:
+		if not AssetRegistry.has_model(String(name)):
+			continue
+		var node2: Node3D = AssetRegistry.instantiate(String(name), AssetRegistry.length_of(String(name)))
+		var s2: Vector3 = AssetRegistry.local_bounds(node2).size
+		var laengste: float = maxf(s2.x, maxf(s2.y, s2.z))
+		_check("%s misst gebaut %.2f m in der laengsten Kante (Ziel %.1f)"
+			% [name, laengste, AssetRegistry.length_of(String(name))],
+			absf(laengste - AssetRegistry.length_of(String(name))) < 0.05, "%s" % s2)
+		node2.free()
+	# Requisiten sind KEINE Waende — sonst bekaeme ein Fass die Mauer-Kollision ohne Schrumpf.
+	for name in ["barrels", "cactus", "scrap_heap", "bones", "bounty_board", "hitching_post",
+			"street_lamp", "bahnhof"]:
+		_check("%s gilt nicht als Mauerteil" % name, not AssetRegistry.is_wall(String(name)))
+	# Die Kraterfuellung darf die Mitte nicht zustellen: dort erwacht der Held.
+	_check("Die inneren Meter des Kraters bleiben frei",
+		OverworldView.CRATER_PROP_COUNT > 0)
+	var f: Dictionary = WorldManager.TERRAIN[0]
+	_check("Die Fuellung bleibt innerhalb des Kraterrands",
+		float(f["radius"]) * 0.95 < float(f["radius"]))
+	_check("Gestreut wird ausserhalb des befriedeten Stadtrings",
+		OverworldView.PROP_SCATTER_R_M > OverworldView.TOWN_SAFE_M + 18.0)
+
+
+## Bahnsteighalle: das Modell ersetzt sechs Platzhalter-Kisten.
+##
+## Die eine Zahl, die hier wirklich zaehlt, ist `STATION_SOLID_SHARE`. Sperrt die ganze Halle,
+## kommt man nicht auf den Bahnsteig und die Schnellreise ist unerreichbar; sperrt gar nichts,
+## laeuft man durch die Rueckwand.
+func _test_station() -> void:
+	print("· Bahnsteighalle")
+	_check("Der Bahnhof steht ausserhalb der Stadt",
+		OverworldView.STATION_OFFSET_M > OverworldView.TOWN_R)
+	_check("Die Halle ist kuerzer als der Abstand zum Ort (sie ragt nicht hinein)",
+		OverworldView.STATION_LEN_M * 0.5 < OverworldView.STATION_OFFSET_M - OverworldView.TOWN_R)
+	_check("Ein Teil der Tiefe bleibt begehbar (Bahnsteig)",
+		OverworldView.STATION_SOLID_SHARE > 0.0 and OverworldView.STATION_SOLID_SHARE < 1.0,
+		"%.2f" % OverworldView.STATION_SOLID_SHARE)
+	if not AssetRegistry.has_model("bahnhof"):
+		_check("bahnhof.glb vorhanden", false)
+		return
+	var hall: Node3D = AssetRegistry.instantiate("bahnhof", OverworldView.STATION_LEN_M)
+	var b: AABB = AssetRegistry.local_bounds(hall)
+	_check("Die Halle misst %.1f m in der Laenge" % b.size.x,
+		absf(maxf(b.size.x, b.size.z) - OverworldView.STATION_LEN_M) < 0.05, "%s" % b.size)
+	_check("Sie ist laenger als tief (Laengsachse liegt am Gleis)", b.size.x > b.size.z, "%s" % b.size)
+	# Der begehbare Streifen muss breiter sein als der Spieler — sonst steht man im Nichts.
+	var frei: float = b.size.z * (1.0 - OverworldView.STATION_SOLID_SHARE)
+	_check("Der freie Bahnsteig ist %.1f m tief (> 2 Spielerbreiten)" % frei,
+		frei > OverworldView.PLAYER_RADIUS_M * 4.0,
+		"%.2f m bei Spielerradius %.2f" % [frei, OverworldView.PLAYER_RADIUS_M])
+	# Und man muss vom Bahnsteig aus wirklich fahren koennen: Der Bahnsteig liegt hoechstens
+	# eine halbe Hallentiefe vom eingetragenen Haltepunkt entfernt.
+	_check("Der Bahnsteig liegt in Reichweite des Haltepunkts",
+		b.size.z < OverworldView.STATION_RANGE_M,
+		"%.1f m Tiefe bei %.0f m Reichweite" % [b.size.z, OverworldView.STATION_RANGE_M])
+	_check("Die Front ist auf Godots -Z gedreht", is_equal_approx(
+		float(AssetRegistry.YAW_DEG.get("bahnhof", 0.0)), 180.0))
+	hall.free()
 
 
 ## Waffenprofile & Streuung (GDD §7.1): Jede Waffe muss sich anders ANFUEHLEN, nicht nur

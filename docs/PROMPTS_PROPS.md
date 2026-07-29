@@ -183,6 +183,36 @@ no text, no logos, no watermark. Photorealistic PBR game asset, low polygon coun
 
 ---
 
+## Stand: was davon liegt im Spiel
+
+| Prompt | Datei | Eingebaut |
+|---|---|---|
+| 1. Fässer und Kisten | `props/barrels.glb`, `barrels_b`, `barrels_c` | Bahnsteig, Krater |
+| 2. Wassertrog mit Anbindepfosten | `props/hitching_post.glb` | Bahnsteig |
+| 3. Gaslaterne | `props/street_lamp.glb` | Bahnsteig (mit eigenem Licht) |
+| 4. Auftragsbrett | `props/bounty_board.glb` | — steht bereit, Platzierung offen |
+| 5. Handkarren | — | fehlt noch |
+| 6. Kaktus-Gruppe | `props/cactus.glb` | Wüstenstreuung (sperrt den Weg) |
+| 7. Schrotthaufen | `props/scrap_heap.glb`, `scrap_heap_b` | Krater, Wüstenstreuung |
+| 8. Tierskelett | `props/bones.glb`, `bones_b` | Wüstenstreuung, Krater |
+
+Dazu, außerhalb dieser Liste: `buildings/bahnhof.glb` — die Bahnsteighalle. Sie ersetzt die
+sechs Platzhalter-Kisten, aus denen jeder Bahnhof bisher bestand.
+
+**Zur Laterne:** Der Prompt bittet um eine leuchtende Flamme, und das Bild hat sie — aber nur
+in der Farbtextur. Meshys Emissive-Map kam schwarz heraus, die Aufbereitung hat sie
+folgerichtig als tote Daten verworfen. Das Licht setzt jetzt der Code (`_dress_station`), was
+ohnehin besser ist: So leuchtet die Laterne nicht nur selbst, sondern beleuchtet den Bahnsteig.
+
+**Zum Auftragsbrett:** Die Zettel sind erwartungsgemäß leer — der Satz im Prompt hat gewirkt.
+Wo es steht, entscheidest du; laut GDD §2.2 gehört es an den Saloon.
+
+**Dreiecksbudget:** Die Rohdateien kamen mit 160 000 bis 1,8 Mio. Dreiecken (490 MB
+zusammen). Nach `prepare_meshy_glb.py` sind es 4 000 bis 30 000 und 17,5 MB — bei 0,0 %
+offenen Kanten, also ohne Löcher im Netz.
+
+---
+
 ## Was ich parallel dazu selbst mache
 
 * **Boden- und Straßentexturen** von Poly Haven holen und einbauen (gestampfte Piste für die
