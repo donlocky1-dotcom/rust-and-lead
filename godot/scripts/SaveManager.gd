@@ -27,6 +27,8 @@ static func serialize() -> Dictionary:
 		"potions": GameState.potions,
 		"inventory": GameState.inventory.duplicate(true),
 		"equip": GameState.equip.duplicate(true),
+		"bag": GameState.bag.duplicate(true),
+		"ammo": GameState.ammo.duplicate(true),
 		"economy": GameState.economy.duplicate(true),
 		"kills": GameState.kills,
 		"quests": GameState.quests.duplicate(true),
@@ -54,6 +56,11 @@ static func deserialize(data: Dictionary) -> void:
 	GameState.potions = maxi(0, int(data.get("potions", 3)))
 	GameState.inventory = _int_dict_with_defaults(data.get("inventory", {}), { "schrott": 0, "zahnrad": 0, "dampfkern": 0 })
 	GameState.equip = (data.get("equip", {}) as Dictionary).duplicate(true)
+	GameState.bag = (data.get("bag", []) as Array).duplicate(true)
+	# Fehlt der Block (Altstand vor der Munition), gibt es den vollen Startvorrat statt null —
+	# ein geladenes Spiel, in dem man nicht schiessen kann, waere schlimmer als eines mit
+	# geschenkter Munition.
+	GameState.ammo = _int_dict_with_defaults(data.get("ammo", {}), AmmoData.fresh())
 	GameState.economy = _int_dict_with_defaults(data.get("economy", {}), { "saloon": 0, "forge": 0, "distillery": 0, "laboratory": 0 })
 	GameState.kills = maxi(0, int(data.get("kills", 0)))
 	GameState.quests = (data.get("quests", {}) as Dictionary).duplicate(true)

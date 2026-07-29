@@ -38,8 +38,26 @@ Modell. Tippen daneben oder `[Esc]` schließt.
 > keine Hydraulik einbauen. Danach ändern auch die übrigen Teile ihren Namen: aus „Schneller
 > Hahn" wird „Kolben-Frequenz".
 
-Tastatur: `[Leertaste]` schießen, `[Tab]` Waffe, `[E]` ansprechen, `[M]` Karte, `[Esc]` schließen,
-`[1]`–`[5]` Iron Rail (nur am Bahnsteig, GDD §1.4a).
+**Beute liegt am Boden (Diablo-Achse).** Truhen sind **selten und stehen fest** — genau eine am
+Mittelpunkt jedes Ortes außer Rustwater, zehn im ganzen Krater. Kommt man heran, erscheint das
+**Hand-Symbol**; beim Öffnen **fällt der Inhalt heraus**. Gold, Munition, Tränke und Material
+sammeln sich beim **Darüberlaufen** von selbst auf (Radius wächst mit der Magnet-Spule).
+**Ausrüstung bleibt liegen**: Die Beschriftung nennt die **Kategorie**, ihre **Farbe die
+Seltenheit** (grau · blau · violett · gold), und das nächstgelegene Stück bekommt einen
+**Schimmer** und seinen vollen Namen — nur das lässt sich mit der Hand aufheben. Gegner lassen
+ihre Beute genauso fallen.
+
+**Munition (GDD §7.1.1):** Feuern verbraucht Vorrat, Dauerfeuer gibt es nicht. Der Karabiner
+zieht 🧨 Munition (180), die drei Energiewaffen teilen sich 🔷 Energiekristalle (120). Der
+Vorrat steht unter dem Schuss-Knopf, gelb ab 10, rot bei leer.
+
+**Charakter (`[C]` oder 🎽 oben links):** zwei Reiter. **Ausrüstung** zeigt Getragenes, das
+Werte-Blatt und den Beutel — anlegen, ablegen, verschrotten. Der Beutel ist ein Grid: eine
+Rüstung belegt 2×2 Plätze, eine Waffe 2×1. **Fähigkeiten** gibt die Perk-Punkte aus, die bei
+jedem Aufstieg anfallen; gesperrte Perks nennen daneben, was ihnen fehlt.
+
+Tastatur: `[Leertaste]` schießen, `[Tab]` Waffe, `[E]` aufheben/öffnen/ansprechen, `[C]`
+Charakter, `[M]` Karte, `[Esc]` schließen, `[1]`–`[5]` Iron Rail (nur am Bahnsteig, GDD §1.4a).
 
 ## Die Stadt im Editor bearbeiten
 

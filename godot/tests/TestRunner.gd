@@ -28,6 +28,8 @@ func _ready() -> void:
 	_test_fire_control()
 	_test_wall_classification()
 	_test_workshop()
+	_test_ammo()
+	_test_bag()
 	_test_asset_registry()
 	_test_overworld_loot_flow()
 	_test_overworld_quest_flow()
@@ -72,6 +74,8 @@ func _reset_state() -> void:
 	GameState.kills = 0
 	GameState.inventory = { "schrott": 0, "zahnrad": 0, "dampfkern": 0 }
 	GameState.equip = {}
+	GameState.bag = []
+	GameState.ammo = AmmoData.fresh()
 	GameState.economy = { "saloon": 0, "forge": 0, "distillery": 0, "laboratory": 0 }
 	GameState.quests = {}
 	GameState.quest_base = {}
@@ -657,6 +661,8 @@ func _test_equip_manager() -> void:
 	print("· EquipManager (Loadout & Sets §7.4.4)")
 	_reset_state()
 	GameState.equip = {}
+	GameState.bag = []
+	GameState.ammo = AmmoData.fresh()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 
@@ -717,6 +723,8 @@ func _test_player_stats() -> void:
 	print("· PlayerStats (effektive Werte — Kapstein)")
 	_reset_state()
 	GameState.equip = {}
+	GameState.bag = []
+	GameState.ammo = AmmoData.fresh()
 
 	# Basiswerte ohne Boni.
 	_check("Basis-Schaden Karabiner = 20", PlayerStats.damage_per_bullet("karabiner") == 20)
@@ -789,6 +797,105 @@ func _test_world_scale() -> void:
 	_check("Pacing: Rustwater→Zugdepot ≥ 1000 m (Hub-Abstand, §1.4)", hub_dist >= 1000.0)
 	_check("Pacing: Querung Rustwater→Zugdepot dauert Minuten (> 180 s)",
 		hub_dist / WorldManager.PLAYER_SPEED_MS > 180.0)
+
+
+## Munition (GDD §7.1.1): begrenzter Vorrat statt Dauerfeuer.
+func _test_ammo() -> void:
+	print("· Munition & Energiekristalle")
+	_reset_state()
+	_check("Karabiner zieht aus dem Munitionsvorrat", AmmoData.pool_for("karabiner") == "muni")
+	for w in ["voltgun", "saeure", "brenner"]:
+		_check("%s zieht aus den Kristallen" % w, AmmoData.pool_for(w) == "kristall")
+	_check("Startvorrat Munition = 90", AmmoData.amount("muni") == 90)
+	_check("Startvorrat Kristalle = 45", AmmoData.amount("kristall") == 45)
+	_check("Ein Schuss kostet genau eins",
+		AmmoData.consume("karabiner") and AmmoData.amount("muni") == 89)
+	# Kapazitaet deckelt, und `add` meldet ehrlich, wie viel wirklich ankam.
+	GameState.ammo["muni"] = 175
+	_check("Nachschub ueber die Kapazitaet wird gekappt und ehrlich gemeldet",
+		AmmoData.add("muni", 20) == 5 and AmmoData.amount("muni") == 180,
+		"jetzt %d" % AmmoData.amount("muni"))
+	GameState.ammo["muni"] = 0
+	_check("Leer heisst leer", AmmoData.is_empty("karabiner"))
+	_check("Aus leerem Vorrat faellt kein Schuss", not AmmoData.consume("karabiner"))
+	_check("Die andere Waffe funktioniert weiter", not AmmoData.is_empty("voltgun"))
+	_reset_state()
+
+
+## Beutel: Platz haengt am Fussabdruck, nicht an der Stueckzahl (GDD §7.4).
+func _test_bag() -> void:
+	print("· Beutel (Grid-Kapazitaet)")
+	_reset_state()
+	var ruestung: Dictionary = ProgressionManager.make_gear("armor", "common")
+	var helm: Dictionary = ProgressionManager.make_gear("helmet", "common")
+	_check("Ruestung belegt 2x2", BagManager.footprint(ruestung) == Vector2i(2, 2))
+	_check("Helm belegt 1x1", BagManager.footprint(helm) == Vector2i(1, 1))
+	_check("Waffe belegt 2x1",
+		BagManager.footprint(ProgressionManager.make_gear("weapon", "common")) == Vector2i(2, 1))
+	_check("Einpacken klappt", BagManager.add(ruestung) and GameState.bag.size() == 1)
+	_check("Belegte Zellen zaehlen den Fussabdruck, nicht die Stueckzahl",
+		BagManager.used_cells() == 4, "%d" % BagManager.used_cells())
+
+	# Anlegen aus dem Beutel: Das getragene Teil muss ZURUECK in den Beutel, nicht verschwinden.
+	_reset_state()
+	var alt: Dictionary = ProgressionManager.make_gear("armor", "common")
+	var neu_teil: Dictionary = ProgressionManager.make_gear("armor", "epic")
+	EquipManager.equip_item(alt, "armor")
+	BagManager.add(neu_teil)
+	_check("Anlegen aus dem Beutel", BagManager.equip_from_bag(0))
+	_check("Das neue Teil ist angelegt",
+		String(EquipManager.equipped("armor").get("rarity", "")) == "epic")
+	_check("Das alte Teil liegt im Beutel statt im Nichts",
+		GameState.bag.size() == 1 and String(GameState.bag[0]["rarity"]) == "common")
+	_check("Ablegen wandert zurueck in den Beutel",
+		BagManager.unequip_to_bag("armor") and GameState.bag.size() == 2
+		and not EquipManager.is_equipped("armor"))
+
+	# Voller Beutel darf nichts verschlucken.
+	_reset_state()
+	var passt: int = 0
+	for i in 60:
+		if BagManager.add(ProgressionManager.make_gear("armor", "common")):
+			passt += 1
+	# 12, nicht 15: Das Raster ist FUENF Spalten breit (GDD §7.4), eine 2x2-Ruestung passt
+	# also nur zweimal nebeneinander — die fuenfte Spalte bleibt in jedem Zweizeilen-Band
+	# liegen. Genau dafuer gibt es Fussabdruecke statt einer Stueckzahl: Sperriges kostet
+	# mehr als seine Zellen.
+	var baender: int = BagManager.ROWS / 2
+	var je_band: int = BagManager.COLS / 2
+	_check("Der Beutel laeuft voll, mit Verschnitt statt perfekter Packung",
+		passt == baender * je_band and passt < BagManager.total_cells() / 4,
+		"%d Ruestungen (erwartet %d), Raster %dx%d"
+		% [passt, baender * je_band, BagManager.COLS, BagManager.ROWS])
+	_check("Volles Raster meldet keinen Platz mehr",
+		not BagManager.has_room_for(ProgressionManager.make_gear("armor", "common")))
+
+	# Verschrotten macht Platz und bringt Schrott.
+	_reset_state()
+	BagManager.add(ProgressionManager.make_gear("armor", "legendary"))
+	var vorher: int = GameState.item_count("schrott")
+	var ertrag: int = BagManager.scrap_at(0)
+	_check("Verschrotten leert den Platz und bringt Schrott",
+		GameState.bag.is_empty() and ertrag > 0 and GameState.item_count("schrott") == vorher + ertrag,
+		"+%d Schrott" % ertrag)
+	# Deutsche Beugung: Seit die Beute mit Namen auf dem Boden liegt, faellt jeder Fehler auf.
+	_check("Weiblich: 'Rostige Rüstung', nicht 'Rostiger Rüstung'",
+		ProgressionManager._compose("Rostiger", "armor") == "Rostige Rüstung",
+		ProgressionManager._compose("Rostiger", "armor"))
+	_check("Saechlich: 'Rostiges Gadget'",
+		ProgressionManager._compose("Rostiger", "gadget") == "Rostiges Gadget",
+		ProgressionManager._compose("Rostiger", "gadget"))
+	_check("Maennlich bleibt 'Rostiger Helm'",
+		ProgressionManager._compose("Rostiger", "helmet") == "Rostiger Helm")
+	_check("Bindestrich haengt ohne Leerzeichen an: 'Präzisions-Helm'",
+		ProgressionManager._compose("Präzisions-", "helmet") == "Präzisions-Helm",
+		ProgressionManager._compose("Präzisions-", "helmet"))
+	for slot in ["helmet", "armor", "weapon", "gadget", "boots"]:
+		var nm: String = String(ProgressionManager.make_gear(String(slot), "common")["name"])
+		_check("%s: kein Leerzeichen vor dem Bindestrich-Wort" % slot, not nm.contains("- "), nm)
+
+
+	_reset_state()
 
 
 ## Werkstatt & Wirtschaft: die Gold-Senke.

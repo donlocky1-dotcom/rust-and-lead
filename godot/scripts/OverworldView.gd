@@ -48,13 +48,30 @@ const TRACER_COLOR: Dictionary = {
 	"saeure": Color(0.55, 0.85, 0.25), "brenner": Color(0.95, 0.42, 0.15),
 }
 
-# ── Truhen: echte Ausrüstung über ProgressionManager/EquipManager (Diablo-Loot-Achse) ──
-const CHEST_INTERACT_M: float = 2.5
-const CHEST_MAX: int = 3
-const CHEST_SPAWN_INTERVAL_SEC: float = 15.0
-const CHEST_MIN_DIST: float = 40.0
-const CHEST_MAX_DIST: float = 220.0
+# ── Truhen & Bodenbeute (Diablo-Achse) ────────────────────────────────────────
+## Truhen sind SELTEN und stehen fest — nicht mehr alle 15 Sekunden eine im Umkreis von 220 m.
+## Vorher waren sie damit ein Fließband: Man lief nirgendwo hin, sie kamen zu einem. Jetzt
+## liegt genau eine am Mittelpunkt jedes Ortes außer dem Heimathafen — das Ziel eines
+## Questlaufs ist damit auch das Ziel der Beute.
+const CHEST_INTERACT_M: float = 3.0    # Reichweite für das Hand-Symbol
+const CHEST_RESPAWN_SEC: float = 300.0 # geplünderte Truhe füllt sich nach 5 Spielminuten
 const CHEST_RARITY_BIAS: float = 0.3   # etwas höher als Basis-Gegner-Loot -> Truhen lohnen sich
+const CHEST_GEAR_MIN: int = 1
+const CHEST_GEAR_MAX: int = 3
+
+## Beim Öffnen fällt der Inhalt auf den Boden, statt still in die Taschen zu wandern. Der
+## Streuradius ist bewusst klein: Man soll die Beute als HAUFEN sehen, nicht als Suchspiel.
+const LOOT_SCATTER_M: float = 1.7
+## Gold, Munition und Tränke sammeln sich beim Darüberlaufen auf — nur Ausrüstung will eine
+## Entscheidung. Die Grundreichweite wächst mit der Magnet-Spule (`PlayerStats.magnet_dist`,
+## Prototyp-Einheiten: 130 = Grundwert, +45 je Ausbaustufe).
+const PICKUP_AUTO_BASE_M: float = 1.9
+const PICKUP_HAND_M: float = 2.6       # Ausrüstung: Reichweite für das Hand-Symbol
+## Farbe der Bodenbeschriftung = Seltenheit (GDD §7.4). Grau/Blau/Violett/Gold.
+const RARITY_COLOR: Dictionary = {
+	"common": Color(0.80, 0.80, 0.78), "rare": Color(0.36, 0.62, 1.0),
+	"epic": Color(0.74, 0.44, 0.96), "legendary": Color(1.0, 0.78, 0.26),
+}
 
 # ── Persistenz (SaveManager, seit Phase 2 fertig — hier zum ersten Mal an eine Szene
 # angeschlossen): Slot 0 als laufender Spielstand dieser Sandbox. ──────────────
@@ -204,7 +221,13 @@ var _fire_cd: float = 0.0
 var _spawn_cd: float = SPAWN_INTERVAL_SEC * 0.5   # erster Nachschub etwas früher
 var _weapon_id: String = "karabiner"
 var _enemies: Array = []             # { node, target: CombatTarget, bar: MeshInstance3D }
-var _chests: Array = []              # { node, label, pos: Vector3 }
+var _chests: Array = []              # { node, label, pos: Vector3, looted: bool, cd: float }
+## Beute am Boden: { node, label, kind, data, pos }. `kind` ist "gold" | "ammo" | "potion"
+## | "material" | "gear" — die ersten vier sammeln sich von selbst auf, Ausrüstung nicht.
+var _ground: Array = []
+var _shimmer: float = 0.0            # Phase des Schimmerns am nächstgelegenen Fundstück
+var _dry_cd: float = 0.0             # Drossel für den "Waffe leer"-Hinweis
+var _ammo_lbl: Label                 # Vorrat der getragenen Waffe, unter dem Schuss-Knopf
 var _npcs: Array = []                # { giver, name, node, label, pos: Vector3 }
 var _actions: VBoxContainer          # Aktionsleiste unten (Sprechen, Bahnreise)
 var _ctx: String = ""                # was gerade in Reichweite ist ("npc:silas", "station:…")
@@ -222,6 +245,8 @@ var _minimap: Minimap            # Nahansicht oben rechts (200-m-Umkreis)
 var _world_map: Minimap          # dieselbe Klasse im Vollbild-Modus
 var _map_overlay: Control        # Abdunklung + Weltkarte; unsichtbar, solange sie zu ist
 var _shop: ShopScreen            # Werkstatt/Geschäfte; unsichtbar, solange zu
+var _char: CharacterScreen       # Ausrüstung + Fähigkeiten
+var _char_btn: Button            # ruft ihn auf (auf dem Handy der einzige Weg dorthin)
 var _stick: VirtualStick
 var _toast: Label
 var _toast_until: float = 0.0
@@ -252,7 +277,7 @@ func _ready() -> void:
 	_build_hud()
 	_build_npcs()
 	_spawn_pack()
-	_spawn_chest_near(_rustwater_spawn() + Vector3(-18.0, 0.0, 14.0))
+	_build_chests()
 	_hp = float(PlayerStats.max_hp())
 	if _save_loaded:
 		_say("💾 Spielstand geladen — Lv %d · %d 💰 · 🎽 %d/%d   [Tab] Waffe" % [
@@ -848,7 +873,17 @@ func _process_interactions(_delta: float) -> void:
 	var ctx: String = ""
 	var npc: Dictionary = _npc_in_range()
 	var station: String = _station_at_player()
-	if not npc.is_empty():
+	var chest: Dictionary = _chest_in_range()
+	var gear: Dictionary = _gear_in_range()
+	# Reihenfolge = Dringlichkeit: Was man aufheben kann, geht vor dem Schwatz. Der Kontext ist
+	# ein String, weil die Leiste nur bei WECHSEL neu gebaut wird — bei der Ausruestung gehoert
+	# deshalb das Fundstueck selbst hinein, sonst bliebe der Knopf beim Wechsel zum naechsten
+	# Stueck auf dem alten Namen stehen.
+	if not chest.is_empty():
+		ctx = "chest:%d" % _chests.find(chest)
+	elif not gear.is_empty():
+		ctx = "gear:%d" % _ground.find(gear)
+	elif not npc.is_empty():
 		ctx = "npc:" + String(npc["giver"])
 	elif station != "":
 		ctx = "station:" + station
@@ -860,7 +895,11 @@ func _process_interactions(_delta: float) -> void:
 	for child in _actions.get_children():
 		_actions.remove_child(child)
 		child.queue_free()
-	if ctx.begins_with("npc:"):
+	if ctx.begins_with("chest:"):
+		_add_action("✋  Truhe öffnen   [E]", _open_chest.bind(_chest_in_range()))
+	elif ctx.begins_with("gear:"):
+		_add_action("✋  %s aufheben   [E]" % String(_gear_in_range()["data"]["name"]), _pick_up_gear)
+	elif ctx.begins_with("npc:"):
 		_add_action("🗣  %s ansprechen   [E]" % String(npc["name"]),
 			_talk_to.bind(String(npc["giver"])))
 		# Die Laeden haengen an den LEUTEN, nicht an ihren Haeusern. Zwei Gruende: Die Stadt
@@ -1135,6 +1174,15 @@ func _build_hud() -> void:
 	# Schuss-Knopf unten rechts — die Gegenhand zum Joystick unten links.
 	_fire_btn = FireButton.new()
 	layer.add_child(_fire_btn)
+	# Munitionsanzeige direkt darunter (GDD §7.4.0): Der Vorrat gehoert dorthin, wo der Daumen
+	# ohnehin hinschaut — gelb bei Knappheit, rot bei leer.
+	_ammo_lbl = Label.new()
+	_ammo_lbl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_ammo_lbl.position = Vector2(-FireButton.RADIUS * 2.0 - FireButton.MARGIN, -FireButton.MARGIN + 4.0)
+	_ammo_lbl.custom_minimum_size = Vector2(FireButton.RADIUS * 2.0, 0.0)
+	_ammo_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ammo_lbl.add_theme_font_size_override("font_size", 15)
+	layer.add_child(_ammo_lbl)
 	# Aktionsleiste unten Mitte: erscheint nur, wenn etwas in Reichweite ist. Ohne sie gäbe es
 	# auf dem Handy keinen Weg, jemanden anzusprechen oder die Bahn zu nehmen — das ging bisher
 	# nur über die Tastatur, also ausgerechnet nicht auf der Zielplattform.
@@ -1144,11 +1192,24 @@ func _build_hud() -> void:
 	_actions.custom_minimum_size = Vector2(280.0, 0.0)
 	_actions.add_theme_constant_override("separation", 6)
 	layer.add_child(_actions)
+	# Charakter-Knopf oben links unter der Statuszeile. Ohne ihn waere der Bildschirm auf dem
+	# Handy unerreichbar — dort gibt es kein [C].
+	_char_btn = Button.new()
+	_char_btn.text = "🎽"
+	_char_btn.tooltip_text = "Ausrüstung & Fähigkeiten [C]"
+	_char_btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_char_btn.position = Vector2(14.0, 84.0)
+	_char_btn.custom_minimum_size = Vector2(52.0, 46.0)
+	_char_btn.add_theme_font_size_override("font_size", 20)
+	_char_btn.pressed.connect(_toggle_character)
+	layer.add_child(_char_btn)
 	# Weltkarte ZULETZT: In einem CanvasLayer ist die Kindreihenfolge die Zeichenreihenfolge,
 	# und eine Vollbildkarte, unter der die Aktionsleiste hervorlugt, ist keine.
 	_build_world_map(layer)
 	_shop = ShopScreen.new()
 	layer.add_child(_shop)
+	_char = CharacterScreen.new()
+	layer.add_child(_char)
 
 
 ## Vollbild-Weltkarte: liegt fertig gebaut, aber unsichtbar über allem und geht per Tippen auf
@@ -1187,7 +1248,7 @@ func _map_is_open() -> bool:
 ## Bewegung und Abzug. Eine gemeinsame Abfrage, damit ein spaeter dazukommender Bildschirm
 ## nicht wieder an zwei Stellen nachgetragen werden muss.
 func _overlay_open() -> bool:
-	return _map_is_open() or (_shop != null and _shop.visible)
+	return _map_is_open() or (_shop != null and _shop.visible) or (_char != null and _char.visible)
 
 
 ## Blendet aus, was sonst UEBER dem Overlay stehenbliebe. Die Aktionsleiste und der Schuss-Knopf
@@ -1197,6 +1258,10 @@ func _set_hud_hidden(hidden: bool) -> void:
 		_actions.visible = not hidden
 	if _fire_btn != null:
 		_fire_btn.visible = not hidden
+	if _ammo_lbl != null:
+		_ammo_lbl.visible = not hidden
+	if _char_btn != null:
+		_char_btn.visible = not hidden
 
 
 ## Oeffnet Werkstatt oder Geschaefte.
@@ -1212,6 +1277,27 @@ func _open_shop(which: int) -> void:
 func _close_shop() -> void:
 	if _shop != null:
 		_shop.close()
+	_set_hud_hidden(false)
+
+
+## Charakter-Bildschirm. Der einzige, der an keinem Ort haengt: Was man traegt und kann, geht
+## einen ueberall etwas an.
+func _toggle_character(which: int = CharacterScreen.Tab.AUSRUESTUNG) -> void:
+	if _char == null:
+		return
+	if _char.visible:
+		_close_character()
+		return
+	_close_world_map()
+	_close_shop()
+	_char.open(which)
+	_end_stick()
+	_set_hud_hidden(true)
+
+
+func _close_character() -> void:
+	if _char != null:
+		_char.close()
 	_set_hud_hidden(false)
 
 
@@ -1369,10 +1455,17 @@ func _process_spawns(delta: float) -> void:
 	_enemies.append(e)
 
 
-# ── Truhen: echte Ausrüstung, sofort wirksam über EquipManager/PlayerStats ───
+## Truhen einmalig setzen: eine am Mittelpunkt jedes Ortes AUSSER Rustwater. Zehn Stueck auf
+## 5000 x 5000 m — das ist die Seltenheit, die eine Truhe wieder zu einem Fund macht. Der
+## Heimathafen bleibt leer: Beute holt man sich draussen.
+func _build_chests() -> void:
+	for id in WorldManager.POIS.keys():
+		if String(id) == "rustwater":
+			continue
+		_spawn_chest_at(WorldManager.poi_scene_position(String(id)))
 
-## Baut eine Truhe an `pos` (Modell + schwebende Beschriftung zur Fernsicht) und trägt sie ein.
-func _spawn_chest_near(pos: Vector3) -> void:
+
+func _spawn_chest_at(pos: Vector3) -> void:
 	var node := Node3D.new()
 	var model: Node3D = AssetRegistry.instantiate("chest", AssetRegistry.height_of("chest"))
 	if model != null:
@@ -1388,58 +1481,162 @@ func _spawn_chest_near(pos: Vector3) -> void:
 	node.position = pos
 	add_child(node)
 	var label: Label3D = _label(pos + Vector3(0.0, 1.3, 0.0), "📦 Truhe", Color(1.0, 0.85, 0.4), 90, 120.0)
-	_chests.append({ "node": node, "label": label, "pos": pos })
+	_chests.append({ "node": node, "label": label, "pos": pos, "looted": false, "cd": 0.0 })
 
 
-## Nachschub an Truhen — ähnlich dem Gegner-Spawner, aber seltener und mit eigener Kappe.
-func _process_chest_spawns(delta: float) -> void:
-	_chest_spawn_cd -= delta
-	if _chest_spawn_cd > 0.0 or _chests.size() >= CHEST_MAX:
-		return
-	_chest_spawn_cd = CHEST_SPAWN_INTERVAL_SEC
-	var ang: float = randf() * TAU
-	var dist: float = randf_range(CHEST_MIN_DIST, CHEST_MAX_DIST)
-	var pos: Vector3 = _player.position + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
-	pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
-	pos.z = clampf(pos.z, -(WorldManager.WORLD_METERS - 20.0), -20.0)
-	var rel: Vector2 = WorldManager.scene_to_world(pos)
-	if not WorldManager.can_enter_sector(WorldManager.sector_of_pos(rel)) or not WorldManager.is_walkable(rel):
-		return
-	if _blocked(pos):
-		return   # keine Truhe in einer Hauswand
-	_spawn_chest_near(pos)
+## Naechste ungeoeffnete Truhe in Reichweite ({} = keine). Grundlage fuer das Hand-Symbol.
+func _chest_in_range() -> Dictionary:
+	for c in _chests:
+		if not bool(c["looted"]) and _player.position.distance_to(c["pos"]) <= CHEST_INTERACT_M:
+			return c
+	return {}
 
 
-## Läuft der Spieler nah genug an eine Truhe, wird sie sofort geplündert (kein Knopf nötig,
-## passend zum reinen Auto-Kampf-Sandbox-Charakter dieser Szene).
+## Truhen fuellen sich nach einer Weile wieder. Ohne das liefe die Welt nach zehn Funden
+## endgueltig trocken — mit Sofort-Respawn waere die Seltenheit dahin.
 func _process_chests(delta: float) -> void:
-	_process_chest_spawns(delta)
-	for c in _chests.duplicate():
-		if _player.position.distance_to(c["pos"]) <= CHEST_INTERACT_M:
-			_loot_chest()
-			(c["node"] as Node3D).queue_free()
-			(c["label"] as Label3D).queue_free()
-			_chests.erase(c)
+	for c in _chests:
+		if not bool(c["looted"]):
+			continue
+		c["cd"] = float(c["cd"]) - delta
+		if float(c["cd"]) <= 0.0:
+			c["looted"] = false
+			(c["node"] as Node3D).visible = true
+			(c["label"] as Label3D).visible = true
 
 
-## Rollt ein echtes Ausrüstungsstück (ProgressionManager) und legt es an, wenn es das aktuell
-## getragene Teil übertrifft (EquipManager) — sonst wird es zu Gold eingeschmolzen. Wirkt sich
-## dank PlayerStats' Live-Zugriff auf GameState.equip ab dem NÄCHSTEN Schuss aus.
-func _loot_chest() -> void:
-	var rarity: String = ProgressionManager.roll_rarity(CHEST_RARITY_BIAS)
-	var slot: String = EquipManager.GEAR_SLOTS[randi_range(0, EquipManager.GEAR_SLOTS.size() - 1)]
-	var gear: Dictionary = ProgressionManager.make_gear(slot, rarity)
-	var current: Dictionary = EquipManager.equipped(slot)
-	var new_value: int = ProgressionManager.gear_value(gear)
-	var rarity_name: String = String(ProgressionManager.RARITY[rarity]["name"])
-	if current.is_empty() or new_value > ProgressionManager.gear_value(current):
-		EquipManager.equip_item(gear, slot)
-		_say("✦ %s %s angelegt (+%d %s)" % [rarity_name, String(gear["name"]), int(gear["stat"]["val"]), String(gear["stat"]["key"])], 3.5)
-		sfx_equip()
-	else:
-		var gold: int = maxi(1, roundi(new_value * 0.5))
-		GameState.add_gold(gold)
-		_say("📦 %s %s eingeschmolzen (+%d Gold)" % [rarity_name, String(gear["name"]), gold], 3.0)
+## Truhe oeffnen: Der Inhalt FAELLT HERAUS, statt sich still in die Taschen zu buchen. Vorher
+## wurde beim Vorbeilaufen automatisch geplündert und ein besseres Teil sofort angelegt — man
+## sah nie, was man fand, und entschied nie etwas.
+func _open_chest(c: Dictionary) -> void:
+	if c.is_empty() or bool(c["looted"]):
+		return
+	c["looted"] = true
+	c["cd"] = CHEST_RESPAWN_SEC
+	(c["node"] as Node3D).visible = false
+	(c["label"] as Label3D).visible = false
+	var at: Vector3 = c["pos"]
+	var gold: int = randi_range(18, 45)
+	_drop(at, "gold", { "amount": gold })
+	var pool: String = AmmoData.pool_for(_weapon_id)
+	_drop(at, "ammo", { "pool": pool, "amount": AmmoData.roll_drop(pool) * 3 })
+	if randf() < 0.5:
+		_drop(at, "potion", { "amount": 1 })
+	for i in randi_range(CHEST_GEAR_MIN, CHEST_GEAR_MAX):
+		var rarity: String = ProgressionManager.roll_rarity(CHEST_RARITY_BIAS)
+		var slot: String = EquipManager.GEAR_SLOTS[randi_range(0, EquipManager.GEAR_SLOTS.size() - 1)]
+		_drop(at, "gear", ProgressionManager.make_gear(slot, rarity))
+	_say("📦 Die Truhe springt auf.", 2.0)
+
+
+## Legt ein Fundstueck auf den Boden. Die Beschriftung IST das Fundstueck: Aus Kamerahoehe
+## erkennt man ein 30-cm-Objekt im Sand nicht, den Schriftzug darueber schon.
+func _drop(at: Vector3, kind: String, data: Dictionary) -> void:
+	var ang: float = randf() * TAU
+	var r: float = sqrt(randf()) * LOOT_SCATTER_M   # Wurzel: gleichmaessig ueber die Flaeche
+	var pos: Vector3 = at + Vector3(cos(ang) * r, 0.0, sin(ang) * r)
+	var text: String = ""
+	var col: Color = Color.WHITE
+	match kind:
+		"gold":
+			text = "💰 %d" % int(data["amount"])
+			col = Color(1.0, 0.84, 0.35)
+		"ammo":
+			var p: Dictionary = AmmoData.POOLS[String(data["pool"])]
+			text = "%s %d" % [String(p["icon"]), int(data["amount"])]
+			col = p["color"]
+		"potion":
+			text = "🧪 Heiltrank"
+			col = Color(0.95, 0.35, 0.45)
+		"material":
+			text = "🔩 %s" % String(data["id"])
+			col = Color(0.72, 0.68, 0.60)
+		"gear":
+			# Kategorie als Beschriftung, Farbe = Seltenheit. Was es GENAU ist, zeigt erst das
+			# naechstgelegene Stueck (`_process_ground`) — sonst steht der Boden voller Romane.
+			text = String(ProgressionManager.GEAR_SLOTS[String(data["slot"])]["name"])
+			col = RARITY_COLOR.get(String(data["rarity"]), Color.WHITE)
+	var node := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.28, 0.16, 0.28)
+	node.mesh = mesh
+	node.material_override = _mat(col)
+	node.position = pos + Vector3(0.0, 0.08, 0.0)
+	add_child(node)
+	var label: Label3D = _label(pos + Vector3(0.0, 0.75, 0.0), text, col, 70, 60.0)
+	_ground.append({ "node": node, "label": label, "kind": kind, "data": data, "pos": pos })
+
+
+func _clear_drop(d: Dictionary) -> void:
+	(d["node"] as Node3D).queue_free()
+	(d["label"] as Label3D).queue_free()
+	_ground.erase(d)
+
+
+## Naechstes AUSRUESTUNGS-Stueck in Handreichweite ({} = keins).
+func _gear_in_range() -> Dictionary:
+	var best: Dictionary = {}
+	var best_d: float = PICKUP_HAND_M
+	for d in _ground:
+		if String(d["kind"]) != "gear":
+			continue
+		var dist: float = _player.position.distance_to(d["pos"])
+		if dist < best_d:
+			best_d = dist
+			best = d
+	return best
+
+
+## Bodenbeute je Frame: Gold, Munition, Traenke und Material saugt der Spieler beim
+## Darueberlaufen auf; Ausruestung bleibt liegen und bekommt am naechsten Stueck einen
+## Schimmer, damit klar ist, welches der Handgriff erwischt.
+func _process_ground(delta: float) -> void:
+	_shimmer = fmod(_shimmer + delta * 3.2, TAU)
+	# Magnet-Spule vergroessert den Aufsammelradius (Prototyp-Einheiten -> Meter).
+	var auto_r: float = PICKUP_AUTO_BASE_M * (float(PlayerStats.magnet_dist()) / float(PlayerStats.BASE_MAGNET))
+	var near: Dictionary = _gear_in_range()
+	for d in _ground.duplicate():
+		var dist: float = _player.position.distance_to(d["pos"])
+		var kind: String = String(d["kind"])
+		if kind == "gear":
+			var lbl: Label3D = d["label"]
+			if d == near:
+				# Schimmer: pulsierender Umriss um die Beschriftung. Billiger als ein Leuchten
+				# und aus Kamerahoehe deutlich besser zu sehen.
+				lbl.outline_size = 12
+				lbl.outline_modulate = Color(1.0, 1.0, 1.0, 0.35 + 0.45 * (0.5 + 0.5 * sin(_shimmer)))
+				lbl.text = "%s\n%s" % [String(ProgressionManager.GEAR_SLOTS[String(d["data"]["slot"])]["name"]),
+					String(d["data"]["name"])]
+			else:
+				lbl.outline_size = 0
+				lbl.text = String(ProgressionManager.GEAR_SLOTS[String(d["data"]["slot"])]["name"])
+			continue
+		if dist > auto_r:
+			continue
+		match kind:
+			"gold":
+				GameState.add_gold(int(d["data"]["amount"]))
+			"ammo":
+				AmmoData.add(String(d["data"]["pool"]), int(d["data"]["amount"]))
+			"potion":
+				GameState.add_potion(int(d["data"]["amount"]))
+			"material":
+				GameState.add_item(String(d["data"]["id"]), int(d["data"]["amount"]))
+		_clear_drop(d)
+
+
+## Ausruestung aufheben — der einzige Handgriff, der eine Entscheidung ist.
+func _pick_up_gear() -> void:
+	var d: Dictionary = _gear_in_range()
+	if d.is_empty():
+		return
+	var gear: Dictionary = d["data"]
+	if not BagManager.add(gear):
+		_say("🎒 Der Beutel ist voll.", 2.5)
+		return
+	var rarity_name: String = String(ProgressionManager.RARITY[String(gear["rarity"])]["name"])
+	_say("✦ %s %s eingesteckt" % [rarity_name, String(gear["name"])], 2.5)
+	_clear_drop(d)
 
 
 ## Kleiner Aufblitz-Effekt beim Anlegen, damit ein Ausrüstungswechsel spürbar ist.
@@ -1506,8 +1703,11 @@ func _input(event: InputEvent) -> void:
 		_fire_key = event.pressed
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE and _overlay_open():
+			_close_character()
 			_close_shop()
 			_close_world_map()
+		elif event.keycode == KEY_C:
+			_toggle_character()
 		elif event.keycode == KEY_M:
 			if _map_is_open():
 				_close_world_map()
@@ -1518,8 +1718,16 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_TAB:
 			_cycle_weapon()
 		elif event.keycode == KEY_E:
+			# Dieselbe Rangfolge wie in der Aktionsleiste, damit Taste und Knopf nie etwas
+			# Verschiedenes tun.
+			var chest: Dictionary = _chest_in_range()
+			var gear: Dictionary = _gear_in_range()
 			var npc: Dictionary = _npc_in_range()
-			if not npc.is_empty():
+			if not chest.is_empty():
+				_open_chest(chest)
+			elif not gear.is_empty():
+				_pick_up_gear()
+			elif not npc.is_empty():
 				_talk_to(String(npc["giver"]))
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
 			_fast_travel(event.keycode - KEY_1)
@@ -1536,6 +1744,12 @@ func _input(event: InputEvent) -> void:
 ## mit `set_input_as_handled()` verbraucht — sonst käme kein Kauf jemals an. Nur ein Tipp
 ## DANEBEN schließt den Laden und wird verbraucht.
 func _handle_overlay_tap(at: Vector2) -> bool:
+	if _char != null and _char.visible:
+		if _char.hits_panel(at):
+			return true   # Knopf auf der Tafel: durchreichen, aber nicht als Joystick werten
+		_close_character()
+		get_viewport().set_input_as_handled()
+		return true
 	if _shop != null and _shop.visible:
 		if _shop.hits_panel(at):
 			return true   # Knopf im Laden: durchreichen, aber nicht als Joystick werten
@@ -1549,6 +1763,9 @@ func _handle_overlay_tap(at: Vector2) -> bool:
 	if _minimap != null and _minimap.get_global_rect().has_point(at):
 		_open_world_map()
 		get_viewport().set_input_as_handled()
+		return true
+	# Der Charakter-Knopf ist ein echter Button: fernhalten vom Joystick, aber durchreichen.
+	if _char_btn != null and _char_btn.visible and _char_btn.get_global_rect().has_point(at):
 		return true
 	return false
 
@@ -1654,6 +1871,7 @@ func _process(delta: float) -> void:
 	_process_hazards(delta)
 	_process_spawns(delta)
 	_process_chests(delta)
+	_process_ground(delta)
 	_process_interactions(delta)
 	_process_autosave(delta)
 	_update_hud()
@@ -1738,6 +1956,7 @@ func _process_combat(delta: float) -> void:
 	# Nach unten begrenzt, damit der Wert in langen Feuerpausen nicht ins Bodenlose laeuft.
 	# Bei -1 s ist der naechste Druck ohnehin sofort ein Schuss.
 	_fire_cd = maxf(_fire_cd - delta, -1.0)
+	_dry_cd = maxf(_dry_cd - delta, 0.0)
 	var e: Dictionary = _nearest_enemy(SHOOT_RANGE_M)
 	var wants: bool = _fire_wanted()
 	# Der Knopf zeigt beides an: dass gedrueckt ist UND ob ueberhaupt jemand in Reichweite ist.
@@ -1745,6 +1964,13 @@ func _process_combat(delta: float) -> void:
 	if _fire_btn != null:
 		_fire_btn.set_state(wants, not e.is_empty())
 	if not wants or e.is_empty() or _fire_cd > 0.0:
+		return
+	# Vorrat statt Dauerfeuer (GDD §7.1.1). Der Hinweis ist gedrosselt: Bei fuenf Schuss pro
+	# Sekunde waere eine Meldung je Frame eine Textwand.
+	if not AmmoData.consume(_weapon_id):
+		if _dry_cd <= 0.0:
+			_dry_cd = 1.5
+			_say("🔫 %s leer — Waffe wechseln [Tab]" % String(AmmoData.POOLS[AmmoData.pool_for(_weapon_id)]["name"]), 1.5)
 		return
 	_fire_cd = float(PlayerStats.fire_ms(_weapon_id)) / 1000.0
 	var target: CombatTarget = e["target"]
@@ -1756,24 +1982,28 @@ func _process_combat(delta: float) -> void:
 	var frac: float = clampf(float(target.health) / float(target.max_health), 0.0, 1.0)
 	(e["bar"] as MeshInstance3D).scale.x = maxf(frac, 0.02)
 	if bool(res["killed"]):
-		GameState.add_gold(target.gold)
 		GameState.add_kill()
 		GameState.add_xp(CombatData.xp_for_kill(target))
-		var extra: String = _roll_material_drop()
-		_say("☠ %s erlegt — +%d Gold%s" % [CombatData.ENEMY_TYPES[target.type_id]["name"], target.gold, extra], 2.0)
+		# Beute FAELLT, statt sich still zu verbuchen. Gold, Munition und Material zieht der
+		# Spieler beim Darueberlaufen ein — dadurch hat auch ein erledigter Kampf noch eine
+		# Handlung, statt nur eine Zahl im Kopfbereich zu erhoehen.
+		var at: Vector3 = (e["node"] as Node3D).position
+		_drop(at, "gold", { "amount": target.gold })
+		var pool: String = AmmoData.pool_for(_weapon_id)
+		_drop(at, "ammo", { "pool": pool, "amount": AmmoData.roll_drop(pool) })
+		_roll_material_drop(at)
+		_say("☠ %s erlegt" % String(CombatData.ENEMY_TYPES[target.type_id]["name"]), 1.6)
 		(e["node"] as Node3D).queue_free()
 		_enemies.erase(e)
 
 
 ## Material-Drop beim Kill (Schrott/Zahnrad/Dampfkern). Ohne diese Drops waeren die
 ## Sammel-Quests des QuestManagers in der Overworld gar nicht erfuellbar.
-func _roll_material_drop() -> String:
+func _roll_material_drop(at: Vector3) -> void:
 	for entry in DROP_TABLE:
 		if randf() < float(entry[1]):
-			var id: String = String(entry[0])
-			GameState.add_item(id, 1)
-			return "  +1 %s" % id
-	return ""
+			_drop(at, "material", { "id": String(entry[0]), "amount": 1 })
+			return
 
 
 func _spawn_tracer(to_pos: Vector3) -> void:
@@ -1902,6 +2132,16 @@ func _update_hud() -> void:
 	var q: String = _active_quest_line()
 	if q != "":
 		_hud.text += "\n📜 " + q
+	if _ammo_lbl != null:
+		var pool: String = AmmoData.pool_for(_weapon_id)
+		var have: int = AmmoData.amount(pool)
+		_ammo_lbl.text = "%s %d/%d" % [String(AmmoData.POOLS[pool]["icon"]), have, AmmoData.cap(pool)]
+		var col := Color(0.92, 0.90, 0.84)
+		if have <= 0:
+			col = Color(1.0, 0.34, 0.30)
+		elif have <= 10:
+			col = Color(1.0, 0.82, 0.25)
+		_ammo_lbl.add_theme_color_override("font_color", col)
 	_hud.text += "\n🔩 %d  ⚙ %d  🔆 %d" % [
 		GameState.item_count("schrott"), GameState.item_count("zahnrad"), GameState.item_count("dampfkern")]
 	if _minimap != null:

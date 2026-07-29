@@ -50,6 +50,12 @@ var inventory: Dictionary = { "schrott": 0, "zahnrad": 0, "dampfkern": 0 }
 ## Angelegte Ausrüstung: equip_slot (String) -> Gear-Dictionary (leer/fehlend = nichts).
 ## Slots: helmet/armor/weapon/gadget/boots + plate1..plate8 (Platten/Tech). Siehe EquipManager.
 var equip: Dictionary = {}
+## Beutel: Array von Gear-Dictionaries. Aufgesammelte Ausrüstung landet hier, statt sich
+## selbst anzulegen — sonst wäre Beute etwas, das einem PASSIERT, statt etwas, das man
+## entscheidet. Kapazität und Platzbedarf rechnet `BagManager` über das Grid-Inventar.
+var bag: Array = []
+## Munitionsvorräte (GDD §7.1.1): pool -> Menge. Siehe `AmmoData`.
+var ammo: Dictionary = { "muni": 90, "kristall": 45 }
 
 ## Township-Gebäude: id -> Ausbaustufe (int). Flache Form (im GDD-Schema §2.3 verschachtelt
 ## als {level:int} beschrieben; hier vereinfacht, `building_level()` kapselt den Zugriff).

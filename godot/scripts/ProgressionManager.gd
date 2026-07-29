@@ -122,6 +122,41 @@ static func roll_rarity(bias: float, roll: float = -1.0) -> String:
 ## Erzeugt ein Ausrüstungsstück. `force_power` erzwingt ein bestimmtes Legendary (z. B. Boss-Drop);
 ## `rng` (seedbar) macht die Zufalls-Anteile deterministisch. Struktur: {uid, slot, rarity, req,
 ## big, name, stat{key,val,q}, affixes[], desc, legendary_power?}.
+## Grammatisches Geschlecht der Ausrüstungs-Slots — fürs Beugen der Adjektive.
+const SLOT_GENUS: Dictionary = {
+	"helmet": "m",  # der Helm
+	"armor": "f",   # die Rüstung
+	"weapon": "f",  # die Waffe
+	"gadget": "n",  # das Gadget
+	"boots": "m",   # der Stiefel
+	"plate": "f",   # die Panzerplatte
+}
+
+## Setzt Adjektiv und Gegenstand zu einem Namen zusammen — grammatisch richtig.
+##
+## Die Adjektivliste steht in männlicher Form da („Rostiger", „Kupferner"), weil der Prototyp
+## sie nie mit weiblichen Slots kombinieren musste. Seit die Beute mit Namen auf dem BODEN
+## liegt, liest man „Rostiger Rüstung" bei jedem einzelnen Fund — vorher stand es nur eine
+## Sekunde lang in einer Meldung.
+##
+## Starke Deklination ohne Artikel: männlich -er, weiblich -e, sächlich -es. Wortstämme mit
+## Bindestrich („Präzisions-", „Iron-Rail-") werden nicht gebeugt, sondern direkt angehängt —
+## „Präzisions- Helm" mit Leerzeichen ist kein Wort.
+static func _compose(word: String, slot: String) -> String:
+	var noun: String = String(GEAR_SLOTS[slot]["name"])
+	if word.ends_with("-"):
+		return word + noun
+	if not word.ends_with("er"):
+		return word + " " + noun
+	var stem: String = word.substr(0, word.length() - 2)
+	match String(SLOT_GENUS.get(slot, "m")):
+		"f":
+			return stem + "e " + noun
+		"n":
+			return stem + "es " + noun
+	return word + " " + noun
+
+
 static func make_gear(slot: String, rarity: String, force_power: String = "", rng: RandomNumberGenerator = null) -> Dictionary:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
@@ -131,7 +166,7 @@ static func make_gear(slot: String, rarity: String, force_power: String = "", rn
 	var adj: Array = GEAR_ADJ[rarity]
 	var big: bool = false
 	var extra_mul: float = 1.0
-	var base_name: String = String(adj[rng.randi_range(0, adj.size() - 1)]) + " " + String(def["name"])
+	var base_name: String = _compose(String(adj[rng.randi_range(0, adj.size() - 1)]), slot)
 	if slot == "weapon" and rng.randf() < 0.3:
 		big = true
 		extra_mul = 1.4
