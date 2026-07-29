@@ -525,7 +525,11 @@ func _add_ground_quad(r: Rect2, mat: Material) -> void:
 func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	var c: Vector3 = WorldManager.feature_center(f)
 	var reach: float = WorldManager.feature_reach(f) + TERRAIN_MARGIN_M
-	var n: int = maxi(8, int(ceil(reach * 2.0 / TERRAIN_STEP_M)))
+	# Auflösung je Form, nicht global: Die Grube braucht 0,35 m fuer ihre 66°-Wand, ein 220 m
+	# breites Duenenfeld waere damit 940.000 Dreiecke — bei 19 m Wellenlaenge sieht man dort
+	# 2 m nicht.
+	var schritt: float = float(f.get("step", TERRAIN_STEP_M))
+	var n: int = maxi(8, int(ceil(reach * 2.0 / schritt)))
 	var step: float = reach * 2.0 / float(n)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -718,7 +722,7 @@ func _build_pois() -> void:
 ## Gelaendeform an einem Ort ({} = keine).
 func _terrain_at_poi(id: String) -> Dictionary:
 	for f in WorldManager.TERRAIN:
-		if String(f["poi"]) == id:
+		if String(f.get("poi", "")) == id:   # freie Formen (Duenen) haben keinen Ort
 			return f
 	return {}
 
@@ -1509,6 +1513,8 @@ func _fill_craters() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9001
 	for f in WorldManager.TERRAIN:
+		if String(f.get("kind", "crater")) != "crater":
+			continue   # in ein Duenenfeld gehoert kein Schrott
 		var c: Vector3 = WorldManager.feature_center(f)
 		var radius: float = float(f["radius"])
 		# Bis an den Wandfuß plus ein Meter: Der Schrott soll die Wand berühren, nicht davor

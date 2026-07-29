@@ -69,9 +69,29 @@ const TERRAIN: Array = [
 	# Die Rampe im Nordosten ist die einzige Stelle, an der die Wand fehlt — dort geht man
 	# hinein und hinaus. Ohne sie wäre die Grube entweder ein Käfig oder man liefe eine
 	# senkrechte Wand hoch wie eine Fliege.
-	{ "id": "schrotthalde", "poi": "schrott_minen",
+	{ "id": "schrotthalde", "kind": "crater", "poi": "schrott_minen",
 		"radius": 15.0, "depth": 5.0, "rim": 1.0, "rim_width": 0.36,
 		"floor": 0.78, "ramp_deg": 55.0, "ramp_span": 70.0 },
+	# Das Wellenmeer: ein Dünenfeld östlich von Rustwater, 220 m breit. Nicht an einem Ort
+	# verankert, sondern frei auf der Karte — es IST die Landmarke.
+	#
+	# Warum überhaupt: Die Wüste ist bisher eine Tischplatte. Man läuft 900 m und die
+	# Horizontlinie bewegt sich nicht. Dünen geben der Strecke einen Puls — man steigt, sieht
+	# über den Kamm hinweg das nächste Tal, steigt wieder. Das kostet nichts außer der Formel.
+	#
+	# `wave` ist die Wellenlänge von Kamm zu Kamm, `amp` die Höhe, `skew` die Asymmetrie.
+	#
+	# Der erste Versuch stand bei 2,4 m auf 19 m — im Bild praktisch unsichtbar. Eine Düne
+	# liest man nicht an ihrer Höhe, sondern an ihrem SCHATTEN, und der entsteht erst, wenn
+	# die Leeseite steil genug ist. 5 m auf 42 m mit `skew` 0,55 ergibt eine flache Luvseite
+	# (rund 13°) und eine steile Leeseite (rund 30°) — beide noch begehbar, aber mit einem
+	# Schattenwurf, den man aus 100 m Entfernung sieht.
+	#
+	# `step` gröber als beim Krater: Bei 42 m Wellenlänge sieht man 2 m Netzauflösung nicht,
+	# und ein 320-m-Feld in Kraterauflösung wären zwei Millionen Dreiecke.
+	{ "id": "wellenmeer", "kind": "dunes", "x": 600, "y": 500,
+		"radius": 160.0, "amp": 5.0, "wave": 42.0, "skew": 0.55,
+		"dir_deg": 24.0, "step": 2.0 },
 ]
 
 
@@ -79,7 +99,7 @@ const TERRAIN: Array = [
 static func height_at(x: float, z: float) -> float:
 	var h: float = 0.0
 	for f in TERRAIN:
-		var c: Vector3 = poi_scene_position(String(f["poi"]))
+		var c: Vector3 = feature_center(f)   # Ort ODER freie Koordinate, siehe `feature_center`
 		h += _feature_height(f, Vector2(x - c.x, z - c.z))
 	return h
 
@@ -101,6 +121,8 @@ static func height_at(x: float, z: float) -> float:
 ## Abschnitt 1 weg und Abschnitt 2 zieht sich über den ganzen Radius. Das ist exakt das alte
 ## Schüsselprofil (höchstens 27° bei 5 m Tiefe), nur eben nicht mehr rundum.
 static func _feature_height(f: Dictionary, off: Vector2) -> float:
+	if String(f.get("kind", "crater")) == "dunes":
+		return _dune_height(f, off)
 	var radius: float = float(f["radius"])
 	var t: float = off.length() / radius
 	var w: float = float(f["rim_width"])
@@ -114,6 +136,35 @@ static func _feature_height(f: Dictionary, off: Vector2) -> float:
 		return -float(f["depth"])
 	var u: float = (t - boden) / maxf(1.0 - boden, 0.0001)
 	return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, u))
+
+
+## Höhenprofil eines Dünenfelds. Zwei überlagerte Wellen und ein weicher Rand.
+##
+## Die Hauptwelle quer zum Wind erzeugt die Kämme. Allein sähe sie aus wie ein Wellblechdach:
+## endlos gleiche, exakt parallele Rippen. Deshalb kommt eine zweite, viel längere Welle LÄNGS
+## der Kämme dazu, die sie durchmoduliert — mal höher, mal flacher, mit versetzten Sätteln.
+## Das ist der Unterschied zwischen „gewellt" und „Dünen".
+##
+## Die Höhe bleibt immer ≥ 0: Ein Dünenfeld liegt AUF der Ebene, es gräbt sich nicht ein.
+## Am Rand blendet `smoothstep` es auf null aus, sonst stünde dort eine Stufe.
+static func _dune_height(f: Dictionary, off: Vector2) -> float:
+	var radius: float = float(f["radius"])
+	var d: float = off.length()
+	if d >= radius:
+		return 0.0
+	var a: float = deg_to_rad(float(f.get("dir_deg", 0.0)))
+	var wave: float = maxf(float(f.get("wave", 20.0)), 0.1)
+	# Längs = in Windrichtung (quer zu den Kämmen), quer = an den Kämmen entlang.
+	var laengs: float = (off.x * cos(a) + off.y * sin(a)) / wave
+	var quer: float = (-off.x * sin(a) + off.y * cos(a)) / (wave * 2.6)
+	# Phasenverzerrung statt reiner Sinus: `theta + skew·sin(theta)` schiebt den Nulldurchgang
+	# zur Seite und macht aus der symmetrischen Welle eine Düne — flach angeweht, steil
+	# abfallend. Ohne das ist es ein Wellblechdach, egal wie hoch.
+	var theta: float = TAU * laengs
+	var kamm: float = 0.5 + 0.5 * sin(theta + float(f.get("skew", 0.0)) * sin(theta))
+	var mod: float = 0.55 + 0.45 * sin(TAU * quer + 1.1)
+	var rand: float = 1.0 - smoothstep(0.0, 1.0, d / radius)
+	return float(f.get("amp", 2.0)) * kamm * mod * rand
 
 
 ## Wie viel des Radius ist an DIESER Stelle flacher Grund? In der Rampe: nichts.
@@ -144,12 +195,20 @@ static func normal_at(x: float, z: float, eps: float = 0.25) -> Vector3:
 
 ## Aussenradius einer Form inklusive Wall — bis hierhin muss ein Geländeflicken reichen.
 static func feature_reach(f: Dictionary) -> float:
+	if String(f.get("kind", "crater")) == "dunes":
+		return float(f["radius"])
 	return float(f["radius"]) * (1.0 + float(f["rim_width"]))
 
 
 ## Mittelpunkt einer Form in Szenenmetern.
+##
+## Zwei Verankerungen: an einem ORT (`poi`) oder frei auf der Karte (`x`/`y` in Welteinheiten).
+## Der Krater gehört zu den Schrott-Minen und muss mitwandern, wenn der Ort verschoben wird;
+## ein Dünenfeld gehört nirgendwohin — es ist selbst die Landmarke.
 static func feature_center(f: Dictionary) -> Vector3:
-	return poi_scene_position(String(f["poi"]))
+	if f.has("poi"):
+		return poi_scene_position(String(f["poi"]))
+	return world_to_scene(Vector2(float(f["x"]), float(f["y"])))
 
 
 # ── Weltstruktur: offene Wildnis + baulich begrenzte Aktionszonen (GDD §1.4a) ──

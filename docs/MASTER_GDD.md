@@ -133,6 +133,12 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   liegt unter einem Teppich aus 128 Schrottstücken in drei Lagen, jedes gedreht, gekippt und
   teilweise eingesunken; in der Mitte steht eine Lache. Bildvorlage und die fehlenden
   Modelle: `docs/PROMPTS_SCHROTTGRUBE.md`.
+* **Das Wellenmeer** (Sektor 1, östlich von Rustwater) — ein Dünenfeld von 320 m Breite,
+  Kämme 5 m hoch im Abstand von 42 m, flach angeweht und steil abfallend (13° gegen 30°).
+  Es hängt an keinem Ort, sondern an freien Koordinaten: Es IST die Landmarke. Zweck ist
+  nicht Deko — die Wüste war eine Tischplatte, auf der sich beim Laufen nichts am Horizont
+  bewegt. Über einen Kamm zu steigen und das nächste Tal zu sehen, gibt der Strecke einen
+  Puls, und das kostet nichts außer der Formel.
 * **Eisenbahn** — die Iron Rail verbindet die fünf Knoten (Rustwater, Zugdepot, Rogue's
   Landing, Fort Freedom, Sektor 01). Ihre Trasse liegt **auf den Routen** (zweite Geografie
   ausgeschlossen) und ist damit die einzige gezeichnete Verbindung zwischen den Orten. Gereist wird **nur vom Bahnsteig aus**: Schnellreise ist ein Ort in der

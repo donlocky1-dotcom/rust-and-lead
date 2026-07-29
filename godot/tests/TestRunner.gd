@@ -33,6 +33,7 @@ func _ready() -> void:
 	_test_weapons()
 	_test_terrain()
 	_test_winding()
+	_test_dunes()
 	_test_props()
 	_test_station()
 	_test_camera_zoom()
@@ -1147,6 +1148,66 @@ func _vorderseitig_anteil(mi: MeshInstance3D) -> Array:
 		if flaeche.normalized().dot(n[t * 3]) < 0.0:
 			gut += 1
 	return [gut, alle]
+
+
+## Duenenfeld — die zweite Art von Gelaendeform.
+##
+## Anders als der Krater haengt es an keinem Ort, sondern an freien Koordinaten. Genau daran
+## ist es beim Einbau zweimal gescheitert: `height_at` und `_terrain_at_poi` griffen direkt auf
+## `f["poi"]` zu und stuerzten ab, sobald eine Form ohne Ort in der Tabelle stand.
+func _test_dunes() -> void:
+	print("· Duenenfeld")
+	var f: Dictionary = {}
+	for e in WorldManager.TERRAIN:
+		if String(e.get("kind", "crater")) == "dunes":
+			f = e
+	if f.is_empty():
+		_check("Ein Duenenfeld ist definiert", false)
+		return
+	var c: Vector3 = WorldManager.feature_center(f)
+	_check("Das Feld haengt an freien Koordinaten, nicht an einem Ort", not f.has("poi"))
+	_check("Es liegt im begehbaren Teil der Welt",
+		WorldManager.is_walkable(WorldManager.scene_to_world(c)))
+	_check("Ausserhalb des Feldes ist der Boden exakt flach",
+		is_zero_approx(WorldManager.height_at(c.x + float(f["radius"]) + 5.0, c.z)))
+	# Duenen liegen AUF der Ebene — nirgends darf das Feld sich eingraben, sonst laeuft man
+	# in eine Grube, die keine sein soll.
+	var tiefste: float = 99.0
+	var hoechste: float = -99.0
+	var steilste: float = 0.0
+	var r: float = float(f["radius"])
+	for iz in range(-30, 31):
+		var vor: float = 0.0
+		for ix in range(-60, 61):
+			var x: float = c.x + float(ix) * (r / 60.0)
+			var z: float = c.z + float(iz) * (r / 30.0)
+			var h: float = WorldManager.height_at(x, z)
+			tiefste = minf(tiefste, h)
+			hoechste = maxf(hoechste, h)
+			if ix > -60:
+				steilste = maxf(steilste, rad_to_deg(atan2(absf(h - vor), r / 60.0)))
+			vor = h
+	_check("Das Feld gräbt sich nirgends ein (tiefster Punkt %.2f m)" % tiefste, tiefste >= -0.001)
+	_check("Die Kaemme erreichen die vorgesehene Hoehe (%.1f von %.1f m)"
+		% [hoechste, float(f["amp"])], hoechste > float(f["amp"]) * 0.75)
+	_check("Die Duenen bleiben begehbar (steilste %.1f° < 35°)" % steilste, steilste < 35.0)
+	# Asymmetrie: eine Duene hat eine flache Luv- und eine steile Leeseite. Ohne sie ist es
+	# ein Wellblechdach. Gemessen ueber die Verteilung der Steigungen laengs der Windrichtung.
+	var a: float = deg_to_rad(float(f["dir_deg"]))
+	var dir := Vector2(cos(a), sin(a))
+	var auf: float = 0.0
+	var ab: float = 0.0
+	var vor2: float = WorldManager.height_at(c.x, c.z)
+	for i in range(1, 400):
+		var x2: float = c.x + dir.x * float(i) * 0.25
+		var z2: float = c.z + dir.y * float(i) * 0.25
+		var h2: float = WorldManager.height_at(x2, z2)
+		var steig: float = (h2 - vor2) / 0.25
+		auf = maxf(auf, steig)
+		ab = maxf(ab, -steig)
+		vor2 = h2
+	_check("Luv- und Leeseite sind verschieden steil (%.2f gegen %.2f)" % [auf, ab],
+		absf(auf - ab) > 0.05 * maxf(auf, ab))
 
 
 ## Requisiten aus docs/PROMPTS_PROPS.md — Maszstab und Streuregeln.
