@@ -123,8 +123,15 @@ static func feature_center(f: Dictionary) -> Vector3:
 ## Radius einer Aktionszone um einen POI (dort greifen bauliche Begrenzung & Stadtregeln).
 const ZONE_RADIUS_HUB: float = 46.0        # ≈ 115 m — Rustwater & Fraktionsbasen
 const ZONE_RADIUS_DEFAULT: float = 26.0    # ≈ 65 m  — Dungeons, Jagdgründe, Arenen
-## Halbe Breite der sichtbaren Pisten zwischen den Orten (reine Wegführung, keine Sperre).
-const CORRIDOR_HALF_W: float = 11.0        # ≈ 27 m breite Piste
+## Halbe Breite des WEGKORRIDORS in Welteinheiten — der Bereich, der als „an der Piste" gilt
+## (`on_route`): dort wird nicht gestreut, dort ist der Weg lesbar. Das ist NICHT die Breite
+## der gezeichneten Piste; die ist schmaler und steht als `OverworldView.ROAD_HALF_W_M`.
+##
+## Der alte Kommentar hier las „≈ 27 m breite Piste" und meinte damit 27,5 — das ist aber die
+## HALBE Breite in Metern (11 × 2,5). Gezeichnet wurde entsprechend ein 55 m breites Band:
+## breiter als der Krater der Schrotthalde (30 m), sodass die Piste ihn vollstaendig
+## ueberdeckte und ihre Kante mitten durch die Senke lief.
+const CORRIDOR_HALF_W: float = 11.0        # 11 × 2,5 m = 27,5 m nach jeder Seite
 
 ## Verbindungen zwischen den Orten — Straßen-Layout und Trassenführung.
 const ROUTES: Array = [

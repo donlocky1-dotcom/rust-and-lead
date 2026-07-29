@@ -1049,6 +1049,33 @@ func _test_terrain() -> void:
 		not ow._terrain_at_poi(String(f["poi"])).is_empty())
 	_check("Ein Ort ohne Gelaende bleibt unveraendert",
 		ow._terrain_at_poi("rustwater").is_empty())
+
+	# Regression: Die Piste hat den Krater ZUGEDECKT.
+	#
+	# Gezeichnet wurde sie mit `CORRIDOR_HALF_W` — das sind 27,5 m JE SEITE, also ein 55 m
+	# breites Band ueber einer 30-m-Senke. Dazu lief sie bis in den Mittelpunkt des Ortes, also
+	# bis auf den Kratergrund. Im Bild sah man deshalb mitten in der Mulde eine harte Kante,
+	# an der der Boden wechselte: links Sand mit Textur, rechts die einfarbige Piste.
+	_check("Die gezeichnete Piste ist schmaler als der Krater",
+		OverworldView.ROAD_HALF_W_M * 2.0 < float(f["radius"]) * 2.0,
+		"%.1f m Piste, %.1f m Krater" % [OverworldView.ROAD_HALF_W_M * 2.0, float(f["radius"]) * 2.0])
+	_check("Und schmaler als der Wegkorridor, in dem sie liegt",
+		OverworldView.ROAD_HALF_W_M < WorldManager.CORRIDOR_HALF_W * WorldManager.METERS_PER_UNIT,
+		"%.1f m gegen %.1f m" % [OverworldView.ROAD_HALF_W_M,
+			WorldManager.CORRIDOR_HALF_W * WorldManager.METERS_PER_UNIT])
+	_check("Eine Strecke endet am Kraterrand, nicht in der Mitte",
+		ow._route_stop_m(String(f["poi"])) >= WorldManager.feature_reach(f),
+		"Stopp bei %.1f m, Wallende bei %.1f m"
+			% [ow._route_stop_m(String(f["poi"])), WorldManager.feature_reach(f)])
+	_check("In offenem Gelaende wird dagegen nicht gekuerzt",
+		is_zero_approx(ow._route_stop_m("rattengestruepp")))
+	# Gegenprobe an der echten Route: Kein Punkt der Piste darf noch in der Senke liegen.
+	var route: Array = ow._trim_route(WorldManager.poi_scene_position("rustwater"),
+		c, "rustwater", String(f["poi"]))
+	var dist_zur_mitte: float = (route[1] as Vector3).distance_to(c)
+	_check("Die Piste von Rustwater hoert vor der Senke auf",
+		dist_zur_mitte >= float(f["radius"]),
+		"endet %.1f m von der Mitte, Kraterrand bei %.1f m" % [dist_zur_mitte, float(f["radius"])])
 	ow.free()
 
 

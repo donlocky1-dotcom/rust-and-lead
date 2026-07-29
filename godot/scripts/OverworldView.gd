@@ -498,6 +498,11 @@ func _add_ground_quad(r: Rect2, mat: Material) -> void:
 		st.set_normal(Vector3.UP)
 		st.set_uv(p / _ground_tile_m)
 		st.add_vertex(Vector3(p.x, 0.0, p.y))
+	# Tangenten erzeugen, BEVOR das Netz festgeschrieben wird: Der Sandboden ist ein PBR-Satz
+	# MIT Normalmap, und die wird im Tangentenraum gelesen. Ohne Tangenten rechnet der Shader
+	# mit undefinierten Vektoren. (Gesucht war damit der Helligkeitsunterschied zwischen Boden
+	# und Piste — der lag NICHT hieran und ist noch offen. Richtig ist es trotzdem.)
+	st.generate_tangents()
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = mat
@@ -528,6 +533,11 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 				st.set_normal(WorldManager.normal_at(px, pz))
 				st.set_uv(Vector2(px, pz) / _ground_tile_m)
 				st.add_vertex(Vector3(px, WorldManager.height_at(px, pz), pz))
+	# Tangenten erzeugen, BEVOR das Netz festgeschrieben wird: Der Sandboden ist ein PBR-Satz
+	# MIT Normalmap, und die wird im Tangentenraum gelesen. Ohne Tangenten rechnet der Shader
+	# mit undefinierten Vektoren. (Gesucht war damit der Helligkeitsunterschied zwischen Boden
+	# und Piste — der lag NICHT hieran und ist noch offen. Richtig ist es trotzdem.)
+	st.generate_tangents()
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = mat
@@ -757,9 +767,15 @@ func _add_ribbon(a: Vector3, b: Vector3, half_w: float, lateral: float, lift: fl
 				st.set_uv(Vector2(quer, laengs))
 				st.add_vertex(v)
 		d0 = d1
+	# Tangenten erzeugen, BEVOR das Netz festgeschrieben wird: Der Sandboden ist ein PBR-Satz
+	# MIT Normalmap, und die wird im Tangentenraum gelesen. Ohne Tangenten rechnet der Shader
+	# mit undefinierten Vektoren. (Gesucht war damit der Helligkeitsunterschied zwischen Boden
+	# und Piste — der lag NICHT hieran und ist noch offen. Richtig ist es trotzdem.)
+	st.generate_tangents()
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = mat
+	mi.name = "ribbon"   # damit `tools/Diag` die Baender von Boden und Gelaende trennen kann
 	# Ein bodennaher Streifen wirft keinen sinnvollen Schatten, kostet im Schattendurchlauf
 	# aber die volle Laenge.
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -769,23 +785,60 @@ func _add_ribbon(a: Vector3, b: Vector3, half_w: float, lateral: float, lift: fl
 ## Zeichnet die Routen aus `WorldManager.ROUTES` als gestampfte Pisten. Sie SPERREN nichts —
 ## die Wüste daneben ist genauso begehbar (GDD §1.4a). Sie sind Wegführung: die schnellste,
 ## sicherste Linie zwischen zwei Orten, an der man sich orientiert, statt Wände zu haben.
+## Halbe Breite der GEZEICHNETEN Piste. Bewusst viel schmaler als der Wegkorridor
+## (`WorldManager.CORRIDOR_HALF_W`, 27,5 m je Seite): Der Korridor sagt „hier ist Weg, hier
+## wird nicht gestreut", die Piste ist die Fahrspur darin. Vorher war beides dasselbe, und
+## damit war die Piste 55 m breit — breiter als jeder Platz in Rustwater und breit genug, den
+## 30-m-Krater der Schrotthalde restlos zu ueberdecken.
+const ROAD_HALF_W_M: float = 5.0
 func _build_roads() -> void:
-	var road_mat: Material = _mat(Color(0.56, 0.46, 0.32))   # festgefahrener, hellerer Staub
+	var road_mat: Material = _road_material()
 	for r in WorldManager.ROUTES:
-		var pair: Array = _trim_at_town(WorldManager.poi_scene_position(String(r[0])),
+		var pair: Array = _trim_route(WorldManager.poi_scene_position(String(r[0])),
 			WorldManager.poi_scene_position(String(r[1])), String(r[0]), String(r[1]))
-		_add_ribbon(pair[0], pair[1],
-			WorldManager.CORRIDOR_HALF_W * WorldManager.METERS_PER_UNIT, 0.0, 0.06, road_mat)
+		_add_ribbon(pair[0], pair[1], ROAD_HALF_W_M, 0.0, 0.06, road_mat)
 
 
-## Kuerzt eine Strecke an den Enden, die in einer bebauten Stadt liegen. Ohne das laufen Piste
-## und Bahntrasse quer ueber den Marktplatz und durch die Haeuser — sie verbinden ja die
-## MITTELPUNKTE der Orte. Gekuerzt wird bis knapp hinter den Stadtboden.
-func _trim_at_town(a: Vector3, b: Vector3, id_a: String, id_b: String) -> Array:
+## Material der Piste: dieselbe Sand-PBR-Textur wie der Boden, nur dunkler und gröber gekachelt.
+##
+## Vorher stand hier eine reine Farbe ohne jede Textur. Neben dem texturierten Boden fiel das
+## sofort auf — die Piste sah aus wie eine ausgeschnittene Pappe, und ihre Kante war eine
+## harte Linie zwischen „Sand mit Korn" und „Sand ohne alles". Mit derselben Textur liest sich
+## der Uebergang als festgefahrener Untergrund statt als anderer Stoff.
+func _road_material() -> Material:
+	var mat: BaseMaterial3D = AssetRegistry.material_from_model("ground_sand")
+	if mat == null:
+		return _mat(Color(0.56, 0.46, 0.32))
+	# Die Baender legen METER in die UV (`_add_ribbon`), nicht Kacheln — der Kachelfaktor muss
+	# deshalb hier hinein, sonst zieht sich eine Kachel ueber die ganze Streckenlaenge.
+	var s: float = 1.0 / maxf(_ground_tile_m, 0.1)
+	mat.uv1_scale = Vector3(s * 1.4, s * 1.4, 1.0)   # gröber: gestampfter Grus, kein Flugsand
+	mat.albedo_color = Color(0.72, 0.66, 0.58)       # abgedunkelt = festgefahren
+	return mat
+
+
+## Kuerzt eine Strecke an beiden Enden auf das, was der Ort dort zulaesst.
+##
+## Routen verbinden die MITTELPUNKTE der Orte. Ungekuerzt laufen Piste und Trasse deshalb quer
+## ueber den Marktplatz und durch die Haeuser — und, seit es Topografie gibt, bis auf den Grund
+## des Kraters. Zwei Faelle, zwei Endpunkte:
+##  • **bebaute Stadt** — bis knapp hinter den Stadtboden.
+##  • **geformtes Gelaende** — bis an den Auswurfwall. Ein Fuhrwerk faehrt an den Rand der
+##    Grube und laedt dort ab; es faehrt nicht hinein. Vorher endete die Piste in der Mitte
+##    der Senke, und ihre abgeschnittene Kante lief quer durch den Krater.
+func _trim_route(a: Vector3, b: Vector3, id_a: String, id_b: String) -> Array:
 	var dir: Vector3 = (b - a).normalized()
-	var start: Vector3 = a + dir * TOWN_GROUND_R if _is_built_town(id_a) else a
-	var end: Vector3 = b - dir * TOWN_GROUND_R if _is_built_town(id_b) else b
-	return [start, end]
+	return [a + dir * _route_stop_m(id_a), b - dir * _route_stop_m(id_b)]
+
+
+## Abstand vom Ortsmittelpunkt, an dem eine Strecke endet (0 = bis in die Mitte).
+func _route_stop_m(poi_id: String) -> float:
+	if _is_built_town(poi_id):
+		return TOWN_GROUND_R
+	var f: Dictionary = _terrain_at_poi(poi_id)
+	if not f.is_empty():
+		return WorldManager.feature_reach(f)
+	return 0.0
 
 
 ## Ist an diesem Ort eine gebaute Stadt (mit eigenem Boden und Mauer)?
@@ -802,7 +855,7 @@ func _build_railway() -> void:
 	var bed_shader: Shader = load("res://shaders/rail_bed.gdshader") as Shader
 	for seg_ids in WorldManager.rail_segments():
 		# Auch die Trasse endet vor der Stadt statt ueber den Marktplatz zu laufen.
-		var pair: Array = _trim_at_town(WorldManager.poi_scene_position(String(seg_ids[0])),
+		var pair: Array = _trim_route(WorldManager.poi_scene_position(String(seg_ids[0])),
 			WorldManager.poi_scene_position(String(seg_ids[1])),
 			String(seg_ids[0]), String(seg_ids[1]))
 		# Schotterbett und beide Schienen sind jetzt gelaendefolgende Streifen statt gedrehter
