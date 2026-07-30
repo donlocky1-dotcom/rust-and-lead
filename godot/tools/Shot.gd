@@ -75,6 +75,7 @@ func _ready() -> void:
 	# sondern ein Bildschirm — `_process` erkennt das am Typ und ruft `_setup_ui` auf.
 	_views.append(["ui_charakter", null, "charakter"])
 	_views.append(["quest_spur", null, "quest"])
+	_views.append(["nahaufnahme", null, "nahaufnahme"])
 	_wait = 60
 
 
@@ -106,6 +107,21 @@ func _setup_ui(art: String) -> void:
 		_cam.position = ow._player.position - dir * 12.0 + Vector3(0.0, 9.0, 0.0)
 		_cam.look_at(ow._player.position + dir * 20.0, Vector3.UP)
 		_cam.current = true
+	elif art == "nahaufnahme":
+		# Zur Auftraggeberin laufen und ansprechen — die Nahaufnahme startet dabei von selbst.
+		# Danach uebernimmt die SPIELKAMERA; die Shot-Kamera muss also aus dem Weg.
+		var mabel: Dictionary = {}
+		for n in ow._npcs:
+			if String(n["giver"]) == "mabel":
+				mabel = n
+		if mabel.is_empty():
+			return
+		ow._player.position = (mabel["pos"] as Vector3) + Vector3(2.2, 0.0, 1.6)
+		ow._cam.current = true
+		ow._talk_to("mabel")
+		# Fuer das Bild verlaengert: Sonst haengt es vom Bildtakt des Rechners ab, ob die
+		# Aufnahme beim Ausloesen noch laeuft. Die Fahrt nach innen ist davon unabhaengig.
+		ow._play_closeup(mabel["node"] as Node3D, 999.0)
 
 
 
@@ -127,7 +143,9 @@ func _process(_dt: float) -> void:
 		return
 	if _views[_i][1] == null:
 		_setup_ui(String(_views[_i][2]))
-		_wait = 12
+		# Laenger warten als bei einem Kamerastandpunkt: Eine Nahaufnahme FAEHRT heran, und ein
+		# Bild nach zwoelf Bildern zeigt die Bewegung, nicht die Einstellung.
+		_wait = 70
 		return
 	_cam.position = _views[_i][1]
 	_cam.look_at(_views[_i][2], Vector3.UP)

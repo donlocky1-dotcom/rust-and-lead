@@ -159,6 +159,20 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   zudreht, und unter dem Filmic-Tonemapping kippt der warme Sand dort ins Rosa — im Bild lag um
   jedes Loch ein blassrosa Ring, der mehr auffiel als das Loch. Ohne ihn liest sich die Mulde
   aus Spielerhöhe sogar besser: vorher ein heller Ring und darin nichts, jetzt Schatten.
+* **Quest-Wegweisung** — jede Quest zeigt auf einen ORT, nicht nur auf eine Zahl. Vorher gab
+  es „12 Gegner erlegen" und keinerlei Hinweis, wohin; bei 5 km Kantenlänge ist das kein
+  Spielraum, sondern eine Sackgasse. Drei Anzeigen aus einer Quelle (`QuestManager.quest_target`):
+  eine **Raute auf der Karte** (außerhalb des Ausschnitts als Pfeil an den Rand geklemmt), eine
+  **leuchtende Fußspur am Boden**, die dem Spieler 30 m vorausläuft, und Ort plus Entfernung im
+  HUD. Der Wegweiser **dreht sich mit dem Fortschritt**: erst zum Ort der Arbeit, nach Erfüllung
+  zum Auftraggeber. `[Q]` wechselt zwischen laufenden Aufträgen; der verfolgte steht im
+  Spielstand. Führt die gerade Linie durch den Strahlensumpf, leitet `swamp_detour` um ihn herum
+  — ein Leitsystem, das einen umbringt, ist schlimmer als gar keines.
+* **Nahaufnahmen** — beim Annehmen und Abgeben eines Auftrags fährt die Kamera an den
+  Auftraggeber heran: schwarze Balken, 34°-Portraitobjektiv, langsame Fahrt von 3,6 m auf 2,4 m,
+  gefilmt aus der **Blickrichtung der Figur** (aus der des Spielers sah man Mabels Hinterkopf).
+  Während der Aufnahme sind Laufen und Schießen gesperrt, jede Eingabe bricht ab. Die Modelle
+  sind hochauflösend genug dafür — aus 12 m Iso-Entfernung sieht man davon sonst nichts.
 * **Fog of War** — die Karte zeigt nur, was man gesehen hat. Vorher lagen alle vierzehn Orte ab
   dem ersten Schritt offen; damit war das Erkunden erzählt, bevor es anfing. Unentdeckte Orte
   fehlen ganz (ein grauer Punkt mit Namen wäre verraten, einer ohne Namen eine Aufforderung,

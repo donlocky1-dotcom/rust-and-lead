@@ -1562,6 +1562,7 @@ func _talk_to(giver: String) -> void:
 				wohin = "\n🧭 %s — %d m. Der Spur folgen." % [String(WorldManager.poi(ziel)["name"]), d]
 			_say("%s: %s\n📜 „%s“ — %s%s" % [String(npc["name"]), _npc_line(giver, "offer"),
 				title, goal, wohin], 5.5)
+			_play_closeup(npc["node"] as Node3D, 2.6)
 		else:
 			_say("🔒 „%s“ ist noch nicht verfügbar." % title, 2.5)
 	elif QuestManager.is_quest_complete(qid):
@@ -1569,6 +1570,7 @@ func _talk_to(giver: String) -> void:
 		if QuestManager.complete_quest(qid):
 			_say("%s: %s\n✅ „%s“ — +%d Gold" % [String(npc["name"]), _npc_line(giver, "done"),
 				title, GameState.gold - gold_before], 5.0)
+			_play_closeup(npc["node"] as Node3D, 2.6)
 			sfx_equip()
 		else:
 			_say("Hm — die Abgabe wurde abgelehnt.", 2.5)
@@ -2133,9 +2135,11 @@ func _equip_weapon_model() -> void:
 	_weapon_model = weapon
 
 
+var _hud_layer: CanvasLayer
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	_hud_layer = layer
 	_hud = Label.new()
 	_hud.position = Vector2(14.0, 10.0)
 	_hud.add_theme_font_size_override("font_size", 15)
@@ -2729,6 +2733,15 @@ func sfx_equip() -> void:
 # ── Eingabe: virtueller Joystick (Touch) + Schuss-Knopf + Tastatur ────────────
 
 func _input(event: InputEvent) -> void:
+	# Eine Sequenz, die man aussitzen MUSS, ist beim zweiten Mal eine Zumutung. Jeder Tipp und
+	# jede Taste bricht ab — und wird dabei verbraucht, damit derselbe Tipp nicht gleich noch
+	# den Joystick startet.
+	if _in_cine() and ((event is InputEventScreenTouch and event.pressed)
+			or (event is InputEventMouseButton and event.pressed)
+			or (event is InputEventKey and event.pressed and not event.echo)):
+		_end_cine()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			_touch_pos[event.index] = event.position
@@ -2991,9 +3004,173 @@ func _move_vector() -> Vector2:
 ## Kamera folgt der Position des Spielers, NIE seiner Drehung (Diablo-Prinzip: die Welt behält
 ## ihre Orientierung, nur die Figur dreht sich). Weich nachgezogen, damit Richtungswechsel nicht
 ## ruckeln.
+# ── Nahaufnahme: die Kamera als Erzaehler ─────────────────────────────────────
+## Die Figuren sind Meshy-Modelle mit 1k-Textur — aus 12 m Iso-Entfernung sieht man davon
+## nichts. Eine Quest anzunehmen ist der erste Moment im Spiel, in dem etwas ERZAEHLT wird;
+## dafuer lohnt es sich, einmal heranzugehen.
+##
+## Bewusst klein gehalten: kein Sequenz-Editor, keine Kamerafahrten-Datei, kein Zustandsautomat.
+## Eine Zielperson, eine Dauer, ein sanfter Zoom nach innen — das ist alles, was eine
+## Nahaufnahme braucht, und alles Weitere waere Maschinerie fuer eine Sache, die es noch nicht
+## gibt. Wer sie ausbauen will, verlaengert `_cine_frame()`.
+##
+## Zwei Dinge, die eine Nahaufnahme von einem Kamerafehler unterscheiden:
+##  • **Man kann nichts tun.** Waehrend der Aufnahme sind Laufen und Schiessen gesperrt; sonst
+##    rennt die Figur aus dem Bild, waehrend die Kamera ihr Gegenueber anschaut.
+##  • **Man kommt raus.** Jeder Tipp und jede Taste bricht ab. Eine Sequenz, die man aussitzen
+##    MUSS, ist beim zweiten Mal eine Zumutung.
+const CINE_FOV: float = 34.0        # eng wie ein Portraitobjektiv, nicht wie das Spiel (50°)
+const CINE_DIST_FROM: float = 3.6   # Abstand am Anfang …
+const CINE_DIST_TO: float = 2.4     # … und am Ende: eine langsame Fahrt nach innen
+## Wie lange die Fahrt nach innen dauert. Absichtlich UNABHAENGIG von der Dauer der Aufnahme:
+## Sonst faehrt eine kurze Einstellung hektisch und eine lange in Zeitlupe, obwohl beide
+## dieselbe Bewegung zeigen sollen.
+const CINE_DOLLY_SEC: float = 2.0
+const CINE_EYE_M: float = 1.62      # Augenhoehe der Figuren
+const CINE_RATE: float = 6.0        # wie schnell die Kamera einschwenkt
+const CINE_SIDE: float = 0.55       # seitlich versetzt — frontal wirkt wie ein Passfoto
+var _cine: Node3D = null            # wen wir gerade ansehen (null = normale Kamera)
+var _cine_left: float = 0.0
+var _cine_total: float = 0.0
+var _bars: Array = []               # die beiden schwarzen Balken
+
+
+## Nahaufnahme starten. `wer` ist die Zielperson, `secs` die Dauer.
+func _play_closeup(wer: Node3D, secs: float) -> void:
+	if wer == null or _cam == null:
+		return
+	_cine = wer
+	_cine_total = maxf(secs, 0.3)
+	_cine_left = _cine_total
+	_set_hud_hidden(true)
+	_set_cine_clean(true)
+	_show_bars(true)
+	_end_stick()
+
+
+func _end_cine() -> void:
+	if _cine == null:
+		return
+	_cine = null
+	_cine_left = 0.0
+	_show_bars(false)
+	_set_cine_clean(false)
+	_set_hud_hidden(false)
+
+
+func _in_cine() -> bool:
+	return _cine != null and is_instance_valid(_cine)
+
+
+## Die schwarzen Balken. Sie tragen keine Information und sind trotzdem das Wichtigste an der
+## Sache: Sie sagen „das hier ist erzaehlt, nicht gespielt", bevor die Kamera sich bewegt.
+func _show_bars(an: bool) -> void:
+	if _bars.is_empty():
+		if not an or _hud_layer == null:
+			return
+		for i in 2:
+			var r := ColorRect.new()
+			r.color = Color(0.0, 0.0, 0.0, 0.92)
+			r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			r.set_anchors_and_offsets_preset(
+				Control.PRESET_TOP_WIDE if i == 0 else Control.PRESET_BOTTOM_WIDE)
+			r.offset_bottom = 78.0 if i == 0 else 0.0
+			r.offset_top = 0.0 if i == 0 else -78.0
+			_hud_layer.add_child(r)
+			_bars.append(r)
+	for b in _bars:
+		(b as ColorRect).visible = an
+
+
+## Alles wegnehmen, was in einer Nahaufnahme nicht vorkommt.
+##
+## `_set_hud_hidden` allein reicht nicht: Es kuemmert sich um die Bedienelemente, nicht um
+## Kopfzeile und Karte — und schon gar nicht um die schwebenden Weltbeschriftungen. Die sind in
+## der Nahaufnahme das Schlimmste: Ein Ortsname ist auf 120 Punkt ausgelegt und aus zwei Metern
+## Entfernung ein Buchstabengebirge quer durchs Bild. Die Sprechblase bleibt — sie IST die Szene.
+func _set_cine_clean(an: bool) -> void:
+	if _hud != null:
+		_hud.visible = not an
+	if _minimap != null:
+		_minimap.visible = not an
+	for c in get_children():
+		if c is Label3D:
+			(c as Label3D).visible = not an
+
+
+## Der Punkt, auf den die Nahaufnahme zielt — knapp unter dem Scheitel.
+##
+## GEMESSEN am Modell, nicht geraten. Der erste Versuch nahm „Knotenposition plus 1,62 m
+## Augenhoehe". Das stimmt nie ganz: Meshy legt den Ursprung eines Modells irgendwohin, und
+## im Bild stand die Figur dann unten rechts, waehrend die Kamera auf leeren Sand zielte.
+## Ueber die Netzgrenzen ist der Kopf da, wo der Kopf ist — bei jedem Modell, ohne Zahlen.
+func _cine_head() -> Vector3:
+	for c in _cine.get_children():
+		if not (c is Node3D):
+			continue
+		var b: AABB = AssetRegistry.local_bounds(c as Node3D)
+		if b.size.y < 0.2:
+			continue
+		var m: Transform3D = (c as Node3D).global_transform
+		var scheitel: Vector3 = m * (b.position + Vector3(b.size.x * 0.5, b.size.y, b.size.z * 0.5))
+		# Waagerecht die KNOTENPOSITION, senkrecht das gemessene Modell.
+		#
+		# Nur die Hoehe wird gemessen, nicht die Mitte: Der Huellquader eines animierten Modells
+		# umfasst die Ruhepose mit ausgestreckten Armen, sein waagerechter Mittelpunkt liegt
+		# deshalb um bis zu einem halben Meter neben der Figur — im Bild stand sie dann am Rand,
+		# waehrend die Kamera auf leeren Sand zielte. Der Knoten dagegen steht per Definition da,
+		# wo die Figur steht.
+		return Vector3(_cine.global_position.x, scheitel.y - 0.16, _cine.global_position.z)
+	return _cine.global_position + Vector3(0.0, CINE_EYE_M, 0.0)
+
+
+## Wo steht die Kamera in diesem Augenblick der Aufnahme?
+##
+## Aus der BLICKRICHTUNG der Zielperson, leicht seitlich versetzt. Der erste Versuch nahm die
+## Richtung des Spielers — und zeigte Mabels Hinterkopf: Die NPCs schauen zur Strassenmitte,
+## der Spieler steht daneben. Eine Nahaufnahme, die das Gesicht nicht zeigt, ist keine.
+## Genau frontal waere allerdings ein Passfoto, deshalb der Versatz.
+func _cine_frame() -> Array:
+	var kopf: Vector3 = _cine_head()
+	# In Godot schaut ein Node3D entlang seiner NEGATIVEN Z-Achse. Vor ihm liegt also −z.
+	var von: Vector3 = -_cine.global_transform.basis.z
+	von.y = 0.0
+	if von.length() < 0.2:
+		von = _player.position - _cine.global_position
+		von.y = 0.0
+	if von.length() < 0.2:
+		von = Vector3(0.0, 0.0, 1.0)
+	von = von.normalized()
+	var quer := Vector3(-von.z, 0.0, von.x)
+	# Fortschritt 0 → 1 ueber `CINE_DOLLY_SEC`; die Kamera faehrt langsam heran.
+	var t: float = clampf((_cine_total - _cine_left) / CINE_DOLLY_SEC, 0.0, 1.0)
+	var dist: float = lerpf(CINE_DIST_FROM, CINE_DIST_TO, smoothstep(0.0, 1.0, t))
+	var pos: Vector3 = kopf + von * dist + quer * CINE_SIDE + Vector3(0.0, 0.22, 0.0)
+	return [pos, kopf]
+
+
 func _process_camera(delta: float) -> void:
 	if _cam == null:
 		return
+	if _in_cine():
+		_cine_left -= delta
+		var f: Array = _cine_frame()
+		_cam.fov = lerpf(_cam.fov, CINE_FOV, clampf(delta * CINE_RATE, 0.0, 1.0))
+		_cam.position = _cam.position.lerp(f[0], clampf(delta * CINE_RATE, 0.0, 1.0))
+		_cam.look_at(f[1], Vector3.UP)
+		if _cine_left <= 0.0:
+			_end_cine()
+		return
+	# Zurueck in die Spielhaltung. Die Drehung wird NACHGEZOGEN statt zurueckgesetzt: `look_at`
+	# hat sie waehrend der Aufnahme veraendert, und ein harter Sprung zurueck sieht aus wie ein
+	# Ruckler. Winkelweise interpoliert, damit der Weg ueber ±180° nicht falsch herum geht.
+	var ruhe := Vector3(deg_to_rad(-CAM_PITCH), deg_to_rad(CAM_YAW), 0.0)
+	var k: float = clampf(delta * CINE_RATE, 0.0, 1.0)
+	_cam.rotation = Vector3(
+		lerp_angle(_cam.rotation.x, ruhe.x, k),
+		lerp_angle(_cam.rotation.y, ruhe.y, k),
+		lerp_angle(_cam.rotation.z, ruhe.z, k))
+	_cam.fov = lerpf(_cam.fov, CAM_FOV, k)
 	# Zoom weich nachziehen, dann die Position — beides mit derselben Zeitkonstanten-Logik.
 	_cam_dist = lerpf(_cam_dist, float(CAM_ZOOM_STEPS[_zoom_step()]),
 		clampf(delta * CAM_ZOOM_RATE, 0.0, 1.0))
@@ -3038,6 +3215,8 @@ func _process_fog(delta: float) -> void:
 
 
 func _process_movement(delta: float) -> void:
+	if _in_cine():
+		return   # waehrend einer Nahaufnahme laeuft niemand aus dem Bild
 	var mv: Vector2 = _move_vector()
 	var moving: bool = mv.length() >= 0.05
 	# Animation folgt der Bewegung, sobald ein animiertes Modell da ist. Kennt das Modell den
@@ -3134,6 +3313,8 @@ func _begin_reload() -> void:
 ## 11-m-Reichweite geriet. Damit war jeder Gegner tot, bevor man ihn ueberhaupt gesehen hatte,
 ## und der Kampf bestand darin, in die richtige Richtung zu laufen.
 func _process_combat(delta: float) -> void:
+	if _in_cine():
+		return   # kein Abzug waehrend einer Nahaufnahme
 	# Nach unten begrenzt, damit der Wert in langen Feuerpausen nicht ins Bodenlose laeuft.
 	# Bei -1 s ist der naechste Druck ohnehin sofort ein Schuss.
 	_fire_cd = maxf(_fire_cd - delta, -1.0)

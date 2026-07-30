@@ -47,6 +47,7 @@ func _ready() -> void:
 	_test_overworld_loot_flow()
 	_test_overworld_quest_flow()
 	_test_quest_wayfinding()
+	_test_closeup()
 	_test_memory_manager()
 	_test_encounter_manager()
 	_test_progression_manager()
@@ -1345,6 +1346,66 @@ func _test_quest_wayfinding() -> void:
 	_check("Auch im Krater folgt er dem Gelaende, nicht der Null-Ebene",
 		ow2._decal_height(WorldManager.poi_scene_position("schrott_minen").x,
 			WorldManager.poi_scene_position("schrott_minen").z) < 0.0)
+	_reset_state()
+
+
+## Nahaufnahme — die Kamera als Erzaehler.
+##
+## Geprueft wird das, was eine Nahaufnahme von einem Kamerafehler unterscheidet: dass sie von
+## VORN filmt, dass man waehrenddessen nichts tun kann, und dass man wieder herauskommt.
+func _test_closeup() -> void:
+	print("· Nahaufnahme")
+	_reset_state()
+	var ow := OverworldView.new()
+	_scratch.append(ow)
+	# Zwei Attrappen: eine „Person", die nach Sueden schaut, und der Spieler daneben.
+	var wer := Node3D.new()
+	_scratch.append(wer)
+	wer.position = Vector3(100.0, 0.0, -100.0)
+	ow._player = Node3D.new()
+	_scratch.append(ow._player)
+	ow._player.position = wer.position + Vector3(2.0, 0.0, 0.0)
+	ow._cam = Camera3D.new()
+	_scratch.append(ow._cam)
+	_check("Vor dem Ausloesen laeuft keine Aufnahme", not ow._in_cine())
+	ow._play_closeup(wer, 2.6)
+	_check("Nach dem Ausloesen laeuft eine", ow._in_cine())
+	# Die Kamera steht VOR der Person (in ihrer Blickrichtung), nicht irgendwo.
+	var f: Array = ow._cine_frame()
+	var pos: Vector3 = f[0]
+	var blick: Vector3 = f[1]
+	var vorn: Vector3 = -wer.global_transform.basis.z
+	var hin: Vector3 = (pos - wer.global_position)
+	hin.y = 0.0
+	_check("Die Kamera steht vor der Person, nicht hinter ihr (%.2f)"
+		% vorn.dot(hin.normalized()), vorn.dot(hin.normalized()) > 0.6)
+	_check("Sie schaut auf Kopfhoehe, nicht auf die Fuesse (%.2f m)" % blick.y,
+		blick.y > 1.0 and blick.y < 2.6)
+	_check("Sie steht in Portraitabstand (%.2f m)" % hin.length(),
+		hin.length() >= OverworldView.CINE_DIST_TO - 0.1
+			and hin.length() <= OverworldView.CINE_DIST_FROM + 1.0)
+	# Die Fahrt nach innen haengt an der Zeit, nicht an der Dauer der Einstellung — sonst
+	# faehrt eine kurze hektisch und eine lange in Zeitlupe.
+	var weit0: float = hin.length()
+	ow._cine_left -= OverworldView.CINE_DOLLY_SEC
+	var f2: Array = ow._cine_frame()
+	var weit1: float = Vector3(f2[0].x - wer.global_position.x, 0.0,
+		f2[0].z - wer.global_position.z).length()
+	_check("Die Kamera faehrt heran (%.2f -> %.2f m)" % [weit0, weit1], weit1 < weit0 - 0.5)
+	ow._play_closeup(wer, 60.0)
+	ow._cine_left -= OverworldView.CINE_DOLLY_SEC
+	var f3: Array = ow._cine_frame()
+	var weit2: float = Vector3(f3[0].x - wer.global_position.x, 0.0,
+		f3[0].z - wer.global_position.z).length()
+	_check("Und zwar gleich schnell, egal wie lang die Einstellung ist",
+		is_equal_approx(weit1, weit2))
+	# Waehrend der Aufnahme laeuft niemand aus dem Bild.
+	var vorher: Vector3 = ow._player.position
+	ow._process_movement(0.1)
+	_check("Bewegung ist gesperrt", ow._player.position == vorher)
+	ow._end_cine()
+	_check("Danach ist sie vorbei", not ow._in_cine())
+	_check("Ein zweites Beenden tut nichts", not ow._in_cine())
 	_reset_state()
 
 

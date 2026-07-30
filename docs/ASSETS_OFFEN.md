@@ -85,10 +85,19 @@ Muster von `PROMPTS_GEBAEUDE.md`; Zielhöhe 6–7 m.
 
 # Grafiken für die Oberfläche
 
-Kurze Antwort: **Für das Inventar brauchst du nichts.** Es ist fertig und funktioniert mit
-gezeichneten Feldern und Zeichen-Sinnbildern (⛑ 🧥 🔫 ⚙ 🥾). Das ist keine Notlösung —
-Rasterfelder mit Rahmen in Seltenheitsfarbe lesen sich sauber, und die Zeichen sind auf jedem
-Gerät scharf.
+Kurze Antwort: **Für das Inventar brauchst du nichts.** Es ist fertig — Beutel-Raster UND Puppe —
+und funktioniert mit gezeichneten Feldern und Zeichen-Sinnbildern (⛑ 🧥 🔫 ⚙ 🥾). Das ist keine
+Notlösung — Rasterfelder mit Rahmen in Seltenheitsfarbe lesen sich sauber, und die Zeichen sind
+auf jedem Gerät scharf.
+
+**Die Puppe** (getragene Ausrüstung als Figur, links im Charakter-Bildschirm) zeichnet ihre
+Silhouette aus Grundformen. Ein gemaltes Chassis wäre schöner, ist aber ausdrücklich nicht nötig:
+`ui/doll_body.png` (430×436, transparent, eine grimmige Automaten-Silhouette von vorn, Arme leicht
+abgespreizt) würde sie ersetzen, ohne dass sich am Rest etwas ändert. Niedrige Priorität.
+
+**Die Fußspur** benutzt schlichte Vierecke. Eine Textur `ui/footprint.png` (128×128, weißer
+Abdruck auf transparent — ein Stiefelprofil mit Absatz) würde aus den Rechtecken echte Abdrücke
+machen. Ebenfalls niedrige Priorität, aber der billigste sichtbare Gewinn in dieser Liste.
 
 **Sinnvoll wären Grafiken an drei Stellen**, in dieser Reihenfolge:
 
