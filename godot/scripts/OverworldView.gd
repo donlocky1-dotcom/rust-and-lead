@@ -1657,6 +1657,14 @@ func _build_trail() -> void:
 		mi.mesh = q
 		var m := StandardMaterial3D.new()
 		m.albedo_color = Color(1.0, 0.86, 0.34, 0.75)
+		# Liegt eine Sohle (`footprint.png`), wird aus dem Viereck ein echter Abdruck. Die
+		# Textur ist weiss und traegt nur die Deckung — die Farbe kommt aus `albedo_color`,
+		# damit die Laufwelle weiter ueber `albedo_color.a` gesteuert werden kann.
+		var sohle: Texture2D = UiAssets.texture("footprint")
+		if sohle != null:
+			m.albedo_texture = sohle
+			var s_gr: Vector2 = sohle.get_size()
+			q.size = Vector2(0.46 * (s_gr.x / maxf(s_gr.y, 1.0)), 0.88)
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.emission_enabled = true

@@ -115,11 +115,15 @@ func _draw() -> void:
 			# Ausgewähltes Feld doppelt umrandet statt farblich verändert: Die Farbe TRÄGT hier
 			# Bedeutung (Seltenheit), die darf die Auswahl nicht überschreiben.
 			draw_rect(feld.grow(3.0), Color(1.0, 0.94, 0.72, 0.95), false, 2.0)
-		# Sinnbild der Kategorie, mittig. Text passt in 44 px nicht, ein Zeichen schon.
-		var zeichen: String = String(SLOT_ICON.get(String(g.get("slot", "")), "?"))
-		var groesse: Vector2 = schrift.get_string_size(zeichen, HORIZONTAL_ALIGNMENT_LEFT, -1, 26)
-		draw_string(schrift, feld.position + (feld.size - groesse) * 0.5 + Vector2(0.0, groesse.y * 0.78),
-			zeichen, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, col)
+		# Sinnbild der Kategorie, mittig — als Grafik, wenn eine liegt, sonst als Zeichen.
+		# Ein Zeichen ist auf jedem Betriebssystem ein anderes; ein gemalter Helm passt zum
+		# Spiel, Apples Bauarbeiterhelm nicht.
+		var slot: String = String(g.get("slot", ""))
+		if not UiAssets.draw_fitted(self, "icon_" + slot, feld.grow(-4.0)):
+			var zeichen: String = String(SLOT_ICON.get(slot, "?"))
+			var groesse: Vector2 = schrift.get_string_size(zeichen, HORIZONTAL_ALIGNMENT_LEFT, -1, 26)
+			draw_string(schrift, feld.position + (feld.size - groesse) * 0.5 + Vector2(0.0, groesse.y * 0.78),
+				zeichen, HORIZONTAL_ALIGNMENT_LEFT, -1, 26, col)
 
 
 ## Sinnbild je Ausrüstungs-Kategorie. Bewusst hier und nicht in `ProgressionManager`: Das ist

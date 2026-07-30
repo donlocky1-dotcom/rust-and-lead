@@ -152,11 +152,17 @@ func _draw_slot(slot: String, r: Rect2, schrift: Font) -> void:
 		draw_rect(r.grow(3.0), Color(1.0, 0.94, 0.72, 0.95), false, 2.0)
 	if schrift == null:
 		return
+	var tint: Color = Color(0.50, 0.45, 0.36) if g.is_empty() \
+		else OverworldView.RARITY_COLOR.get(String(g.get("rarity", "common")), Color.WHITE)
+	# Eine LEERE Fassung zeigt ihr Sinnbild gedaempft: Sie sagt damit nicht nur „hier fehlt
+	# etwas", sondern auch „hier gehoert ein Helm hin" — bei dreizehn Fassungen der Unterschied
+	# zwischen einer Puppe und einem Formular.
+	if UiAssets.draw_fitted(self, "icon_" + typ, r.grow(-4.0),
+			Color(tint.r, tint.g, tint.b, 0.32 if g.is_empty() else 1.0)):
+		return
 	var zeichen: String = String(InventoryGrid.SLOT_ICON.get(typ, "?"))
 	var groesse: float = 24.0 if r.size.x > 40.0 else 16.0
 	var mass: Vector2 = schrift.get_string_size(zeichen, HORIZONTAL_ALIGNMENT_LEFT, -1, int(groesse))
-	var tint: Color = Color(0.50, 0.45, 0.36) if g.is_empty() \
-		else OverworldView.RARITY_COLOR.get(String(g.get("rarity", "common")), Color.WHITE)
 	draw_string(schrift, r.position + (r.size - mass) * 0.5 + Vector2(0.0, mass.y * 0.78),
 		zeichen, HORIZONTAL_ALIGNMENT_LEFT, -1, int(groesse), tint)
 
@@ -185,6 +191,11 @@ func _draw_dashed_rect(r: Rect2, col: Color) -> void:
 ## ein Bild nicht hätte: Sie ist an derselben Stelle wie die Ankerpunkte definiert, verrutscht
 ## also nie gegen die Verbindungslinien.
 func _draw_figure() -> void:
+	# Liegt eine gemalte Silhouette (`doll_body.png`), gewinnt sie. Sie wird in `FIGURE_RECT`
+	# eingepasst — also genau in das Rechteck, um das herum die Fassungen sitzen und gegen das
+	# der Test prueft. Damit kann kein Bild die Fassungen verdecken, egal wie es zugeschnitten ist.
+	if UiAssets.draw_fitted(self, "doll_body", FIGURE_RECT):
+		return
 	var haut := Color(0.26, 0.23, 0.19, 0.95)
 	var kante := Color(0.44, 0.38, 0.28, 0.9)
 	var mx: float = FIGURE_RECT.position.x + FIGURE_RECT.size.x * 0.5

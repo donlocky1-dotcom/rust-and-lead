@@ -1454,7 +1454,12 @@ func _test_dialog() -> void:
 	_check("Die Tafel waechst mit dem Text (%.0f -> %.0f px)" % [kurz, lang], lang > kurz)
 	_check("Sie waechst aber nicht unbegrenzt",
 		d._needed_height("Wort ".repeat(400)) <= DialogBox.BOX_H_MAX)
-	_check("Kurzer Text bleibt bei der Mindesthoehe", is_equal_approx(kurz, DialogBox.BOX_H))
+	# Kein exakter Vergleich: Mit Rahmengrafik haengt der Innenabstand am GEMESSENEN Band, und
+	# das steht in einer Datei, die sich aendern darf. Die Aussage, auf die es ankommt, ist
+	# „kurzer Text macht die Tafel nicht gross" — und die haelt jede Grafik aus.
+	_check("Kurzer Text bleibt nah an der Mindesthoehe (%.0f, Minimum %.0f)"
+		% [kurz, DialogBox.BOX_H],
+		kurz >= DialogBox.BOX_H and kurz <= DialogBox.BOX_H + 40.0)
 	# Der Name wird gesperrt gesetzt — sonst liest er sich wie ein Satz, nicht wie eine Rubrik.
 	_check("Der Name wird gesperrt", DialogBox._sperren("AB") == "A B")
 	_check("Leerzeichen bekommen keinen Zusatz", DialogBox._sperren("A B") == "A  B")
@@ -1484,21 +1489,20 @@ func _test_dialog() -> void:
 		is_equal_approx(d._portrait_region.size.x, 64.0))
 	d._set_portrait(null)
 	_check("Ohne Bildnis bleibt der Ausschnitt leer", d._portrait_region.size.x == 0.0)
-	# Der Tafelrahmen wird als 9-Patch gesetzt: Sonst werden die Nieten in den Ecken zu Ovalen,
-	# sobald die Tafel mit dem Text waechst.
+	# Der Tafelrahmen wird als 9-Patch gezeichnet: Sonst werden die Nieten in den Ecken zu
+	# Ovalen, sobald die Tafel mit dem Text waechst. Die Schnittkante wird am Bild GEMESSEN —
+	# fest eingetragene 12 % lagen bei der gelieferten Grafik (15 %) mitten im Eisen, und die
+	# Mitte wurde dann samt Band gekachelt.
 	var rahmen := Image.create(400, 100, false, Image.FORMAT_RGBA8)
 	rahmen.fill(Color(0.4, 0.3, 0.2, 1.0))
+	rahmen.fill_rect(Rect2i(0, 30, 400, 40), Color(0.85, 0.78, 0.62, 1.0))   # Pergament
 	d.set_frame(ImageTexture.create_from_image(rahmen))
-	_check("Mit Grafik entsteht ein NinePatch", d._patch != null and d._patch.visible)
-	_check("Seine Raender folgen der Bildhoehe (%d px bei 100 px Hoehe)" % d._patch.patch_margin_top,
-		d._patch.patch_margin_top == int(round(100.0 * DialogBox.FRAME_BORDER_RATIO)))
-	_check("Alle vier Raender sind gleich",
-		d._patch.patch_margin_left == d._patch.patch_margin_top
-			and d._patch.patch_margin_right == d._patch.patch_margin_bottom
-			and d._patch.patch_margin_left == d._patch.patch_margin_bottom)
+	_check("Das Rahmenband wird gemessen (%.0f px bei 30 px Band)" % d._band,
+		absf(d._band - 30.0) <= 4.0)
+	_check("Mit Rahmen rueckt der Inhalt nach innen", d._inset() > DialogBox.PAD)
 	d.set_frame(null)
 	_check("Ohne Grafik zeichnet die Tafel wieder selbst",
-		d._patch == null or not d._patch.visible)
+		d._band == 0.0 and is_equal_approx(d._inset(), DialogBox.PAD))
 	# ── Zueinanderdrehen ──────────────────────────────────────────────────────
 	# Nach Osten schauen heisst in Godot: rotation.y so, dass −z auf +x zeigt.
 	var ost: float = OverworldView._yaw_towards(Vector3.ZERO, Vector3(10.0, 0.0, 0.0))

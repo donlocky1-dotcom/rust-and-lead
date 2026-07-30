@@ -29,9 +29,9 @@ const MARGIN: float = 22.0        # Abstand zum Bildrand
 ## Mindesthöhe. Die Tafel WÄCHST mit dem Text — der erste Entwurf stand fest auf 138 px, und
 ## sobald eine Quest ihre Zeile „🧭 Das Rattengestrüpp — 559 m" mitbrachte, wurde die unterste
 ## Zeile abgeschnitten. Ein Kasten, der Text verschluckt, ist schlimmer als ein hoher Kasten.
-const BOX_H: float = 138.0
-const BOX_H_MAX: float = 268.0
-const PORTRAIT: float = 108.0     # Kantenlänge des Bildnisses
+const BOX_H: float = 168.0
+const BOX_H_MAX: float = 300.0
+const PORTRAIT: float = 108.0     # Kantenlänge des Bildnisses ohne Rahmengrafik
 const PAD: float = 15.0
 
 ## Farben. Pergament, aber ein verrußtes — reines Diablo-Creme wäre in dieser Welt ein
@@ -51,13 +51,16 @@ var line: String = ""
 ## 268 px hoch, die gelieferte Grafik hat ein festes Seitenverhältnis. Einfach gestreckt würden
 ## die Nieten in den Ecken zu Ovalen und das Rahmenband oben und unten verschieden dick. Beim
 ## 9-Patch bleiben die vier Ecken unangetastet, gestreckt wird nur die Mitte.
-const FRAME_BORDER_RATIO: float = 0.12
+const FRAME_BORDER_RATIO: float = 0.155
+
+## Gemessene Breite des Rahmenbands in Texturpixeln (0 = keine Grafik). Der Inhalt rückt darum
+## nach innen — sonst läge der Text auf dem Eisen statt auf dem Pergament.
+var _band: float = 0.0
 
 var _portrait: Texture2D = null
 var _portrait_region: Rect2 = Rect2()   # der wirklich bemalte Teil, siehe `_set_portrait`
 var _portrait_frame: Texture2D = null
 var _frame: Texture2D = null
-var _patch: NinePatchRect = null
 var _label: Label
 var _blink: float = 0.0
 
@@ -96,12 +99,31 @@ func _init() -> void:
 	_layout()
 
 
+## Das Bildnis ÜBERSTEHT die Tafel oben und unten.
+##
+## So macht es die Vorlage, und es hat einen handfesten Grund: Das Eisenband frisst oben und
+## unten je 37 Pixel. Ein Bildnis innerhalb des Pergaments wäre bei einer 168 px hohen Tafel
+## noch 94 px groß — kleiner als der Text daneben hoch ist. Übersteht es, bekommt es die volle
+## Tafelhöhe plus einen Daumen, und die Tafel wirkt nebenbei weniger wie ein Kasten.
+func _portrait_rect() -> Rect2:
+	var kante: float = size.y + 22.0 if _frame != null else PORTRAIT
+	var y: float = (size.y - kante) * 0.5
+	return Rect2(Vector2(_inset() * 0.6, y), Vector2(kante, kante))
+
+
+## Abstand vom Tafelrand zum Inhalt. Mit Rahmengrafik das gemessene Band plus etwas Luft, ohne
+## sie der gezeichnete Rahmen.
+func _inset() -> float:
+	return (_band + 10.0) if _frame != null else PAD
+
+
 func _layout() -> void:
 	if _label == null:
 		return
-	var x: float = PAD * 2.0 + PORTRAIT
-	_label.position = Vector2(x, PAD + 26.0)
-	_label.size = Vector2(maxf(_text_width(), 40.0), maxf(size.y - PAD * 2.0 - 26.0, 20.0))
+	var p: Rect2 = _portrait_rect()
+	var x: float = p.end.x + 16.0
+	_label.position = Vector2(x, _inset() + 24.0)
+	_label.size = Vector2(maxf(_text_width(), 40.0), maxf(size.y - _inset() * 2.0 - 24.0, 20.0))
 	_label.custom_minimum_size = _label.size
 
 
@@ -130,7 +152,7 @@ func _needed_height(body: String) -> float:
 	var breite: float = maxf(_text_width(), 80.0)
 	var h: float = schrift.get_multiline_string_size(body, HORIZONTAL_ALIGNMENT_LEFT,
 		breite, 16).y
-	return clampf(PAD * 2.0 + 30.0 + h, BOX_H, BOX_H_MAX)
+	return clampf(_inset() * 2.0 + 30.0 + h, BOX_H, BOX_H_MAX)
 
 
 ## Breite der Textspalte. Steht in einer eigenen Funktion, weil sie an ZWEI Stellen gebraucht
@@ -139,7 +161,8 @@ func _text_width() -> float:
 	# Bei einem Control, das noch nie umbrochen wurde, ist `size.x` 0. Dann gilt die
 	# Bezugsauflösung minus der beiden Ränder.
 	var voll: float = size.x if size.x > 1.0 else 1280.0 - MARGIN * 2.0
-	return voll - (PAD * 2.0 + PORTRAIT) - PAD
+	var breite_bildnis: float = (BOX_H + 22.0) if _frame != null else PORTRAIT
+	return voll - (_inset() * 0.6 + breite_bildnis + 16.0) - _inset()
 
 
 func hide_box() -> void:
@@ -159,33 +182,81 @@ func hits(at: Vector2) -> bool:
 ## wird sie genommen. Kein Fehler, kein Platzhalter-Rot — die Oberfläche funktioniert in beiden
 ## Zuständen, und der Auftraggeber kann liefern, wann er will.
 static func _load_ui(basename: String) -> Texture2D:
-	var pfad: String = "res://assets/ui/%s.png" % basename
-	if not ResourceLoader.exists(pfad):
-		return null
-	return load(pfad) as Texture2D
+	return UiAssets.texture(basename)
 
 
 func set_frame(tex: Texture2D) -> void:
 	_frame = tex
-	if tex == null:
-		if _patch != null:
-			_patch.visible = false
-		queue_redraw()
-		return
-	if _patch == null:
-		_patch = NinePatchRect.new()
-		_patch.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(_patch)
-		move_child(_patch, 0)     # ganz nach hinten, unter Text und Bildnis
-	_patch.visible = true
-	_patch.texture = tex
-	_patch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var rand: int = maxi(2, int(round(float(tex.get_height()) * FRAME_BORDER_RATIO)))
-	_patch.patch_margin_left = rand
-	_patch.patch_margin_right = rand
-	_patch.patch_margin_top = rand
-	_patch.patch_margin_bottom = rand
+	_band = float(_messe_band(tex)) if tex != null else 0.0
 	queue_redraw()
+
+
+## Die Neunteilung von Hand statt als `NinePatchRect`-Kindknoten.
+##
+## Der Kindknoten war der naheliegende Weg und der falsche: In Godot zeichnet ein Control ERST
+## sich selbst und DANN seine Kinder. Der Rahmen lag damit ueber Bildnis, Name und Winkel — im
+## Bild war von allen dreien nichts zu sehen, nur der Teil des Bildnisrahmens, der ueber die
+## Tafel hinausragte. Neun `draw_texture_rect_region`-Aufrufe an dieser Stelle kosten nichts
+## und liegen garantiert UNTER dem Inhalt.
+##
+## Die vier Ecken bleiben in Originalgroesse, die vier Kanten werden je in einer Richtung
+## gestreckt, die Mitte in beiden. Genau das macht ein 9-Patch.
+func _draw_nine(tex: Texture2D, ziel: Rect2, rand: float) -> void:
+	var tg: Vector2 = tex.get_size()
+	var r: float = minf(rand, minf(tg.x, tg.y) * 0.45)
+	var sx: Array = [0.0, r, tg.x - r, tg.x]
+	var sy: Array = [0.0, r, tg.y - r, tg.y]
+	var zx: Array = [ziel.position.x, ziel.position.x + r, ziel.end.x - r, ziel.end.x]
+	var zy: Array = [ziel.position.y, ziel.position.y + r, ziel.end.y - r, ziel.end.y]
+	for i in 3:
+		for j in 3:
+			var q := Rect2(Vector2(sx[i], sy[j]),
+				Vector2(sx[i + 1] - sx[i], sy[j + 1] - sy[j]))
+			var z := Rect2(Vector2(zx[i], zy[j]),
+				Vector2(zx[i + 1] - zx[i], zy[j + 1] - zy[j]))
+			if q.size.x <= 0.0 or q.size.y <= 0.0 or z.size.x <= 0.0 or z.size.y <= 0.0:
+				continue
+			draw_texture_rect_region(tex, z, q)
+
+
+## Wie breit ist das Rahmenband dieser Grafik, in Texturpixeln?
+##
+## GEMESSEN statt geschätzt. Der erste Anlauf stand auf festen 12 % der Bildhöhe; das Band der
+## gelieferten Tafel misst aber 15 %, die Schnittkante lag also mitten im Eisen. Beim 9-Patch
+## wird die Mitte gekachelt — im Bild lief dadurch ein zweites, gestrecktes Band quer über die
+## Tafel und der Text darunter.
+##
+## Gesucht wird die mittlere Spalte abwärts nach dem längsten Block „Pergament": hell, aber
+## FARBIG. Das Unterscheidungsmerkmal ist die Sättigung — die Lichtkante auf dem Eisen ist
+## genauso hell wie das Papier, aber grau. Genau daran ist die erste Messung gescheitert, die
+## nur nach Helligkeit suchte und das Band bei 21 statt 73 Pixeln enden ließ.
+func _messe_band(tex: Texture2D) -> int:
+	var vorgabe: int = int(round(float(tex.get_height()) * FRAME_BORDER_RATIO))
+	var bild: Image = tex.get_image()
+	if bild == null:
+		return vorgabe
+	var x: int = bild.get_width() / 2
+	var von: int = -1
+	var bis: int = -1
+	var lauf: int = -1
+	for y in bild.get_height():
+		var c: Color = bild.get_pixel(x, y)
+		var hell: float = (c.r + c.g + c.b) / 3.0
+		var sat: float = maxf(maxf(c.r, c.g), c.b) - minf(minf(c.r, c.g), c.b)
+		var papier: bool = hell > 0.59 and sat >= 0.085 and sat <= 0.34
+		if papier and lauf < 0:
+			lauf = y
+		elif not papier and lauf >= 0:
+			if y - lauf > bis - von:
+				von = lauf
+				bis = y
+			lauf = -1
+	if lauf >= 0 and bild.get_height() - lauf > bis - von:
+		von = lauf
+		bis = bild.get_height()
+	if von < 0 or bis - von < bild.get_height() / 4:
+		return vorgabe
+	return maxi(von, bild.get_height() - bis)
 
 
 ## Bildnis setzen und dabei den WIRKLICH BEMALTEN Teil bestimmen.
@@ -219,22 +290,24 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var r := Rect2(Vector2.ZERO, size)
-	if _frame == null:
+	if _frame != null:
+		_draw_nine(_frame, r, _band)
+	else:
 		_draw_frame(r)   # ohne Grafik zeichnet die Tafel sich selbst
-	_draw_portrait(Rect2(Vector2(PAD, PAD), Vector2(PORTRAIT, PORTRAIT)))
+	_draw_portrait(_portrait_rect())
 	var schrift: Font = ThemeDB.fallback_font
 	if schrift == null:
 		return
 	# Name in VERSALIEN und gesperrt. Beides aus der Vorlage, und beides hat einen Grund: Der
 	# Name ist eine Überschrift, kein Satz — gesperrte Versalien lesen sich als Rubrik und
 	# geraten nicht mit dem Gesprochenen durcheinander.
-	var x: float = PAD * 2.0 + PORTRAIT
-	draw_string(schrift, Vector2(x, PAD + 17.0), _sperren(speaker.to_upper()),
+	var x: float = _portrait_rect().end.x + 16.0
+	draw_string(schrift, Vector2(x, _inset() + 15.0), _sperren(speaker.to_upper()),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(0.33, 0.26, 0.16))
 	# Der Winkel unten rechts blinkt langsam: das einzige Bedienelement der Tafel.
 	var a: float = 0.45 + 0.4 * sin(_blink * 3.2)
-	var mx: float = size.x - PAD - 12.0
-	var my: float = size.y - PAD - 6.0
+	var mx: float = size.x - _inset() - 12.0
+	var my: float = size.y - _inset() - 6.0
 	draw_line(Vector2(mx - 9.0, my - 5.0), Vector2(mx, my), Color(0.33, 0.26, 0.16, a), 2.0)
 	draw_line(Vector2(mx, my), Vector2(mx + 9.0, my - 5.0), Color(0.33, 0.26, 0.16, a), 2.0)
 

@@ -13,6 +13,24 @@ Alphakanal.
 > liegen nirgends auf der Platte, und ich kann sie nicht ins Repo legen. Ziehe die PNG-Dateien
 > also genauso in den Chat wie die 7z-Teile der 3D-Modelle.
 
+## Wie das Aufbereiten läuft
+
+Datei(en) als 7z in den Chat → `python3 tools/prepare_ui.py <ordner>` legt sie fertig nach
+`godot/assets/ui/`. Das Werkzeug räumt auf, was jeder Satz mitbringt: doppelte Endungen
+(`icon_plate.png.png`), JPEG statt PNG, das Funkel-Wasserzeichen, eingemalte Karomuster,
+eingebaute Rahmen bei Bildnissen, und die Größe. Nichts davon musst du von Hand machen.
+
+## Was Gemini zuverlässig falsch macht
+
+Vier Dinge, alle beim ersten Satz aufgetreten, alle vom Werkzeug erledigt:
+
+0. **Das Karomuster ist EINGEMALT.** Der teuerste Fund: Kein einziges der elf Bilder war
+   wirklich freigestellt. Gemini malt das Schachbrett, mit dem Bildprogramme Transparenz
+   *anzeigen*, als Pixel ins Bild. Im Vorschaubild sieht das aus wie ein sauberer Freisteller —
+   im Spiel lag über Mabels Bildnis ein graues Karo, weil der „durchsichtige" Rahmen keiner war.
+   In den Prompt gehört: *fully transparent background — actual alpha transparency, NOT a
+   painted checkerboard pattern.*
+
 ## Drei Dinge, die Gemini zuverlässig falsch macht
 
 Nach dem ersten Satz Bildnisse — alle drei gut getroffen, alle drei mit denselben drei Macken:

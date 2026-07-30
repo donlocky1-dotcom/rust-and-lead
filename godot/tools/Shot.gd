@@ -22,6 +22,7 @@ var _i: int = -1
 var _wait: int = 0
 var _cam: Camera3D
 var _welt: Node          # die geladene Overworld — fuer die Oberflaechen-Bilder
+var _buehne: Vector3
 
 
 func _ready() -> void:
@@ -77,6 +78,11 @@ func _ready() -> void:
 	_views.append(["quest_spur", null, "quest"])
 	_views.append(["nahaufnahme", null, "nahaufnahme"])
 	_views.append(["quest_umweg", null, "umweg"])
+	_views.append(["ui_charakter2", null, "charakter"])   # jetzt mit Sinnbildern und Puppe
+	# Die beiden neuen Gegner: nebeneinander, aus Spielerhoehe.
+	var buehne: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(0.0, 0.0, 60.0)
+	_views.append(["gegner_neu", null, "gegner"])
+	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
 	_views.append(["ort_rattengestruepp", ratten + Vector3(0.0, 12.0, 26.0), ratten])
@@ -110,6 +116,22 @@ func _setup_ui(art: String) -> void:
 		var dir: Vector3 = (ziel - ow._player.position).normalized()
 		_cam.position = ow._player.position - dir * 12.0 + Vector3(0.0, 9.0, 0.0)
 		_cam.look_at(ow._player.position + dir * 20.0, Vector3.UP)
+		_cam.current = true
+	elif art == "gegner":
+		ow._end_cine()
+		ow._close_character()
+		var i2: int = 0
+		for kind in ["enemy_outlaw", "enemy_revolver"]:
+			var n: Node3D = AssetRegistry.instantiate(kind, AssetRegistry.height_of(kind))
+			if n == null:
+				continue
+			ow.add_child(n)
+			n.position = _buehne + Vector3(float(i2) * 1.6 - 0.8, 0.0, 0.0)
+			n.rotation.y = PI
+			AssetRegistry.play_clip(n, "idle")
+			i2 += 1
+		_cam.position = _buehne + Vector3(0.0, 1.5, 4.2)
+		_cam.look_at(_buehne + Vector3(0.0, 0.9, 0.0), Vector3.UP)
 		_cam.current = true
 	elif art == "umweg":
 		# Der Fall, der ohne Wegweisung toedlich endet: Die gerade Linie zum Zugdepot fuehrt
