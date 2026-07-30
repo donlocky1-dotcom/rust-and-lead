@@ -1923,6 +1923,18 @@ func _test_swamp() -> void:
 ## wenn man davorsteht — hier faellt er sofort auf.
 func _test_props() -> void:
 	print("· Requisiten (Maszstab & Streuung)")
+	# Die drei Sumpf-Requisiten: Sie teilen sich einen Streudurchgang, also muessen ihre Masze
+	# zueinander passen. Ein Fass so hoch wie ein Baum waere im Bild kein Fass mehr.
+	_check("Der Moorbaum ueberragt den Spieler deutlich (%.1f m)"
+		% AssetRegistry.height_of("deadtree"), AssetRegistry.height_of("deadtree") >= 4.5)
+	_check("Das Strahlenfass bleibt fasshoch (%.1f m)" % AssetRegistry.height_of("rad_barrel"),
+		AssetRegistry.height_of("rad_barrel") <= 1.4)
+	# Ein LIEGENDER Stamm wird ueber die Laenge gemessen. Ueber die Hoehe skaliert waere er
+	# zwanzig Meter lang — derselbe Fehler, den der Karabiner schon einmal gemacht hat.
+	_check("Der umgestuerzte Stamm haengt an der LAENGE, nicht an der Hoehe",
+		AssetRegistry.length_of("deadtree_b") > 0.0)
+	_check("und ist kuerzer als der stehende hoch ist",
+		AssetRegistry.length_of("deadtree_b") < AssetRegistry.height_of("deadtree"))
 	# Was aufrecht steht, misst sich an der Hoehe; was flach liegt, an der laengsten Kante.
 	var aufrecht: Dictionary = {
 		"barrels": 1.6, "barrels_b": 1.6, "barrels_c": 1.6,

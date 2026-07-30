@@ -59,6 +59,10 @@ const PATHS: Dictionary = {
 	"street_lamp":     ["res://assets/models/props/street_lamp.glb"],
 	"bounty_board":    ["res://assets/models/props/bounty_board.glb"],
 	"cactus":          ["res://assets/models/props/cactus.glb"],
+	# ── Strahlensumpf (GDD §1.6) ──
+	"deadtree":        ["res://assets/models/props/deadtree.glb"],
+	"deadtree_b":      ["res://assets/models/props/deadtree_b.glb"],
+	"rad_barrel":      ["res://assets/models/props/rad_barrel.glb"],
 	"scrap_heap":      ["res://assets/models/props/scrap_heap.glb"],
 	"scrap_heap_b":    ["res://assets/models/props/scrap_heap_b.glb"],
 	# Sparsame Zwillinge für die Schrottgrube. Dort liegen rund hundert Stücke übereinander;
@@ -126,6 +130,8 @@ const TARGET_HEIGHT: Dictionary = {
 	"street_lamp": 3.6,
 	"bounty_board": 2.2,
 	"cactus": 2.6,               # Saeulenkaktus — ueberragt den Spieler deutlich
+	"deadtree": 5.5,             # Toter Moorbaum: dreimal Spielerhoehe, traegt die Silhouette
+	"rad_barrel": 1.1,           # Aufgeplatztes Strahlenfass
 }
 const TARGET_HEIGHT_DEFAULT: float = 1.6
 
@@ -137,6 +143,7 @@ const TARGET_HEIGHT_DEFAULT: float = 1.6
 ## Die Zahl ist die Ziel-Länge in Metern (Vorgabe, wenn der Aufrufer keine eigene angibt).
 const TARGET_LENGTH: Dictionary = {
 	"weapon_karabiner": 1.0,
+	"deadtree_b": 4.0,       # umgestuerzt — liegt, also ueber die LAENGE gemessen
 	"rock_small": 1.6,       # Geröllfeld, kein Findling
 	"rock_boulder": 2.4,
 	"cliff": 4.5,            # Felsnase am Wegrand. Bei 9 m wurde daraus ein 18-m-Klotz, den

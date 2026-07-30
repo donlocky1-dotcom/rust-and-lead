@@ -776,18 +776,58 @@ func _build_swamp() -> void:
 		tuempel.rotation.y = rng.randf() * TAU
 		tuempel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(tuempel)
-	# 3. Tote Stämme. Platzhalter, bis ein Modell da ist — aber die Silhouette stimmt schon.
+	# 3. Tote Stämme — jetzt Modelle statt zwei Zylindern.
+	#
+	# Drei Sorten in einem Durchgang, weil sie sich denselben Platz teilen: stehende Bäume
+	# (`deadtree`), umgestürzte (`deadtree_b`) und aufgeplatzte Strahlenfässer (`rad_barrel`).
+	# Getrennte Schleifen hätten dreimal dieselbe Streuung gebraucht, und die Fässer sollen
+	# GENAU DA liegen, wo auch die Bäume stehen — sie erzählen zusammen, warum der Sumpf
+	# verseucht ist.
+	#
+	# Die Mischung ist bewusst schief: acht Bäume auf einen umgestürzten und ein Fass. Ein
+	# Wald aus lauter Umgestürzten sähe aus wie nach einem Sturm, und ein Fass hinter jedem
+	# Baum nähme dem einzelnen Fund die Bedeutung.
 	var holz: Material = _mat(Color(0.19, 0.17, 0.13))
 	for i in SWAMP_TREES:
 		var z2: float = -(sued + tiefe_m * rng.randf_range(0.08, 0.92))
 		var x2: float = _swamp_x(rng)
+		# Nicht auf die Gleise. Die Trasse quert den Sumpf genau dort, wo die Streuung am
+		# dichtesten ist — im ersten Bild lag prompt ein Strahlenfass zwischen den Schwellen.
+		# Ein Zug faehrt da durch; was dort liegt, sieht nach Fehler aus, nicht nach Absicht.
+		if WorldManager.on_rail(WorldManager.scene_to_world(Vector3(x2, 0.0, z2))):
+			continue
+		var wuerfel: float = rng.randf()
+		var art: String = "deadtree"
+		if wuerfel > 0.90:
+			art = "rad_barrel"
+		elif wuerfel > 0.80:
+			art = "deadtree_b"
+		var boden: float = WorldManager.height_at(x2, z2)
+		var modell: Node3D = null
+		if AssetRegistry.has_model(art):
+			# Umgestürztes wird über die LÄNGE gemessen, Stehendes über die Höhe — sonst wäre
+			# ein liegender Stamm auf 5,5 m Höhe skaliert ein Baumstamm von zwanzig Metern.
+			var mass: float = AssetRegistry.length_of(art)
+			if mass <= 0.0:
+				mass = AssetRegistry.height_of(art)
+			modell = AssetRegistry.instantiate(art, mass * rng.randf_range(0.82, 1.18))
+		if modell != null:
+			add_child(modell)
+			modell.position = Vector3(x2, boden, z2)
+			modell.rotation.y = rng.randf() * TAU
+			# Nur was STEHT, kippt ein wenig und sperrt. Über einen liegenden Stamm steigt man,
+			# und ein Fass tritt man beiseite — eine Sperre daran wäre nur im Weg.
+			if art == "deadtree":
+				modell.rotation.z = deg_to_rad(rng.randf_range(-9.0, 9.0))
+				_solid_pillar(modell.position, 0.4)
+			continue
+		# Ohne Modell bleibt der Platzhalter: schiefer Stamm plus ein Aststummel. Zwei Zylinder
+		# sind das Minimum, ab dem ein Baum als Baum liest und nicht als Pfahl.
 		var hoehe: float = rng.randf_range(3.4, 6.8)
 		var baum := Node3D.new()
 		add_child(baum)
-		baum.position = Vector3(x2, WorldManager.height_at(x2, z2), z2)
+		baum.position = Vector3(x2, boden, z2)
 		baum.rotation.y = rng.randf() * TAU
-		# Schiefer Stamm plus ein Aststummel: Zwei Zylinder sind das Minimum, ab dem ein Baum
-		# als Baum liest und nicht als Pfahl.
 		var stamm: MeshInstance3D = _child_cyl(baum, 0.22, hoehe, Vector3(0.0, hoehe * 0.5, 0.0), holz)
 		stamm.rotation.z = deg_to_rad(rng.randf_range(-13.0, 13.0))
 		var ast: MeshInstance3D = _child_cyl(baum, 0.10, hoehe * 0.42,

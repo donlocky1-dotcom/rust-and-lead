@@ -72,6 +72,9 @@ func _ready() -> void:
 	var sumpf: Vector3 = WorldManager.world_to_scene(
 		Vector2(float(WorldManager.SWAMP_CENTER_X), float(WorldManager.SWAMP_CENTER_Y)))
 	_views.append(["sumpf_weit", sumpf + Vector3(0.0, 140.0, 210.0), sumpf])
+	# Aus Spielerhoehe an der Bahnquerung: Dort stehen die Baeume am dichtesten.
+	var quer: Vector3 = WorldManager.world_to_scene(Vector2(407.0, float(WorldManager.SWAMP_CENTER_Y)))
+	_views.append(["sumpf_nah", quer + Vector3(26.0, 7.0, 26.0), quer + Vector3(0.0, 2.0, 0.0)])
 	# Oberflaechen-Bilder. Ein Eintrag mit `null` als Position ist kein Kamerastandpunkt,
 	# sondern ein Bildschirm — `_process` erkennt das am Typ und ruft `_setup_ui` auf.
 	_views.append(["ui_charakter", null, "charakter"])

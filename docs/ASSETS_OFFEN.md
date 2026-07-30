@@ -27,7 +27,7 @@ Gatling schießt zwölfmal so schnell und hat 60 Schuss im Gurt.
 Laufen sichtbar am Körper — eine Gatling muss von hinten als Trommel lesbar sein, ein
 Säurewerfer als Tank mit Schlauch. 3 000–6 000 Dreiecke, 1k-Textur.
 
-## Priorität 2 — Gegner (4 fehlen von 6, plus der Hund)
+## Priorität 2 — Gegner (2 fehlen von 6, plus der Hund)
 
 Ohne Modell zeichnet die Szene eine farbige Kapsel. Man kämpft also gegen Kapseln.
 
@@ -35,8 +35,8 @@ Ohne Modell zeichnet die Szene eine farbige Kapsel. Man kämpft also gegen Kapse
 |---|---|---|---|
 | `enemies/fauna.glb` | Ölfresser-Ratte | 0,6 m | ✅ da |
 | `enemies/konstrukt.glb` | Konzern-Konstrukt | 2,0 m | ✅ da |
-| `enemies/outlaw.glb` | Grenzgänger | 1,6 m | `PROMPTS_GEGNER.md` |
-| `enemies/revolver.glb` | Revolverheld | 1,6 m | `PROMPTS_GEGNER.md` |
+| `enemies/outlaw.glb` | Grenzgänger | 1,6 m | ✅ da (9 Animationen) |
+| `enemies/revolver.glb` | Revolverheld | 1,6 m | ✅ da (12 Animationen) |
 | `enemies/klaeffer.glb` | Kessel-Kläffer | 0,8 m | `PROMPTS_GEGNER.md` |
 | `enemies/goliath.glb` | Schwerer Ernter (Boss) | 4,0 m | `PROMPTS_GEGNER.md` (vorne + hinten) |
 | `characters/bolzen.glb` | Bolzen, der Blechhund | 0,7 m | fehlt noch, sag Bescheid |
@@ -45,29 +45,17 @@ Die vier Prompts stehen fertig in `docs/PROMPTS_GEGNER.md`. **Animationen wären
 (Laufen, Angriff, Tod) — der Code sucht sie über `AssetRegistry.CLIP_ALIASES` selbst und braucht
 keine bestimmten Namen; ohne Animation stehen die Gegner steif da und gleiten.
 
-## Priorität 3 — Der Sumpf
+## Priorität 3 — Der Sumpf ✅ erledigt
 
-Neu eingebaut (siehe unten), aber mit Platzhaltern bestückt. Die toten Bäume sind zwei Zylinder.
+Alle drei Modelle sind da und eingebaut: `props/deadtree.glb` (5,5 m, steht und kippt leicht),
+`props/deadtree_b.glb` (4,0 m, liegt — über die LÄNGE skaliert, nicht über die Höhe) und
+`props/rad_barrel.glb` (1,1 m).
 
-| Datei | Was | Höhe |
-|---|---|---|
-| `props/deadtree.glb` | Toter Moorbaum, kahl, schief, wenige krumme Äste | 5,5 m |
-| `props/deadtree_b.glb` | Zweite Fassung, umgestürzt/gebrochen | 4,0 m lang |
-| `props/rad_barrel.glb` | Aufgeplatztes Strahlenfass, grün auslaufend | 1,1 m |
-
-Prompt-Bausteine für alle drei: *grim-dark steampunk western, single connected object, seen from
-a high three-quarter angle roughly 45 degrees above the horizon, plain neutral mid-grey
-background, no ground plane, no cast shadows, entire object centered with margin, no people, no
-text, no logos, photorealistic PBR game asset, very low polygon count.* Dazu jeweils:
-
-* **Moorbaum:** *A dead leafless swamp tree, bark peeled away to bare grey wood, trunk leaning
-  and split, four or five crooked branches, roots exposed above waterline, roughly 5.5 metres
-  tall and slender.*
-* **Umgestürzt:** *A fallen dead tree lying broken across the ground, the trunk snapped in the
-  middle with splintered ends, bark sloughing off, roughly 4 metres long.*
-* **Strahlenfass:** *A burst steel drum lying on its side, the lid blown off and the seam split,
-  glowing acid-green sludge running out and pooling around it, faded radiation-yellow paint
-  flaking off the rust, roughly 1.1 metres tall.*
+Sie teilen sich einen Streudurchgang, damit sie am selben Ort auftauchen und zusammen erzählen,
+warum der Sumpf verseucht ist. Die Mischung ist bewusst schief — acht stehende Bäume auf einen
+umgestürzten und ein Fass: Lauter Umgestürzte sähen aus wie nach einem Sturm, und ein Fass
+hinter jedem Baum nähme dem einzelnen Fund seine Bedeutung. Nur was steht, sperrt den Weg; über
+einen liegenden Stamm steigt man, ein Fass tritt man beiseite.
 
 ## Priorität 4 — Requisiten aus `PROMPTS_PROPS.md`
 
