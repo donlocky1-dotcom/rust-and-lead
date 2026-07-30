@@ -159,6 +159,14 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   zudreht, und unter dem Filmic-Tonemapping kippt der warme Sand dort ins Rosa — im Bild lag um
   jedes Loch ein blassrosa Ring, der mehr auffiel als das Loch. Ohne ihn liest sich die Mulde
   aus Spielerhöhe sogar besser: vorher ein heller Ring und darin nichts, jetzt Schatten.
+* **Kapitel 1 hat neun Aufträge**, drei je Hub-NPC. Nach den ersten drei war Rustwater vorher
+  stumm — die nächsten hängen an Kapitel 5 und am Gilden-Reveal, also standen alle drei da und
+  hatten nichts zu sagen. `_quest_for_giver` nimmt den ersten nicht erledigten Auftrag, aus der
+  Reihenfolge in der Tabelle wird damit von selbst eine Kette. Der **letzte jeder Kette ist
+  wiederholbar** (`repeatable`): Er geht nach der Abgabe auf `available` zurück statt auf `done`,
+  der Kill-Basiswert wird gelöscht, der Fortschritt fängt wieder bei 0 an. Damit verstummt die
+  Stadt nie ganz. Die Ziele sind über alle vier Orte von Sektor 1 gestreut — eines davon
+  (**Zugdepot**) liegt hinter dem Strahlensumpf, damit der Umweg im Spiel überhaupt vorkommt.
 * **Quest-Wegweisung** — jede Quest zeigt auf einen ORT, nicht nur auf eine Zahl. Vorher gab
   es „12 Gegner erlegen" und keinerlei Hinweis, wohin; bei 5 km Kantenlänge ist das kein
   Spielraum, sondern eine Sackgasse. Drei Anzeigen aus einer Quelle (`QuestManager.quest_target`):

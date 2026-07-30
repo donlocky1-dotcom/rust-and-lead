@@ -1256,6 +1256,86 @@ func _test_quest_wayfinding() -> void:
 			falsch = "%s: Ort von %s gibt es nicht" % [qid, g]
 	_check("Jede Quest hat ein Ziel", ohne_ziel == "", "%s hat keines" % ohne_ziel)
 	_check("Jedes Ziel und jeder Auftraggeber-Ort existiert", falsch == "", falsch)
+	# ── Rustwater darf nicht verstummen ───────────────────────────────────────
+	# Nach den drei Einfuehrungs-Kopfgeldern stand die Stadt still: Die naechsten Auftraege
+	# haengen an Kapitel 5 und am Gilden-Reveal, alle drei NPCs hatten nichts mehr zu sagen —
+	# und ohne Auftrag laesst sich die Wegweisung gar nicht ausprobieren.
+	var je_geber: Dictionary = {}
+	var wiederholbar_je_geber: Dictionary = {}
+	var ziele_k1: Dictionary = {}
+	for qid2 in QuestManager.QUESTS.keys():
+		var d2: Dictionary = QuestManager.QUESTS[qid2]
+		if int(d2.get("chapter", 1)) != 1 or d2.has("guild"):
+			continue
+		var g2: String = String(d2["giver"])
+		je_geber[g2] = int(je_geber.get(g2, 0)) + 1
+		ziele_k1[String(d2["target"])] = true
+		if bool(d2.get("repeatable", false)):
+			wiederholbar_je_geber[g2] = true
+	for wer in ["mabel", "silas", "doc"]:
+		_check("%s hat in Kapitel 1 mehr als einen Auftrag (%d)" % [wer, int(je_geber.get(wer, 0))],
+			int(je_geber.get(wer, 0)) >= 2)
+		_check("%s hat am Ende einen wiederholbaren — die Stadt verstummt nie" % wer,
+			bool(wiederholbar_je_geber.get(wer, false)))
+	_check("Die Ziele in Kapitel 1 sind gestreut (%d verschiedene)" % ziele_k1.size(),
+		ziele_k1.size() >= 3)
+	# Der interessante Fall: ein Ziel, zu dem die gerade Linie durch die Todeszone fuehrt.
+	# Ohne ihn laesst sich der Umweg im Spiel nie ausprobieren.
+	var start: Vector2 = WorldManager.poi_position("rustwater")
+	var mit_umweg: String = ""
+	for z in ziele_k1.keys():
+		if WorldManager.swamp_detour(start, WorldManager.poi_position(String(z))) != Vector2.INF:
+			mit_umweg = String(z)
+	_check("Mindestens ein Ziel liegt hinter dem Sumpf (%s)" % mit_umweg, mit_umweg != "")
+	# ── Wiederholbare Auftraege ───────────────────────────────────────────────
+	_reset_state()
+	QuestManager.accept_quest("q_d3")
+	GameState.kills += int(QuestManager.QUESTS["q_d3"]["count"])
+	_check("Ein wiederholbarer Auftrag laesst sich abgeben",
+		QuestManager.complete_quest("q_d3"))
+	_check("Danach steht er wieder auf `available`, nicht auf `done`",
+		QuestManager.get_quest_state("q_d3") == QuestManager.STATE_AVAILABLE)
+	_check("Er laesst sich erneut annehmen", QuestManager.accept_quest("q_d3"))
+	var p2: Dictionary = QuestManager.check_quest_progress("q_d3")
+	_check("Und faengt wieder bei 0 an (%d/%d)" % [int(p2["current"]), int(p2["target"])],
+		int(p2["current"]) == 0)
+	# ── Die Kette, wie der Spieler sie erlebt ────────────────────────────────
+	# Genau der Weg, der beim Auftraggeber ankommt: `_quest_for_giver` nimmt den ersten nicht
+	# erledigten Auftrag. Erledigt man ihn, muss der naechste kommen — und irgendwann einer, der
+	# wiederkommt. Vorher endete die Kette nach dem ersten und der NPC sagte nur noch „…".
+	_reset_state()
+	var ow3 := OverworldView.new()
+	_scratch.append(ow3)
+	for wer2 in ["mabel", "silas", "doc"]:
+		var gesehen: Array = []
+		for runde in 5:
+			var q: String = ow3._quest_for_giver(String(wer2))
+			if q == "":
+				break
+			if gesehen.has(q):
+				break     # wiederholbar: die Kette schliesst sich
+			gesehen.append(q)
+			# durchspielen: annehmen, Bedingung erfuellen, abgeben
+			QuestManager.accept_quest(q)
+			var d3: Dictionary = QuestManager.QUESTS[q]
+			if String(d3["kind"]) == "kill":
+				GameState.kills += int(d3["count"])
+			else:
+				GameState.add_item(String(d3["item"]), int(d3["count"]))
+			QuestManager.complete_quest(q)
+		_check("%s bietet nacheinander %d Auftraege an" % [wer2, gesehen.size()],
+			gesehen.size() >= 3, "nur %s" % str(gesehen))
+		_check("%s hat auch danach noch etwas zu tun" % wer2,
+			ow3._quest_for_giver(String(wer2)) != "")
+	# Gegenprobe: ein normaler Auftrag bleibt erledigt.
+	_reset_state()
+	QuestManager.accept_quest("q_rats")
+	GameState.kills += int(QuestManager.QUESTS["q_rats"]["count"])
+	QuestManager.complete_quest("q_rats")
+	_check("Ein normaler Auftrag bleibt `done`",
+		QuestManager.get_quest_state("q_rats") == QuestManager.STATE_DONE)
+	_check("und laesst sich nicht erneut annehmen", not QuestManager.accept_quest("q_rats"))
+	_reset_state()
 	# Zustandswechsel des Wegweisers am konkreten Beispiel.
 	_check("Ohne Annahme zeigt nichts", QuestManager.quest_target("q_rats") == "")
 	_check("Nichts angenommen = nichts verfolgt", QuestManager.tracked_quest() == "")

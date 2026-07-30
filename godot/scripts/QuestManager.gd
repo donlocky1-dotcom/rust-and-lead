@@ -57,6 +57,36 @@ const QUESTS: Dictionary = {
 	"q_rats":   { "title": "Plage: Schrott-Ratten", "giver": "doc", "kind": "kill",
 		"count": 5, "reward_gold": 70, "reward_item": "potion", "target": "schrott_minen", "chapter": 1, "advance_to": 0 },
 
+	# ── Kapitel 1 geht weiter: je zwei Anschlussaufträge pro Auftraggeber ──
+	#
+	# Wozu: Nach den drei Einführungs-Kopfgeldern war Rustwater STUMM. Die nächsten Aufträge
+	# hängen an Kapitel 5 und am Gilden-Reveal, also standen alle drei NPCs da und hatten nichts
+	# zu sagen — man konnte die Wegweisung gar nicht mehr ausprobieren.
+	#
+	# `_quest_for_giver` nimmt immer den ERSTEN nicht erledigten Auftrag eines Gebers. Aus der
+	# Reihenfolge in dieser Tabelle wird damit von selbst eine Kette: Mabel gibt erst das
+	# Kopfgeld, dann die Zahnräder, dann die lange Fuhre.
+	#
+	# Die Ziele sind bewusst über ALLE vier Orte von Sektor 1 gestreut, damit die Fußspur in
+	# jede Richtung einmal geprüft wird — inklusive **Zugdepot**, wo die gerade Linie durch den
+	# Strahlensumpf führt und der Umweg greifen muss. Das ist der Fall, der ohne Wegweisung
+	# tödlich endet, und deshalb der einzige, der wirklich getestet gehört.
+	"q_m2": { "title": "Zahnräder für die Zapfanlage", "giver": "mabel", "kind": "collect", "item": "zahnrad",
+		"count": 4, "reward_gold": 110, "reward_item": "potion", "target": "schrott_minen", "chapter": 1, "advance_to": 0 },
+	"q_m3": { "title": "Die lange Fuhre", "giver": "mabel", "kind": "kill",
+		"count": 10, "reward_gold": 200, "reward_item": "zahnrad", "target": "zugdepot", "chapter": 1, "advance_to": 0,
+		"repeatable": true },
+	"q_s2": { "title": "Kesselflicken", "giver": "silas", "kind": "kill",
+		"count": 6, "reward_gold": 100, "reward_item": "zahnrad", "target": "rattengestruepp", "chapter": 1, "advance_to": 0 },
+	"q_s3": { "title": "Ein Kern für die Esse", "giver": "silas", "kind": "collect", "item": "dampfkern",
+		"count": 1, "reward_gold": 180, "reward_item": "", "target": "zugdepot", "chapter": 1, "advance_to": 0,
+		"repeatable": true },
+	"q_d2": { "title": "Feldversuch: Rostproben", "giver": "doc", "kind": "collect", "item": "schrott",
+		"count": 8, "reward_gold": 80, "reward_item": "potion", "target": "rattengestruepp", "chapter": 1, "advance_to": 0 },
+	"q_d3": { "title": "Kadaverzählung", "giver": "doc", "kind": "kill",
+		"count": 12, "reward_gold": 160, "reward_item": "potion", "target": "schrott_minen", "chapter": 1, "advance_to": 0,
+		"repeatable": true },
+
 	# ── Rebellengilde (Gideon, Fort Freedom) ──
 	"q_rebels5":  { "title": "Sand im Getriebe", "guild": "rebels", "giver": "gideon", "kind": "kill",
 		"count": 12, "reward_gold": 250, "reward_item": "dampfkern", "target": "zugdepot", "chapter": 5, "advance_to": 8 },
@@ -273,9 +303,19 @@ func complete_quest(quest_id: String) -> bool:
 	_grant_item_reward(String(def.get("reward_item", "")))
 
 	# (5) Zustand fixieren.
-	GameState.quests[quest_id] = STATE_DONE
-	GameState.quest_base.erase(quest_id) # Basis wird nicht mehr gebraucht.
-	GameState.quest_state_changed.emit(quest_id, STATE_DONE)
+	#
+	# Wiederholbare Aufträge gehen zurück auf "available" statt auf "done": Der Auftraggeber
+	# bietet sie beim nächsten Gespräch erneut an. Ohne sie ist Rustwater nach dem letzten
+	# Auftrag wieder stumm, und dann lässt sich weder die Wegweisung noch sonst etwas prüfen.
+	#
+	# Der Kill-Basiswert wird in beiden Fällen gelöscht. Bei einem wiederholbaren Auftrag ist
+	# das die halbe Miete: `accept_quest` friert ihn beim nächsten Annehmen neu ein, der
+	# Fortschritt fängt also wieder bei 0 an statt sofort auf voll zu stehen.
+	var wiederholbar: bool = bool(def.get("repeatable", false))
+	var neuer_zustand: String = STATE_AVAILABLE if wiederholbar else STATE_DONE
+	GameState.quests[quest_id] = neuer_zustand
+	GameState.quest_base.erase(quest_id)
+	GameState.quest_state_changed.emit(quest_id, neuer_zustand)
 
 	# (6) Kapitel-Fortschritt der Ketten-Quests.
 	var advance_to: int = int(def.get("advance_to", 0))

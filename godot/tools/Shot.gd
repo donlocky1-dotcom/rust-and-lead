@@ -76,6 +76,7 @@ func _ready() -> void:
 	_views.append(["ui_charakter", null, "charakter"])
 	_views.append(["quest_spur", null, "quest"])
 	_views.append(["nahaufnahme", null, "nahaufnahme"])
+	_views.append(["quest_umweg", null, "umweg"])
 	_wait = 60
 
 
@@ -107,6 +108,22 @@ func _setup_ui(art: String) -> void:
 		_cam.position = ow._player.position - dir * 12.0 + Vector3(0.0, 9.0, 0.0)
 		_cam.look_at(ow._player.position + dir * 20.0, Vector3.UP)
 		_cam.current = true
+	elif art == "umweg":
+		# Der Fall, der ohne Wegweisung toedlich endet: Die gerade Linie zum Zugdepot fuehrt
+		# mitten durch den Strahlensumpf. Die Spur MUSS hier oestlich daran vorbeizeigen.
+		ow._end_cine()
+		GameState.quests = {}
+		GameState.economy["laboratory"] = 0
+		QuestManager.accept_quest("q_m3")
+		var wo2: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(0.0, 0.0, 20.0)
+		ow._player.position = Vector3(wo2.x, WorldManager.height_at(wo2.x, wo2.z), wo2.z)
+		var ziel2: Vector3 = ow._trail_goal()
+		var dir2: Vector3 = (ziel2 - ow._player.position).normalized()
+		_cam.position = ow._player.position - dir2 * 14.0 + Vector3(0.0, 11.0, 0.0)
+		_cam.look_at(ow._player.position + dir2 * 24.0, Vector3.UP)
+		_cam.current = true
+		print("UMWEG: Ziel der Spur bei %s (Welt %s)"
+			% [ziel2, WorldManager.scene_to_world(ziel2)])
 	elif art == "nahaufnahme":
 		# Zur Auftraggeberin laufen und ansprechen — die Nahaufnahme startet dabei von selbst.
 		# Danach uebernimmt die SPIELKAMERA; die Shot-Kamera muss also aus dem Weg.
