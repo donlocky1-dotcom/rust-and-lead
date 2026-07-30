@@ -72,6 +72,10 @@ var kills: int = 0
 # ── Quest-Zustände ────────────────────────────────────────────────────────────
 var quests: Dictionary = {}       ## quest_id (String) -> "available" | "active" | "done"
 var quest_base: Dictionary = {}   ## quest_id (String) -> Kill-Stand zum Annahme-Zeitpunkt (int)
+## Der VERFOLGTE Auftrag ("" = keiner). Er bestimmt, wohin die Marke auf der Karte und die
+## Fussspur am Boden zeigen. Gehoert in den Spielstand: Wer das Spiel mitten auf dem Weg
+## verlaesst, soll beim naechsten Start nicht wieder ohne Richtung dastehen.
+var tracked_quest: String = ""
 
 # ── Roter Faden: Erinnerungs-Walzen & Familien-Bogen (Master-GDD §7.5.12a/b, §8.3) ──
 var memories_found: int = 0        ## 0..MemoryManager.chain_length(); geordnete Erinnerungskette

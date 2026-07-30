@@ -74,6 +74,7 @@ func _ready() -> void:
 	# Oberflaechen-Bilder. Ein Eintrag mit `null` als Position ist kein Kamerastandpunkt,
 	# sondern ein Bildschirm — `_process` erkennt das am Typ und ruft `_setup_ui` auf.
 	_views.append(["ui_charakter", null, "charakter"])
+	_views.append(["quest_spur", null, "quest"])
 	_wait = 60
 
 
@@ -93,6 +94,19 @@ func _setup_ui(art: String) -> void:
 		for s2 in ["weapon", "armor", "gadget", "helmet", "boots", "armor"]:
 			BagManager.add(ProgressionManager.make_gear(String(s2), "epic"))
 		ow._toggle_character(CharacterScreen.Tab.AUSRUESTUNG)
+	elif art == "quest":
+		# Auftrag annehmen, damit Marke und Fussspur ueberhaupt etwas zu zeigen haben, und die
+		# Kamera hinter die Figur setzen — die Spur laeuft NACH VORN, von hinten sieht man sie.
+		ow._toggle_character(CharacterScreen.Tab.AUSRUESTUNG)
+		QuestManager.accept_quest("q_rats")
+		var wo: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(0.0, 0.0, 26.0)
+		ow._player.position = Vector3(wo.x, WorldManager.height_at(wo.x, wo.z), wo.z)
+		var ziel: Vector3 = WorldManager.poi_scene_position("schrott_minen")
+		var dir: Vector3 = (ziel - ow._player.position).normalized()
+		_cam.position = ow._player.position - dir * 12.0 + Vector3(0.0, 9.0, 0.0)
+		_cam.look_at(ow._player.position + dir * 20.0, Vector3.UP)
+		_cam.current = true
+
 
 
 func _process(_dt: float) -> void:
@@ -100,6 +114,12 @@ func _process(_dt: float) -> void:
 		_wait -= 1
 		return
 	if _i >= 0:
+		if String(_views[_i][0]) == "quest_spur":
+			var ow2: OverworldView = _welt as OverworldView
+			var n: int = 0
+			for t in ow2._trail:
+				if (t as MeshInstance3D).visible:
+					n += 1
 		get_viewport().get_texture().get_image().save_png("%s_%s.png" % [OUT, String(_views[_i][0])])
 	_i += 1
 	if _i >= _views.size():

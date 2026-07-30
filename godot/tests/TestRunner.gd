@@ -46,6 +46,7 @@ func _ready() -> void:
 	_test_asset_registry()
 	_test_overworld_loot_flow()
 	_test_overworld_quest_flow()
+	_test_quest_wayfinding()
 	_test_memory_manager()
 	_test_encounter_manager()
 	_test_progression_manager()
@@ -1227,6 +1228,126 @@ func _test_dunes() -> void:
 ## KANN: dass jede Fassung eine Lage hat, dass sich keine zwei ueberlappen, dass ein Tipp genau
 ## die Fassung findet, ueber der er liegt, und dass alles in die linke Spalte passt. Die Optik
 ## selbst prueft kein Test — dafuer gibt es `tools/Shot.gd`.
+## Wegweisung — aus einer Zahl im Menue wird ein Ort in der Welt.
+##
+## Der Kern ist nicht die Marke und nicht die Fussspur, sondern die Frage, auf welchen Ort beide
+## zeigen. Die wechselt mit dem Fortschritt: erst der Ort der Arbeit, nach Erfuellung der
+## Auftraggeber. Ein Wegweiser, der nach dem letzten Kill weiter in die Wildnis zeigt, ist
+## schlimmer als keiner.
+func _test_quest_wayfinding() -> void:
+	print("· Quest-Wegweisung (Marke & Fussspur)")
+	_reset_state()
+	# Jede Quest braucht ein Ziel, und das Ziel muss es geben. Ein Tippfehler in der Tabelle
+	# faellt sonst erst auf, wenn jemand genau diese Quest annimmt.
+	var ohne_ziel: String = ""
+	var falsch: String = ""
+	for qid in QuestManager.QUESTS.keys():
+		var def: Dictionary = QuestManager.QUESTS[qid]
+		var t: String = String(def.get("target", ""))
+		if t == "":
+			ohne_ziel = String(qid)
+		elif not WorldManager.has_poi(t):
+			falsch = "%s -> %s" % [qid, t]
+		var g: String = String(def.get("giver", ""))
+		if not QuestManager.GIVER_POI.has(g):
+			falsch = "%s: Auftraggeber %s hat keinen Ort" % [qid, g]
+		elif not WorldManager.has_poi(String(QuestManager.GIVER_POI[g])):
+			falsch = "%s: Ort von %s gibt es nicht" % [qid, g]
+	_check("Jede Quest hat ein Ziel", ohne_ziel == "", "%s hat keines" % ohne_ziel)
+	_check("Jedes Ziel und jeder Auftraggeber-Ort existiert", falsch == "", falsch)
+	# Zustandswechsel des Wegweisers am konkreten Beispiel.
+	_check("Ohne Annahme zeigt nichts", QuestManager.quest_target("q_rats") == "")
+	_check("Nichts angenommen = nichts verfolgt", QuestManager.tracked_quest() == "")
+	QuestManager.accept_quest("q_rats")
+	_check("Der frisch angenommene Auftrag wird sofort verfolgt",
+		QuestManager.tracked_quest() == "q_rats")
+	_check("Er zeigt auf den Ort der Arbeit",
+		QuestManager.quest_target("q_rats") == "schrott_minen")
+	# Ziel erfuellt -> der Wegweiser dreht sich zum Auftraggeber um.
+	GameState.kills += int(QuestManager.QUESTS["q_rats"]["count"])
+	_check("Erfuellt zeigt er zum Auftraggeber (Doc steht in Rustwater)",
+		QuestManager.quest_target("q_rats") == "rustwater")
+	# Zweite Quest: Umschalten muss beide erreichen und wieder zurueckkommen.
+	QuestManager.accept_quest("q_bounty")
+	_check("Zwei laufende Auftraege", QuestManager.active_quests().size() == 2)
+	_check("Der zweite wird jetzt verfolgt", QuestManager.tracked_quest() == "q_bounty")
+	var erste: String = QuestManager.track_next()
+	var zweite: String = QuestManager.track_next()
+	_check("Umschalten wechselt und kehrt zurueck (%s -> %s)" % [erste, zweite],
+		erste != zweite and zweite == "q_bounty")
+	# Abgabe: der Wegweiser darf nicht ins Leere zeigen.
+	QuestManager.track_quest("q_rats")
+	QuestManager.complete_quest("q_rats")
+	_check("Nach der Abgabe haengt der Wegweiser auf den naechsten Auftrag um",
+		QuestManager.tracked_quest() == "q_bounty")
+	_check("Der abgegebene zeigt auf nichts mehr", QuestManager.quest_target("q_rats") == "")
+	# Ein Spielstand kann eine erledigte Quest als „verfolgt" enthalten — validiert wird beim
+	# LESEN, nicht beim Schreiben.
+	GameState.tracked_quest = "q_rats"
+	_check("Ein erledigter Eintrag im Spielstand wird nicht geglaubt",
+		QuestManager.tracked_quest() == "q_bounty")
+	GameState.tracked_quest = "gibt_es_nicht"
+	_check("Ein unbekannter Eintrag ebenso wenig",
+		QuestManager.tracked_quest() == "q_bounty")
+	# ── Der Umweg um den Sumpf ────────────────────────────────────────────────
+	# Ein Leitsystem, das einen umbringt, ist schlimmer als gar keines.
+	_reset_state()
+	GameState.economy["laboratory"] = 0
+	var von: Vector2 = WorldManager.poi_position("rustwater")
+	var nach: Vector2 = WorldManager.poi_position("zugdepot")
+	var umweg: Vector2 = WorldManager.swamp_detour(von, nach)
+	_check("Rustwater -> Zugdepot fuehrt gerade durch den Sumpf, es gibt also einen Umweg",
+		umweg != Vector2.INF)
+	_check("Das Zwischenziel liegt selbst NICHT im Sumpf",
+		umweg == Vector2.INF or not WorldManager.is_in_swamp(umweg))
+	_check("Der direkte Weg dorthin ist frei",
+		umweg == Vector2.INF or WorldManager.swamp_detour(von, umweg) == Vector2.INF)
+	# Die Zone reicht von x = 0 bis 1000 — westlich herum gibt es gar nichts. Der Umweg MUSS
+	# also oestlich laufen. Genau das hat der erste Entwurf falsch gemacht.
+	_check("Der Umweg laeuft oestlich herum, nicht gegen den Kartenrand (x = %.0f)" % umweg.x,
+		umweg == Vector2.INF or umweg.x > WorldManager.swamp_rect().end.x)
+	# Und er muss ANKOMMEN: von Ecke zu Ecke, hoechstens ein paar Schritte, ohne sich im Kreis
+	# zu drehen. Ein Wegweiser, der auf den Punkt zeigt, auf dem man steht, ist ein Haenger.
+	var schritt: Vector2 = von
+	var schritte: int = 0
+	while schritte < 6:
+		var naechster: Vector2 = WorldManager.swamp_detour(schritt, nach)
+		if naechster == Vector2.INF:
+			break
+		_check("Schritt %d bewegt sich (%.0f/%.0f)" % [schritte + 1, naechster.x, naechster.y],
+			schritt.distance_to(naechster) > 1.0)
+		schritt = naechster
+		schritte += 1
+	_check("Der Umweg kommt nach %d Ecken beim Ziel an" % schritte,
+		schritte < 6 and WorldManager.swamp_detour(schritt, nach) == Vector2.INF)
+	_check("Das Zwischenziel liegt auf der Karte",
+		umweg == Vector2.INF or (umweg.x >= 0.0 and umweg.x <= float(WorldManager.WORLD_SIZE)
+			and umweg.y >= 0.0 and umweg.y <= float(WorldManager.WORLD_SIZE)))
+	_check("Rustwater -> Schrott-Minen braucht keinen Umweg",
+		WorldManager.swamp_detour(von, WorldManager.poi_position("schrott_minen")) == Vector2.INF)
+	GameState.economy["laboratory"] = WorldManager.SWAMP_SUIT_LEVEL
+	_check("Mit Schutzanzug faellt der Umweg weg — dann ist der Sumpf nur Gelaende",
+		WorldManager.swamp_detour(von, nach) == Vector2.INF)
+	# ── Regression: die Spur lag UNTER dem Stadtboden ─────────────────────────
+	# Vierzehn Abdruecke, alle korrekt gesetzt, alle sichtbar geschaltet — und im Bild nichts.
+	# Sie lagen bei 0,06 und der Stadtboden von Rustwater bei 0,08. Vom Rechnen an den Zahlen
+	# war das nicht zu sehen; gefunden hat es ein Wuerfel an derselben Stelle, der brav erschien.
+	var ow2 := OverworldView.new()
+	_scratch.append(ow2)
+	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
+	_check("In der Stadt liegt ein flacher Marker UEBER dem Stadtboden (%.3f > %.3f)"
+		% [ow2._decal_height(stadt.x, stadt.z), OverworldView.TOWN_GROUND_TOP],
+		ow2._decal_height(stadt.x, stadt.z) > OverworldView.TOWN_GROUND_TOP)
+	var draussen: Vector3 = stadt + Vector3(OverworldView.TOWN_GROUND_R + 60.0, 0.0, 0.0)
+	_check("Draussen liegt er knapp ueber dem Gelaende",
+		is_equal_approx(ow2._decal_height(draussen.x, draussen.z),
+			WorldManager.height_at(draussen.x, draussen.z) + OverworldView.DECAL_LIFT_M))
+	_check("Auch im Krater folgt er dem Gelaende, nicht der Null-Ebene",
+		ow2._decal_height(WorldManager.poi_scene_position("schrott_minen").x,
+			WorldManager.poi_scene_position("schrott_minen").z) < 0.0)
+	_reset_state()
+
+
 func _test_paperdoll() -> void:
 	print("· Puppe (getragene Ausruestung)")
 	_reset_state()

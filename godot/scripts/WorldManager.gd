@@ -619,6 +619,75 @@ static func is_swamp_feature(f: Dictionary) -> bool:
 	return String(f.get("id", "")).begins_with("sumpfloch_")
 
 
+## Zwischenziel, um den Sumpf HERUM ({} = direkter Weg ist frei).
+##
+## Wozu: Der Wegweiser zieht eine gerade Linie vom Spieler zum Ziel. Zwischen Rustwater und dem
+## Zugdepot liegt aber die Todeszone — eine gerade Linie fuehrt mitten hindurch, und der Spieler
+## folgt ihr, weil das Spiel sie gezeichnet hat. Ein Leitsystem, das einen umbringt, ist
+## schlimmer als gar keines.
+##
+## Der Umweg ist bewusst PRIMITIV: eine Ecke der Zone, aussen herum. Ein echter Wegfinder waere
+## hier verschwendet — die Zone ist ein Rechteck, es gibt genau vier Ecken, und die naeher am
+## Ziel liegende Seite ist immer die richtige. Mit Schutzanzug faellt der Umweg weg; dann ist
+## der Sumpf nur noch Gelaende.
+## Zielt immer auf eine ECKE der Zone, diagonal ausserhalb. Zwei Fallen, beide beim ersten
+## Anlauf hineingetappt und gemessen:
+##
+##  1. **Die naehere Seite ist nicht immer eine Seite.** Die Zone reicht von x = 0 bis 1000 auf
+##     einer Karte, die bei 0 anfaengt — westlich herum gibt es GAR NICHTS. Der erste Entwurf
+##     rechnete nur, welche Seite naeher liegt, und schickte den Spieler nach Westen gegen den
+##     Kartenrand. Es zaehlen nur Seiten, die auf der Karte liegen.
+##  2. **Ein Zwischenziel auf der Kante zeigt auf sich selbst.** Lag die Ecke exakt am Rand der
+##     Zone, war der Weg dorthin formal immer noch „durch die Zone", und beim naechsten Aufruf
+##     kam dieselbe Ecke wieder heraus — der Wegweiser stand still, waehrend der Spieler
+##     daraufstand. Deshalb `rand` nach aussen, auf BEIDEN Achsen.
+##
+## Ein Aufruf liefert genau EIN Zwischenziel. Ist danach immer noch etwas im Weg, liefert der
+## naechste Aufruf das naechste — die Spur laeuft die Ecken der Reihe nach ab, ohne dass hier
+## jemand eine Wegliste verwalten muss.
+static func swamp_detour(from: Vector2, to: Vector2) -> Vector2:
+	if has_rad_suit():
+		return Vector2.INF
+	var zone: Rect2 = swamp_rect().grow(SWAMP_EDGE_UNITS * 0.5)
+	if not _segment_hits_rect(from, to, zone):
+		return Vector2.INF
+	var rand: float = 24.0
+	var seiten: Array = []
+	if zone.position.x - rand >= 12.0:
+		seiten.append(zone.position.x - rand)
+	if zone.end.x + rand <= float(WORLD_SIZE) - 12.0:
+		seiten.append(zone.end.x + rand)
+	if seiten.is_empty():
+		return Vector2.INF     # kein Weg herum — dann eben geradeaus, und die Warnung greift
+	var beste: Vector2 = Vector2.INF
+	var beste_laenge: float = INF
+	for x in seiten:
+		for y in [zone.position.y - rand, zone.end.y + rand]:
+			var ecke := Vector2(float(x), float(y))
+			if from.distance_squared_to(ecke) < 4.0:
+				continue           # da stehen wir schon
+			if _segment_hits_rect(from, ecke, zone):
+				continue           # diese Ecke liegt hinter der Zone
+			var laenge: float = from.distance_to(ecke) + ecke.distance_to(to)
+			if laenge < beste_laenge:
+				beste_laenge = laenge
+				beste = ecke
+	return beste
+
+
+## Schneidet die Strecke das Rechteck? (Liegt ein Ende drin, zaehlt das auch.)
+static func _segment_hits_rect(a: Vector2, b: Vector2, r: Rect2) -> bool:
+	if r.has_point(a) or r.has_point(b):
+		return true
+	# Godots `Rect2.intersects_segment` gibt es nicht — also gegen die vier Kanten pruefen.
+	var ecken: Array = [r.position, Vector2(r.end.x, r.position.y), r.end,
+		Vector2(r.position.x, r.end.y)]
+	for i in 4:
+		if Geometry2D.segment_intersects_segment(a, b, ecken[i], ecken[(i + 1) % 4]) != null:
+			return true
+	return false
+
+
 # ── Sektor-Zutritt (kombiniert) ───────────────────────────────────────────────
 
 ## Grundsätzlicher Zutritt zu einem Sektor (Story-/Ausrüstungs-Gate).

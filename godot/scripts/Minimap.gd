@@ -142,6 +142,7 @@ func _draw() -> void:
 	# Punkt — der Spawnradius von 45 m misst hier 21 px statt 1,7.
 	for e in enemy_positions:
 		draw_circle(world_to_map(e), 2.6 if full_world else 3.4, Color(0.95, 0.35, 0.30, 0.9))
+	_draw_quest_marker(rect)
 	_draw_player()
 	# Rahmen zuletzt, damit nichts über ihn läuft.
 	draw_rect(rect, Color(0.55, 0.44, 0.28, 0.9), false, 2.0)
@@ -214,6 +215,48 @@ func _draw_pois(rect: Rect2) -> void:
 		if full_world and font != null:
 			draw_string(font, at + Vector2(r + 5.0, 4.0), String(p["name"]),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.93, 0.88, 0.75, 0.92))
+
+
+## Die Quest-Marke: wohin der verfolgte Auftrag zeigt.
+##
+## Eine Raute, kein Punkt — auf der Karte liegen schon Ortspunkte, Gegnerpunkte und der Spieler,
+## alles rund. Eine andere FORM liest sich schneller als eine andere Farbe, und sie bleibt
+## lesbar, wenn sie über einem Ortspunkt derselben Größe sitzt (was sie meistens tut).
+##
+## Fällt das Ziel aus dem Ausschnitt, wird die Marke an den Rand geklemmt und zeigt als DREIECK
+## in die Richtung. Genau dafür ist sie da: Die Nahansicht reicht 200 m weit, das Ziel liegt
+## fast immer weiter weg — ohne Randmarke wäre der Wegweiser auf der kleinen Karte nie zu sehen.
+const QUEST_COLOR: Color = Color(1.0, 0.86, 0.28)
+func _draw_quest_marker(rect: Rect2) -> void:
+	var qid: String = QuestManager.tracked_quest()
+	if qid == "":
+		return
+	var ziel: String = QuestManager.quest_target(qid)
+	if ziel == "" or not WorldManager.has_poi(ziel):
+		return
+	var at: Vector2 = world_to_map(WorldManager.poi_scene_position(ziel))
+	if rect.has_point(at):
+		_draw_diamond(at, 6.0, QUEST_COLOR)
+		draw_arc(at, 10.0, 0.0, TAU, 20, Color(QUEST_COLOR.r, QUEST_COLOR.g, QUEST_COLOR.b, 0.55), 1.4)
+		return
+	# Außerhalb: an den Rand klemmen und als Pfeil in die Richtung zeigen.
+	var mitte: Vector2 = size * 0.5
+	var richtung: Vector2 = (at - mitte).normalized()
+	var rand := Vector2(clampf(at.x, 9.0, size.x - 9.0), clampf(at.y, 9.0, size.y - 9.0))
+	_draw_arrow(rand, richtung, 7.0, QUEST_COLOR)
+
+
+func _draw_diamond(at: Vector2, r: float, col: Color) -> void:
+	var p := PackedVector2Array([at + Vector2(0.0, -r), at + Vector2(r, 0.0),
+		at + Vector2(0.0, r), at + Vector2(-r, 0.0)])
+	draw_colored_polygon(p, col)
+	draw_polyline(PackedVector2Array([p[0], p[1], p[2], p[3], p[0]]), Color(0.1, 0.08, 0.05, 0.8), 1.2)
+
+
+func _draw_arrow(at: Vector2, dir: Vector2, r: float, col: Color) -> void:
+	var quer := Vector2(-dir.y, dir.x)
+	draw_colored_polygon(PackedVector2Array([at + dir * r, at - dir * r * 0.6 + quer * r * 0.7,
+		at - dir * r * 0.6 - quer * r * 0.7]), col)
 
 
 func _draw_player() -> void:

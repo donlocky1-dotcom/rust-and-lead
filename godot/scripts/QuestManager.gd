@@ -22,6 +22,15 @@ signal quest_accepted(quest_id: String)
 signal quest_completed(quest_id: String, reward_gold: int, reward_xp: int)
 signal quest_progress(quest_id: String, current: int, target: int)
 signal questline_blocked(quest_id: String, reason: String)
+signal tracked_changed(quest_id: String)
+
+## Wo jeder Auftraggeber steht. Zum Abgeben muss man wieder zu ihm — und dafür muss der
+## Wegweiser wissen, wo „zu ihm" ist. Bewusst eine eigene Tabelle und nicht in `QUESTS`
+## wiederholt: Ein Auftraggeber steht an EINEM Ort, egal wie viele Aufträge er vergibt.
+const GIVER_POI: Dictionary = {
+	"mabel": "rustwater", "silas": "rustwater", "doc": "rustwater",
+	"gideon": "fort_freedom", "quentin": "sektor01", "slick": "rogues_landing",
+}
 
 ## Verbindliche Quest-Daten — Master-GDD §4.2 (Fraktions-Matrix) & §4.3 (Hub-NPCs).
 ##   kind == "kill":    nutzt den questBase-Mechanismus (Kills seit Annahme).
@@ -30,38 +39,47 @@ signal questline_blocked(quest_id: String, reason: String)
 ##   chapter:           Mindest-Kapitel, ab dem die Quest angeboten wird.
 ##   advance_to:        Kapitel, auf das nach Abschluss gehoben wird (0 = kein Sprung).
 ##   reward_item:       "" | "dampfkern" | "zahnrad" | "potion".
+##   target:            WOHIN man dafür muss. Der Wegweiser auf der Karte und die Fußspur in
+##                      der Welt lesen genau dieses Feld.
+##
+## Bis hierher hatte eine Quest ein Ziel („12 Gegner erlegen") und keinen ORT. Man konnte sie
+## annehmen und stand danach in der Stadt, ohne den geringsten Hinweis, wohin. Bei einer Welt
+## von 5 km Kantenlänge ist das kein Spielraum, sondern ein Sackgassen-Erlebnis: Man läuft in
+## eine beliebige Richtung, bis irgendetwas passiert. Jede Quest zeigt deshalb jetzt auf einen
+## Ort, an dem sich ihr Ziel auch wirklich erledigen lässt — Ratten in den Schrott-Minen,
+## Wegelagerer im Rattengestrüpp.
 const QUESTS: Dictionary = {
 	# ── Hub-Einführungs-Kopfgelder (ab Kapitel 1 verfügbar) ──
 	"q_bounty": { "title": "Kopfgeld: Wegelagerer", "giver": "mabel", "kind": "kill",
-		"count": 8, "reward_gold": 120, "reward_item": "zahnrad", "chapter": 1, "advance_to": 0 },
+		"count": 8, "reward_gold": 120, "reward_item": "zahnrad", "target": "rattengestruepp", "chapter": 1, "advance_to": 0 },
 	"q_scrap":  { "title": "Baumaterial: Schrott", "giver": "silas", "kind": "collect", "item": "schrott",
-		"count": 12, "reward_gold": 90, "reward_item": "", "chapter": 1, "advance_to": 0 },
+		"count": 12, "reward_gold": 90, "reward_item": "", "target": "schrott_minen", "chapter": 1, "advance_to": 0 },
 	"q_rats":   { "title": "Plage: Schrott-Ratten", "giver": "doc", "kind": "kill",
-		"count": 5, "reward_gold": 70, "reward_item": "potion", "chapter": 1, "advance_to": 0 },
+		"count": 5, "reward_gold": 70, "reward_item": "potion", "target": "schrott_minen", "chapter": 1, "advance_to": 0 },
 
 	# ── Rebellengilde (Gideon, Fort Freedom) ──
 	"q_rebels5":  { "title": "Sand im Getriebe", "guild": "rebels", "giver": "gideon", "kind": "kill",
-		"count": 12, "reward_gold": 250, "reward_item": "dampfkern", "chapter": 5, "advance_to": 8 },
+		"count": 12, "reward_gold": 250, "reward_item": "dampfkern", "target": "zugdepot", "chapter": 5, "advance_to": 8 },
 	"q_rebels8":  { "title": "Der Kinetoskop-Betrug", "guild": "rebels", "giver": "gideon", "kind": "kill",
-		"count": 18, "reward_gold": 500, "reward_item": "dampfkern", "chapter": 8, "advance_to": 12 },
+		"count": 18, "reward_gold": 500, "reward_item": "dampfkern", "target": "rogues_landing", "chapter": 8, "advance_to": 12 },
 	"q_rebels12": { "title": "Sturm auf die Iron Rail", "guild": "rebels", "giver": "gideon", "kind": "kill",
-		"count": 30, "reward_gold": 1200, "reward_item": "dampfkern", "chapter": 12, "advance_to": 0 },
+		"count": 30, "reward_gold": 1200, "reward_item": "dampfkern", "target": "sektor01", "chapter": 12, "advance_to": 0 },
 
 	# ── Eiserne Gilde (Quentin, Sektor 01) ──
 	"q_corp5":  { "title": "Streikbrecher", "guild": "corp", "giver": "quentin", "kind": "kill",
-		"count": 12, "reward_gold": 250, "reward_item": "dampfkern", "chapter": 5, "advance_to": 8 },
+		"count": 12, "reward_gold": 250, "reward_item": "dampfkern", "target": "zugdepot", "chapter": 5, "advance_to": 8 },
 	"q_corp8":  { "title": "Archiv-Säuberung", "guild": "corp", "giver": "quentin", "kind": "kill",
-		"count": 18, "reward_gold": 500, "reward_item": "dampfkern", "chapter": 8, "advance_to": 12 },
+		"count": 18, "reward_gold": 500, "reward_item": "dampfkern", "target": "rattengestruepp", "chapter": 8, "advance_to": 12 },
 	"q_corp12": { "title": "Der eiserne Frieden", "guild": "corp", "giver": "quentin", "kind": "kill",
-		"count": 30, "reward_gold": 1200, "reward_item": "dampfkern", "chapter": 12, "advance_to": 0 },
+		"count": 30, "reward_gold": 1200, "reward_item": "dampfkern", "target": "fort_freedom", "chapter": 12, "advance_to": 0 },
 
 	# ── Schmugglergilde (Slick, Rogue's Landing) ──
 	"q_smug5":  { "title": "Das Sumpf-Gold", "guild": "smugglers", "giver": "slick", "kind": "collect", "item": "dampfkern",
-		"count": 3, "reward_gold": 300, "reward_item": "", "chapter": 5, "advance_to": 8 },
+		"count": 3, "reward_gold": 300, "reward_item": "", "target": "schrott_minen", "chapter": 5, "advance_to": 8 },
 	"q_smug8":  { "title": "Heiße Ware, heiße Wahrheit", "guild": "smugglers", "giver": "slick", "kind": "collect", "item": "dampfkern",
-		"count": 6, "reward_gold": 700, "reward_item": "", "chapter": 8, "advance_to": 12 },
+		"count": 6, "reward_gold": 700, "reward_item": "", "target": "alchemie_raffinerie", "chapter": 8, "advance_to": 12 },
 	"q_smug12": { "title": "Der letzte Deal", "guild": "smugglers", "giver": "slick", "kind": "collect", "item": "dampfkern",
-		"count": 10, "reward_gold": 1600, "reward_item": "", "chapter": 12, "advance_to": 0 },
+		"count": 10, "reward_gold": 1600, "reward_item": "", "target": "schmelzoefen_vulcan", "chapter": 12, "advance_to": 0 },
 }
 
 
@@ -116,6 +134,75 @@ func is_quest_complete(quest_id: String) -> bool:
 	return GameState.item_count(String(def["item"])) >= target
 
 
+# ── Wegweisung: welcher Auftrag wird verfolgt, und wohin zeigt er ─────────────
+## Der Teil, der aus einer Zahl im Menü einen Ort in der Welt macht.
+##
+## Diablo löst das mit genau zwei Mitteln, und wir kopieren beide: eine Marke auf der Karte
+## („dort ist es") und eine Fußspur am Boden („dort entlang"). Die Marke beantwortet die Frage
+## beim Blick auf die Karte, die Spur beantwortet sie beim Laufen — und man muss die Karte
+## nicht mehr aufmachen. Beide lesen `quest_target()`.
+
+## Ziel des verfolgten Auftrags — WOHIN gerade zu gehen ist ("" = nirgendwohin).
+##
+## Der Ort wechselt mit dem Fortschritt, und das ist der ganze Witz: Solange das Ziel offen ist,
+## zeigt er auf den Ort der Arbeit; sobald es erfüllt ist, auf den Auftraggeber. Ein Wegweiser,
+## der nach dem letzten Kill weiter in die Wildnis zeigt, wäre schlimmer als keiner.
+func quest_target(quest_id: String) -> String:
+	if not has_quest(quest_id) or get_quest_state(quest_id) != STATE_ACTIVE:
+		return ""
+	var def: Dictionary = get_definition(quest_id)
+	if is_quest_complete(quest_id):
+		return String(GIVER_POI.get(String(def.get("giver", "")), ""))
+	return String(def.get("target", ""))
+
+
+## Alle laufenden Aufträge, in der Reihenfolge der Tabelle.
+func active_quests() -> Array:
+	var out: Array = []
+	for qid in QUESTS.keys():
+		if get_quest_state(String(qid)) == STATE_ACTIVE:
+			out.append(String(qid))
+	return out
+
+
+## Der verfolgte Auftrag ("" = keiner).
+##
+## Wird hier VALIDIERT statt beim Setzen: Der Wert steht im Spielstand, und ein Spielstand kann
+## eine Quest enthalten, die inzwischen abgegeben wurde (oder aus einer älteren Fassung stammt).
+## Ein Wegweiser, der auf einen erledigten Auftrag zeigt, ist ein Fehler, den niemand meldet —
+## man wundert sich nur, warum die Spur ins Nichts führt.
+func tracked_quest() -> String:
+	var qid: String = String(GameState.tracked_quest)
+	if qid != "" and has_quest(qid) and get_quest_state(qid) == STATE_ACTIVE:
+		return qid
+	# Nichts (mehr) verfolgt: den ersten laufenden Auftrag nehmen. Wer gerade eine Quest
+	# abgegeben hat und noch eine zweite laufen hat, soll nicht ohne Wegweiser dastehen.
+	var laufend: Array = active_quests()
+	return String(laufend[0]) if not laufend.is_empty() else ""
+
+
+## Auftrag verfolgen. `false`, wenn er nicht läuft.
+func track_quest(quest_id: String) -> bool:
+	if not has_quest(quest_id) or get_quest_state(quest_id) != STATE_ACTIVE:
+		return false
+	GameState.tracked_quest = quest_id
+	tracked_changed.emit(quest_id)
+	return true
+
+
+## Den nächsten laufenden Auftrag verfolgen (Knopf im HUD). Gibt die neue Id zurück.
+func track_next() -> String:
+	var laufend: Array = active_quests()
+	if laufend.is_empty():
+		GameState.tracked_quest = ""
+		tracked_changed.emit("")
+		return ""
+	var i: int = laufend.find(tracked_quest())
+	var naechste: String = String(laufend[(i + 1) % laufend.size()])
+	track_quest(naechste)
+	return naechste
+
+
 # ── Zustandsübergänge ─────────────────────────────────────────────────────────
 
 ## Nimmt eine Quest an: available -> active. Gibt false zurück, wenn ein Gate greift.
@@ -145,7 +232,12 @@ func accept_quest(quest_id: String) -> bool:
 	if String(def["kind"]) == "kill":
 		GameState.quest_base[quest_id] = GameState.kills
 
+	# Der frisch angenommene Auftrag wird SOFORT verfolgt. Wer gerade „ja" gesagt hat, will
+	# als Naechstes wissen, wohin — und nicht erst ein Menue suchen, in dem er das einstellt.
+	GameState.tracked_quest = quest_id
+
 	GameState.quest_state_changed.emit(quest_id, STATE_ACTIVE)
+	tracked_changed.emit(quest_id)
 	quest_accepted.emit(quest_id)
 	return true
 
@@ -189,6 +281,13 @@ func complete_quest(quest_id: String) -> bool:
 	var advance_to: int = int(def.get("advance_to", 0))
 	if advance_to > GameState.current_chapter:
 		_set_chapter(advance_to)
+
+	# Verfolgt wurde dieser Auftrag? Dann auf den naechsten laufenden umhaengen statt den
+	# Wegweiser ins Leere zeigen zu lassen. `tracked_quest()` faellt von selbst zurueck, die
+	# Zuweisung macht es nur explizit und speicherbar.
+	if String(GameState.tracked_quest) == quest_id:
+		GameState.tracked_quest = tracked_quest()
+		tracked_changed.emit(String(GameState.tracked_quest))
 
 	quest_completed.emit(quest_id, reward_gold, reward_xp)
 	return true

@@ -338,6 +338,7 @@ func _ready() -> void:
 	_build_player()
 	_build_hud()
 	_build_npcs()
+	_build_trail()
 	_spawn_pack()
 	_build_chests()
 	_hp = float(PlayerStats.max_hp())
@@ -1263,16 +1264,19 @@ func _build_township() -> void:
 ##
 ## Die Scheibe liegt 4 cm ueber dem Weltboden. Das reicht gegen Z-Fighting und ist aus
 ## Spielerhoehe nicht zu sehen.
+## Oberkante des Stadtbodens ueber dem Gelaende. Steht als Konstante da, weil etwas DARAUF
+## liegen muss — und wer die Scheibe dicker macht, ohne das mitzuziehen, versenkt es.
+const TOWN_GROUND_TOP: float = 0.08
 func _build_town_ground(c: Vector3) -> void:
 	var disc := MeshInstance3D.new()
 	var mesh := CylinderMesh.new()
 	mesh.top_radius = TOWN_GROUND_R
 	mesh.bottom_radius = TOWN_GROUND_R
-	mesh.height = 0.08
+	mesh.height = TOWN_GROUND_TOP
 	mesh.radial_segments = 64
 	mesh.rings = 1
 	disc.mesh = mesh
-	disc.position = c + Vector3(0.0, 0.04, 0.0)
+	disc.position = c + Vector3(0.0, TOWN_GROUND_TOP * 0.5, 0.0)
 	var shader: Shader = load("res://shaders/town_ground.gdshader") as Shader
 	if shader != null:
 		var mat := ShaderMaterial.new()
@@ -1548,7 +1552,16 @@ func _talk_to(giver: String) -> void:
 		if QuestManager.accept_quest(qid):
 			var goal: String = ("%d Gegner erlegen" % int(def["count"])) if String(def["kind"]) == "kill" \
 				else ("%dx %s sammeln" % [int(def["count"]), String(def["item"])])
-			_say("%s: %s\n📜 „%s“ — %s" % [String(npc["name"]), _npc_line(giver, "offer"), title, goal], 5.0)
+			# WOHIN gehoert in denselben Satz wie WAS. Vorher stand hier „8 Gegner erlegen" und
+			# man drehte sich danach in einer 5 km breiten Wueste um sich selbst.
+			var ziel: String = QuestManager.quest_target(qid)
+			var wohin: String = ""
+			if ziel != "" and WorldManager.has_poi(ziel):
+				var d: int = roundi(_player.position.distance_to(
+					WorldManager.poi_scene_position(ziel)))
+				wohin = "\n🧭 %s — %d m. Der Spur folgen." % [String(WorldManager.poi(ziel)["name"]), d]
+			_say("%s: %s\n📜 „%s“ — %s%s" % [String(npc["name"]), _npc_line(giver, "offer"),
+				title, goal, wohin], 5.5)
 		else:
 			_say("🔒 „%s“ ist noch nicht verfügbar." % title, 2.5)
 	elif QuestManager.is_quest_complete(qid):
@@ -1597,16 +1610,180 @@ func _npc_line(giver: String, kind: String) -> String:
 	return "„…“"
 
 
-## Zeile für den HUD-Quest-Tracker: die erste aktive Quest mit Fortschritt.
+# ── Die Fußspur: der Wegweiser am Boden ───────────────────────────────────────
+## Diablo löst die Frage „wohin jetzt?" mit zwei Mitteln, und wir übernehmen beide: eine Marke
+## auf der Karte und eine leuchtende Spur am Boden. Die Marke beantwortet die Frage, wenn man
+## die Karte aufmacht — die Spur beantwortet sie, ohne dass man sie aufmacht. Das ist der
+## eigentliche Gewinn: Man läuft und wird geführt, statt zu laufen und nachzusehen.
+##
+## Bewusst KEINE Wegfindung. Die Welt ist offen, es gibt zwischen zwei Orten keine Hindernisse
+## außer dem Strahlensumpf — und den umgeht `WorldManager.swamp_detour()`. Ein A* über 5 km
+## Wüste wäre viel Maschinerie für eine gerade Linie.
+##
+## Die Spur läuft dem Spieler VORAUS und endet nach 30 m. Eine Spur bis zum Ziel wäre bei 1200 m
+## Entfernung ein leuchtender Strich durch die halbe Welt — und würde die Reise erzählen, statt
+## sie stattfinden zu lassen.
+const TRAIL_STEPS: int = 14        # Anzahl Abdrücke
+const TRAIL_SPACING_M: float = 2.1 # Abstand von Abdruck zu Abdruck
+const TRAIL_START_M: float = 2.6   # der erste liegt VOR der Figur, nicht unter ihr
+const TRAIL_SIDE_M: float = 0.34   # links/rechts versetzt — sonst ist es eine Linie, kein Gang
+## Näher als das ist man da; dann verschwindet die Spur. Ein Wegweiser, der noch zeigt, wenn man
+## schon steht, sieht aus wie ein Fehler.
+const TRAIL_ARRIVED_M: float = 14.0
+var _trail: Array = []             # MeshInstance3D je Abdruck
+var _trail_mats: Array = []        # je Abdruck ein eigenes Material (für die Laufwelle)
+var _trail_t: float = 0.0
+
+
+func _build_trail() -> void:
+	# Ein Abdruck ist ein Viereck, kein Modell: 2 Dreiecke gegen ein Netz mit Textur. Bei
+	# vierzehn Stück, die jeden Frame umgesetzt werden, zählt das.
+	for i in TRAIL_STEPS:
+		var mi := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(0.46, 0.88)
+		mi.mesh = q
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(1.0, 0.86, 0.34, 0.75)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.emission_enabled = true
+		m.emission = Color(1.0, 0.80, 0.25)
+		m.emission_energy_multiplier = 1.2
+		# Nicht in den Tiefenpuffer schreiben: Der Abdruck liegt 6 cm über dem Sand und würde
+		# sonst mit ihm um jedes Pixel streiten (Z-Fighting), sobald das Gelände ansteigt.
+		m.no_depth_test = false
+		m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		# Beidseitig. Ein waagerechtes Viereck, dessen Normale versehentlich nach unten zeigt,
+		# ist unsichtbar — genau dieser Fehler hat schon einmal den ganzen Weltboden ins
+		# Umgebungslicht gelegt. Bei vierzehn Vierecken kostet doppelseitig nichts.
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.rotation.x = -PI * 0.5    # flach auf den Boden legen
+		mi.visible = false
+		mi.name = "trail_%d" % i
+		add_child(mi)
+		_trail.append(mi)
+		_trail_mats.append(m)
+
+
+## Wohin zeigt die Spur gerade? (Szenenposition; `Vector3.INF` = nirgendwohin.)
+##
+## Zwischenziel vor Endziel: Liegt der Sumpf im Weg, führt die Spur erst um ihn herum. Sonst
+## zöge das Spiel eine leuchtende Linie mitten durch die Todeszone — und der Spieler folgte ihr,
+## weil das Spiel sie gezeichnet hat.
+func _trail_goal() -> Vector3:
+	var qid: String = QuestManager.tracked_quest()
+	if qid == "":
+		return Vector3.INF
+	var ziel: String = QuestManager.quest_target(qid)
+	if ziel == "" or not WorldManager.has_poi(ziel):
+		return Vector3.INF
+	var hier: Vector2 = WorldManager.scene_to_world(_player.position)
+	var dort: Vector2 = WorldManager.poi_position(ziel)
+	var umweg: Vector2 = WorldManager.swamp_detour(hier, dort)
+	if umweg != Vector2.INF:
+		return WorldManager.world_to_scene(umweg)
+	return WorldManager.poi_scene_position(ziel)
+
+
+## Hoehe, auf der ein FLACHER Marker liegen muss, damit man ihn sieht.
+##
+## `height_at` allein reicht nicht: In Rustwater liegt ueber dem Gelaende noch die Stadtscheibe
+## (Oberkante `TOWN_GROUND_TOP`). Genau daran ist die Fussspur beim ersten Versuch gescheitert —
+## vierzehn Abdruecke, alle korrekt gesetzt, alle `visible`, und im Bild nichts: Sie lagen bei
+## 0,06 und damit zwei Zentimeter UNTER dem Stadtboden. Vom Rechnen an den Zahlen war das nicht
+## zu sehen; erst ein Wuerfel an derselben Stelle, der brav erschien, hat es verraten.
+const DECAL_LIFT_M: float = 0.06
+func _decal_height(x: float, z: float) -> float:
+	var boden: float = WorldManager.height_at(x, z)
+	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
+	if Vector2(x - stadt.x, z - stadt.z).length() <= TOWN_GROUND_R:
+		boden = maxf(boden, TOWN_GROUND_TOP)
+	return boden + DECAL_LIFT_M
+
+
+func _process_trail(delta: float) -> void:
+	if _trail.is_empty() or _player == null:
+		return
+	_trail_t += delta
+	var ziel: Vector3 = _trail_goal()
+	var sichtbar: bool = ziel != Vector3.INF and not _overlay_open()
+	if sichtbar:
+		var flach := Vector3(ziel.x - _player.position.x, 0.0, ziel.z - _player.position.z)
+		if flach.length() < TRAIL_ARRIVED_M:
+			sichtbar = false
+		else:
+			var dir: Vector3 = flach.normalized()
+			var quer := Vector3(-dir.z, 0.0, dir.x)
+			for i in _trail.size():
+				var mi: MeshInstance3D = _trail[i]
+				var weit: float = TRAIL_START_M + float(i) * TRAIL_SPACING_M
+				var seite: float = TRAIL_SIDE_M * (1.0 if i % 2 == 0 else -1.0)
+				var p: Vector3 = _player.position + dir * weit + quer * seite
+				mi.position = Vector3(p.x, _decal_height(p.x, p.z), p.z)
+				# Der Abdruck liegt flach; gedreht wird um die Hochachse in Laufrichtung.
+				mi.rotation = Vector3(-PI * 0.5, atan2(dir.x, dir.z), 0.0)
+				# Laufwelle: Die Helligkeit wandert vom Spieler weg. Statische Punkte lesen sich
+				# als Markierung, wandernde als Richtung — es ist derselbe Unterschied wie
+				# zwischen einem Pfeil und einem Blinker.
+				var phase: float = fposmod(_trail_t * 1.6 - float(i) * 0.16, 1.0)
+				var hell: float = 0.30 + 0.65 * (1.0 - phase)
+				# Ausblenden nach hinten: Die letzten Abdrücke sollen verlaufen, nicht abbrechen.
+				var rand: float = 1.0 - smoothstep(0.55, 1.0, float(i) / float(TRAIL_STEPS - 1))
+				var m: StandardMaterial3D = _trail_mats[i]
+				m.albedo_color = Color(1.0, 0.86, 0.34, hell * rand * 0.85)
+				m.emission_energy_multiplier = 0.5 + hell * 1.3
+	for mi2 in _trail:
+		(mi2 as MeshInstance3D).visible = sichtbar
+
+
+## Nächsten laufenden Auftrag verfolgen. Absichtlich auch bei offenem Overlay erlaubt: Man
+## schaut auf die Karte, sieht zwei Marken und will umschalten, ohne sie zuzumachen.
+func _cycle_tracked_quest() -> void:
+	var laufend: Array = QuestManager.active_quests()
+	if laufend.is_empty():
+		_say("📜 Kein laufender Auftrag. Sprich in Rustwater mit Mabel, Silas oder Doc.", 3.0)
+		return
+	if laufend.size() == 1:
+		_say("📜 Nur ein Auftrag läuft: „%s“"
+			% String(QuestManager.QUESTS[QuestManager.tracked_quest()]["title"]), 2.5)
+		return
+	var neu_id: String = QuestManager.track_next()
+	if neu_id == "":
+		return
+	var ziel: String = QuestManager.quest_target(neu_id)
+	var wohin: String = String(WorldManager.poi(ziel)["name"]) if ziel != "" else "—"
+	_say("🧭 Verfolgt: „%s“ → %s" % [String(QuestManager.QUESTS[neu_id]["title"]), wohin], 3.0)
+
+
+## Zeile für den HUD-Quest-Tracker: der VERFOLGTE Auftrag mit Fortschritt und Wegangabe.
+##
+## Vorher stand hier nur „Kopfgeld: Wegelagerer 3/8". Das sagt, WAS zu tun ist, und verschweigt
+## das Einzige, was man in einer 5 km breiten Wüste wirklich braucht: wo. Jetzt steht der Ort
+## und die Entfernung daneben — dieselbe Information, die auch die Marke auf der Karte und die
+## Fußspur am Boden tragen, nur in Worten.
 func _active_quest_line() -> String:
-	for qid in QuestManager.QUESTS.keys():
-		if QuestManager.get_quest_state(String(qid)) != QuestManager.STATE_ACTIVE:
-			continue
-		var def: Dictionary = QuestManager.QUESTS[qid]
-		var p: Dictionary = QuestManager.check_quest_progress(String(qid))
-		var mark: String = "✔" if bool(p["complete"]) else "▸"
-		return "%s %s  %d/%d" % [mark, String(def["title"]), int(p["current"]), int(p["target"])]
-	return ""
+	var qid: String = QuestManager.tracked_quest()
+	if qid == "":
+		return ""
+	var def: Dictionary = QuestManager.QUESTS[qid]
+	var p: Dictionary = QuestManager.check_quest_progress(qid)
+	var fertig: bool = bool(p["complete"])
+	var zeile: String = "%s %s  %d/%d" % ["✔" if fertig else "▸", String(def["title"]),
+		int(p["current"]), int(p["target"])]
+	var ziel: String = QuestManager.quest_target(qid)
+	if ziel != "" and WorldManager.has_poi(ziel):
+		var d: int = roundi(_player.position.distance_to(WorldManager.poi_scene_position(ziel)))
+		# „abgeben bei" statt „nach", sobald das Ziel erfüllt ist: Der Ort ist derselbe Kasten
+		# im HUD, aber die Aufgabe ist eine andere.
+		zeile += "   %s %s (%d m)" % ["💰 abgeben bei" if fertig else "🧭 nach",
+			String(WorldManager.poi(ziel)["name"]), d]
+	var laufend: int = QuestManager.active_quests().size()
+	if laufend > 1:
+		zeile += "   [Q] wechseln (%d)" % laufend
+	return zeile
 
 
 func _scatter_decor() -> void:
@@ -2658,6 +2835,8 @@ func _input(event: InputEvent) -> void:
 				_close_world_map()
 			else:
 				_open_world_map()
+		elif event.keycode == KEY_Q:
+			_cycle_tracked_quest()
 		elif _overlay_open():
 			pass   # bei offenem Overlay schluckt es die restlichen Tasten
 		elif event.keycode == KEY_TAB:
@@ -2834,6 +3013,7 @@ func _process(delta: float) -> void:
 	_process_zone_title(delta)
 	_process_fog(delta)
 	_process_interactions(delta)
+	_process_trail(delta)
 	_process_autosave(delta)
 	_update_hud()
 

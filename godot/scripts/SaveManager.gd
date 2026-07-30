@@ -35,6 +35,7 @@ static func serialize() -> Dictionary:
 		"economy": GameState.economy.duplicate(true),
 		"kills": GameState.kills,
 		"quests": GameState.quests.duplicate(true),
+		"tracked_quest": GameState.tracked_quest,
 		"quest_base": GameState.quest_base.duplicate(true),
 		"memories_found": GameState.memories_found,
 		"memorials_seen": GameState.memorials_seen.duplicate(),
@@ -82,6 +83,7 @@ static func deserialize(data: Dictionary) -> void:
 	GameState.economy = _int_dict_with_defaults(data.get("economy", {}), { "saloon": 0, "forge": 0, "distillery": 0, "laboratory": 0 })
 	GameState.kills = maxi(0, int(data.get("kills", 0)))
 	GameState.quests = (data.get("quests", {}) as Dictionary).duplicate(true)
+	GameState.tracked_quest = String(data.get("tracked_quest", ""))
 	GameState.quest_base = _int_dict(data.get("quest_base", {}))
 	GameState.memories_found = clampi(int(data.get("memories_found", 0)), 0, MemoryManager.chain_length())
 	GameState.memorials_seen = _str_array(data.get("memorials_seen", []))
