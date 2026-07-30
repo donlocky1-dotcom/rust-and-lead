@@ -85,6 +85,7 @@ func _ready() -> void:
 	# Die beiden neuen Gegner: nebeneinander, aus Spielerhoehe.
 	var buehne: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(0.0, 0.0, 60.0)
 	_views.append(["gegner_neu", null, "gegner"])
+	_views.append(["blickrichtung", null, "blick"])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -119,6 +120,29 @@ func _setup_ui(art: String) -> void:
 		var dir: Vector3 = (ziel - ow._player.position).normalized()
 		_cam.position = ow._player.position - dir * 12.0 + Vector3(0.0, 9.0, 0.0)
 		_cam.look_at(ow._player.position + dir * 20.0, Vector3.UP)
+		_cam.current = true
+	elif art == "blick":
+		# Blickrichtungspruefung: alle Figuren UNGEDREHT nebeneinander, Kamera auf +Z.
+		# Wer sein Gesicht zeigt, schaut nach +Z und braucht die 180°-Korrektur, denn Godot
+		# laeuft nach −Z. Wer den Ruecken zeigt, sitzt richtig.
+		ow._end_cine()
+		ow._close_character()
+		var b3: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(0.0, 0.0, 90.0)
+		var reihe: Array = ["enemy_outlaw", "enemy_revolver", "enemy_fauna", "enemy_konstrukt",
+			"player", "npc_mabel"]
+		for j in reihe.size():
+			var kind2: String = String(reihe[j])
+			var n2: Node3D = AssetRegistry.instantiate(kind2, AssetRegistry.height_of(kind2))
+			if n2 == null:
+				continue
+			ow.add_child(n2)
+			n2.position = b3 + Vector3(float(j) * 2.2 - 5.5, 0.0, 0.0)
+			# MIT der eingetragenen Korrektur: Wer jetzt den Ruecken zeigt, laeuft richtig
+			# herum. (Zum Nachmessen eines NEUEN Modells hier die Drehung der Kinder auf 0
+			# setzen — dann sieht man den rohen Zustand.)
+			ow._label(n2.position + Vector3(0.0, 2.4, 0.0), kind2, Color(1, 1, 0.5), 60, 90.0)
+		_cam.position = b3 + Vector3(0.0, 1.7, 7.0)
+		_cam.look_at(b3 + Vector3(0.0, 1.0, 0.0), Vector3.UP)
 		_cam.current = true
 	elif art == "gegner":
 		ow._end_cine()

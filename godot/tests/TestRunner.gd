@@ -1923,6 +1923,30 @@ func _test_swamp() -> void:
 ## wenn man davorsteht — hier faellt er sofort auf.
 func _test_props() -> void:
 	print("· Requisiten (Maszstab & Streuung)")
+	# ── Blickrichtung: jede Figur braucht eine ENTSCHEIDUNG ───────────────────
+	# Godot laeuft nach −Z, die zugekauften Modelle schauen nach +Z. Ohne Korrektur laeuft eine
+	# Figur rueckwaerts. Bei Grenzgaenger und Revolverheld faellt das sofort auf; bei der
+	# Oelfresser-Ratte und dem Konzern-Konstrukt ist es monatelang niemandem aufgefallen, weil
+	# man einem Vierbeiner und einer Kettenkiste die Vorderseite nicht ansieht.
+	#
+	# Geprueft wird deshalb nicht der WERT (den kann kein Test kennen — dafuer muss man das
+	# Modell rendern), sondern dass ueberhaupt einer eingetragen ist. Die stille 0 als Vorgabe
+	# ist keine Entscheidung, sondern eine vergessene.
+	var ohne_blick: Array = []
+	for name in AssetRegistry.PATHS.keys():
+		var n: String = String(name)
+		var figur: bool = n.begins_with("enemy_") or n.begins_with("npc_") \
+			or n == "player" or n == "companion_dog"
+		if figur and AssetRegistry.has_model(n) and not AssetRegistry.YAW_DEG.has(n):
+			ohne_blick.append(n)
+	_check("Jede vorhandene Figur hat eine eingetragene Blickrichtung",
+		ohne_blick.is_empty(), "fehlt bei: %s" % str(ohne_blick))
+	# Und die vier Gegner, die gemessen wurden, drehen sich auch wirklich.
+	for gegner in ["enemy_outlaw", "enemy_revolver", "enemy_fauna", "enemy_konstrukt"]:
+		if not AssetRegistry.has_model(String(gegner)):
+			continue
+		_check("%s ist auf Godots Laufrichtung gedreht" % gegner,
+			is_equal_approx(float(AssetRegistry.YAW_DEG.get(String(gegner), 0.0)), 180.0))
 	# Die drei Sumpf-Requisiten: Sie teilen sich einen Streudurchgang, also muessen ihre Masze
 	# zueinander passen. Ein Fass so hoch wie ein Baum waere im Bild kein Fass mehr.
 	_check("Der Moorbaum ueberragt den Spieler deutlich (%.1f m)"

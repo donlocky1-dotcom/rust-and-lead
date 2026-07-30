@@ -177,6 +177,18 @@ const YAW_DEG: Dictionary = {
 	# Dieselbe Herkunft, dasselbe Rig, dieselbe Blickrichtung — die NPCs schauten sonst
 	# von ihrem Platz weg statt auf den Stadtplatz.
 	"npc_mabel": 180.0, "npc_silas": 180.0, "npc_doc": 180.0,
+	# Und ALLE Gegner. Aufgefallen ist es an Grenzgaenger und Revolverheld — zwei Menschen mit
+	# Hut und Gewehr, bei denen man Vorder- und Rueckseite auf den ersten Blick unterscheidet.
+	# Beim Nachmessen (alle Figuren ungedreht nebeneinander, Kamera auf +Z) zeigten aber auch
+	# die Oelfresser-Ratte und das Konzern-Konstrukt ihr Gesicht: Die Ratte hatte die Schnauze
+	# zur Kamera, das Konstrukt seine Optiken und den Schriftzug „GHOST".
+	#
+	# Die beiden liefen also seit jeher rueckwaerts, und niemandem ist es aufgefallen — einem
+	# Vierbeiner und einer Kettenkiste sieht man das nicht an. Genau deshalb steht unten ein
+	# Test, der fuer jede Figur einen EINTRAG verlangt statt sich auf die 0 als Vorgabe zu
+	# verlassen: Die Vorgabe ist eine Entscheidung, die niemand getroffen hat.
+	"enemy_outlaw": 180.0, "enemy_revolver": 180.0,
+	"enemy_fauna": 180.0, "enemy_konstrukt": 180.0,
 	# Gemessen durch Rendern aus vier Richtungen: Bahnsteigdach, Uhr und Tür des Bahnhofs
 	# liegen auf +Z, ebenso die beschriftete Seite des Auftragsbretts und die Trogseite des
 	# Anbindepfostens. Ungedreht stünde der Bahnhof mit dem Rücken zum Gleis und das
