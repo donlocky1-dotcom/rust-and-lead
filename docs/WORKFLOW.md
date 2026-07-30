@@ -60,7 +60,7 @@ Schritt 2 ist der entscheidende — in einer laufenden Sitzung lässt sich die Q
 Ein Fork friert den Stand des Augenblicks ein: Was danach noch ins alte Repo gepusht wird, muss
 nachgezogen werden. Am saubersten also forken und direkt darauf weiterarbeiten.
 
-## Wenn ein Push scheitert## Wenn ein Push scheitert (gilt ab dem Fork)
+## Wenn ein Push scheitert (gilt ab dem Fork)
 
 Meistens, weil Godot lokal Dateien angefasst hat. `.import`-Dateien und `.godot/` sind inzwischen
 aus der Versionsverwaltung genommen, das sollte nicht mehr passieren. Falls doch: **Changes →
