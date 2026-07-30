@@ -77,6 +77,9 @@ func _ready() -> void:
 	_views.append(["quest_spur", null, "quest"])
 	_views.append(["nahaufnahme", null, "nahaufnahme"])
 	_views.append(["quest_umweg", null, "umweg"])
+	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
+	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
+	_views.append(["ort_rattengestruepp", ratten + Vector3(0.0, 12.0, 26.0), ratten])
 	_wait = 60
 
 

@@ -48,6 +48,7 @@ func _ready() -> void:
 	_test_overworld_quest_flow()
 	_test_quest_wayfinding()
 	_test_closeup()
+	_test_poi_walkable()
 	_test_memory_manager()
 	_test_encounter_manager()
 	_test_progression_manager()
@@ -1426,6 +1427,41 @@ func _test_quest_wayfinding() -> void:
 	_check("Auch im Krater folgt er dem Gelaende, nicht der Null-Ebene",
 		ow2._decal_height(WorldManager.poi_scene_position("schrott_minen").x,
 			WorldManager.poi_scene_position("schrott_minen").z) < 0.0)
+	_reset_state()
+
+
+## Orte duerfen nicht zugestellt sein.
+##
+## Regression, und zwar die dritte desselben Fehlers: Auf jedem Ort stand eine 36 m hohe
+## Platzhalter-Saeule mit 6,6 m Sperrradius, GENAU im Mittelpunkt. Erst fiel es auf dem
+## Marktplatz von Rustwater auf, dann im Grund der Schrottgrube, dann im Rattengestruepp — also
+## ausgerechnet dort, wohin die erste Quest schickt. Zweimal wurde die Saeule einzeln
+## ausgenommen; beim dritten Mal ist sie ganz weg. Dieser Test sorgt dafuer, dass sie nicht
+## als vierte Ausnahme wiederkommt.
+func _test_poi_walkable() -> void:
+	print("· Orte sind begehbar")
+	_reset_state()
+	var ow := OverworldView.new()
+	_scratch.append(ow)
+	ow._build_pois()
+	for id in WorldManager.POIS.keys():
+		var name: String = String(WorldManager.POIS[id]["name"])
+		var mitte: Vector3 = WorldManager.poi_scene_position(String(id))
+		if String(id) == "eisernes_herz":
+			# Die Ausnahme mit Ansage: Das Eiserne Herz IST ein Bauwerk, kein Wegweiser.
+			# Ein 120-m-Turm darf sperren — man geht durch die Tuer hinein, nicht durch die Wand.
+			_check("%s sperrt (es ist ein Turm, kein Pfahl)" % name, ow._blocked(mitte))
+			continue
+		_check("%s ist in der Mitte begehbar" % name, not ow._blocked(mitte))
+		# Und im Umkreis, in dem man sich beim Ankommen bewegt.
+		var eng: String = ""
+		for k in 8:
+			var a: float = TAU * float(k) / 8.0
+			if ow._blocked(mitte + Vector3(cos(a) * 7.0, 0.0, sin(a) * 7.0)):
+				eng = "%.0f°" % rad_to_deg(a)
+		_check("%s ist auch ringsum frei" % name, eng == "", "bei %s versperrt" % eng)
+	_check("Ein Ort traegt trotzdem seinen Namen in der Welt",
+		ow.get_children().any(func(c: Node) -> bool: return c is Label3D))
 	_reset_state()
 
 

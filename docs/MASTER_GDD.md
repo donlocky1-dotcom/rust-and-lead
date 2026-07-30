@@ -159,6 +159,15 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   zudreht, und unter dem Filmic-Tonemapping kippt der warme Sand dort ins Rosa — im Bild lag um
   jedes Loch ein blassrosa Ring, der mehr auffiel als das Loch. Ohne ihn liest sich die Mulde
   aus Spielerhöhe sogar besser: vorher ein heller Ring und darin nichts, jetzt Schatten.
+* **Orte sind begehbar, nicht zugestellt.** Auf jedem POI stand eine 36 m hohe
+  Platzhalter-Säule in Vollfarbe mit 6,6 m Sperrradius, genau im Mittelpunkt. Sie hat dieselbe
+  Falle dreimal gestellt — auf dem Marktplatz von Rustwater, im Grund der Schrottgrube und im
+  Rattengestrüpp, also ausgerechnet am Ziel der ersten Quest. Zweimal wurde sie einzeln
+  ausgenommen; beim dritten Mal ist sie ganz weg. Ihr Job (Fernorientierung) ist längst
+  vergeben: Karte, Nebel, Quest-Marke, Fußspur, HUD-Entfernung, Ortseinblendung beim Ankommen.
+  Geblieben ist die schwebende Schrift auf 420 m. **Landmarken macht das Gelände** — Krater,
+  Dünenfeld, Sumpf. Einzige Ausnahme mit Ansage: Das Eiserne Herz ist ein Bauwerk und darf
+  sperren. Ein Test prüft für jeden Ort Mitte und Umkreis.
 * **Kapitel 1 hat neun Aufträge**, drei je Hub-NPC. Nach den ersten drei war Rustwater vorher
   stumm — die nächsten hängen an Kapitel 5 und am Gilden-Reveal, also standen alle drei da und
   hatten nichts zu sagen. `_quest_for_giver` nimmt den ersten nicht erledigten Auftrag, aus der

@@ -921,30 +921,25 @@ func _build_pois() -> void:
 			_solid_box(Vector3(120.0, 420.0, 120.0), pos + Vector3(0.0, 210.0, 0.0), Color(0.15, 0.13, 0.14))
 			_label(pos + Vector3(0.0, 445.0, 0.0), "🖤 " + String(p["name"]), Color(1.0, 0.45, 0.35), 220, 900.0)
 			continue
-		# Wo eine gebaute Stadt steht, ist SIE die Landmarke — eine 36-m-Saeule mitten auf dem
-		# Marktplatz war der letzte Platzhalter innerhalb der Mauern.
-		if String(id) == "rustwater" and ResourceLoader.exists(TOWN_SCENE):
-			_label(pos + Vector3(0.0, 26.0, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
-			continue
-		# Dasselbe gilt fuer geformtes Gelaende: Wo ein Krater liegt, IST er die Landmarke.
-		# Die Saeule stand sonst mitten im Kratergrund und sperrte ihn mit 6,6 m Radius — man
-		# lief die Flanke hinunter und blieb unten stehen.
-		var shaped: Dictionary = _terrain_at_poi(String(id))
-		if not shaped.is_empty():
-			_label(pos + Vector3(0.0, WorldManager.height_at(pos.x, pos.z) + 22.0, 0.0),
-				String(p["name"]), col.lightened(0.35), 130, 420.0)
-			continue
-		var pillar := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 4.0
-		cyl.bottom_radius = 6.0
-		cyl.height = 36.0
-		pillar.mesh = cyl
-		pillar.material_override = _mat(col)
-		pillar.position = pos + Vector3(0.0, 18.0, 0.0)
-		add_child(pillar)
-		_solid_pillar(pos, 6.0)   # die Landmarke steht im Weg — man läuft um sie herum
-		_label(pos + Vector3(0.0, 41.0, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
+		# Ein Ort ist eine SCHRIFT, kein Pfahl.
+		#
+		# Hier stand eine 36 m hohe, 12 m dicke Saeule in Vollfarbe, mit 6,6 m Sperrradius genau
+		# im Mittelpunkt des Ortes. Sie hat dieselbe Falle dreimal gestellt: erst mitten auf dem
+		# Marktplatz von Rustwater, dann im Grund der Schrottgrube (man lief die Flanke hinunter
+		# und blieb unten stehen) — und zuletzt im Rattengestruepp, also ausgerechnet dort, wohin
+		# die erste Quest schickt. Zweimal wurde sie einzeln ausgenommen; beim dritten Mal ist
+		# klar, dass nicht die Ausnahme falsch war, sondern die Saeule.
+		#
+		# Sie war ein Platzhalter fuer Fernorientierung, und der Job ist inzwischen vergeben:
+		# Minikarte und Weltkarte zeigen die Orte, der Nebel deckt auf, was man gesehen hat, die
+		# Quest-Marke zeigt das Ziel, die Fussspur den Weg, das HUD die Entfernung, und beim
+		# Ankommen zieht der Ortsname gross ueber den Bildschirm. Was bleibt, ist die schwebende
+		# Schrift auf 420 m — sie sagt „hier ist etwas", ohne im Weg zu stehen.
+		#
+		# Landmarken macht ab jetzt das Gelaende: Krater, Duenenfeld, Sumpf. Die sieht man von
+		# weitem, sie sperren nichts, und sie sehen nicht aus wie ein Baustellenpoller.
+		var hoch: float = WorldManager.height_at(pos.x, pos.z) + 22.0
+		_label(pos + Vector3(0.0, hoch, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
 
 
 ## Gelaendeform an einem Ort ({} = keine).
