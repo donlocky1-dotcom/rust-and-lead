@@ -16,6 +16,8 @@ class_name InventoryGrid extends Control
 
 signal picked(bag_index: int)
 
+const UiAssets = preload("res://scripts/UiAssets.gd")
+
 ## Zellenkante in Pixeln (bei 1280×720 Bezugsauflösung). 41 statt der ersten 44: Zwölf Zeilen
 ## à 44 + 3 Fuge sind 561 px, und zusammen mit Kopfzeile und Fußzeile der Tafel ragte die
 ## unterste Reihe in die Hinweiszeile. 41 ergibt 525 px und passt.

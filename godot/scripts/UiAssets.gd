@@ -1,5 +1,17 @@
-class_name UiAssets extends RefCounted
+extends RefCounted
 ## Eine Stelle für alle Oberflächen-Grafiken (`assets/ui/*.png`).
+##
+## **Kein `class_name`, sondern `preload` beim Aufrufer.** Godot fuellt seinen Index globaler
+## Klassennamen erst beim Durchsuchen des Projekts — geparst wird aber vorher. Eine frisch
+## dazugekommene `class_name`-Datei ist deshalb genau einmal unbekannt: beim ersten Start nach
+## dem Pull. Beim Auftraggeber sah das so aus:
+##
+##     Parse Error: Identifier "UiAssets" not declared in the current scope.
+##     Failed to load script "res://scripts/OverworldView.gd"
+##
+## Also das ganze Spiel kaputt, bis man von Hand neu lädt. `preload("res://scripts/UiAssets.gd")`
+## löst über den Pfad auf und kennt das Problem nicht. Für eine reine Hilfsklasse ohne eigenen
+## Zustand ist der globale Name ohnehin kein Gewinn.
 ##
 ## Vier Bildschirme brauchen dieselben Bilder — Beutel-Raster und Puppe teilen sich die sechs
 ## Sinnbilder, Sprechtafel und Puppe je einen Rahmen, die Fußspur ihre Sohle. Ohne gemeinsame

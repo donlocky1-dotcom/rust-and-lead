@@ -15,6 +15,8 @@ class_name CharacterScreen extends Control
 
 enum Tab { AUSRUESTUNG, FAEHIGKEITEN }
 
+const PaperDoll = preload("res://scripts/PaperDoll.gd")
+
 ## Zweispaltig, seit der Beutel ein Raster ist: links die getragene Ausrüstung als Puppe, rechts
 ## das Raster. Bei 1280×720 Bezugsauflösung passen 1080 px Tafelbreite bequem.
 const PANEL_W: float = 1080.0

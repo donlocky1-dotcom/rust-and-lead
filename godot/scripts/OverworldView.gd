@@ -91,6 +91,10 @@ const STARTER_TANKS: int = 3
 ## Reiseziele (Tasten 1–5) sind exakt die Bahnhöfe — eine Liste, keine zweite Wahrheit.
 const FAST_TRAVEL: Array = WorldManager.RAIL_STATIONS
 
+const UiAssets = preload("res://scripts/UiAssets.gd")
+
+const DialogBox = preload("res://scripts/DialogBox.gd")
+
 # ── NPCs & Quests: der QuestManager ist seit Phase 2 fertig, hier zum ersten Mal
 # an die sichtbare Welt angeschlossen. Auftraggeber stehen bei ihren Gebäuden. ──
 const NPC_INTERACT_M: float = 4.5

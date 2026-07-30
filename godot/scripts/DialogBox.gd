@@ -1,4 +1,4 @@
-class_name DialogBox extends Control
+extends Control
 ## Die Sprechtafel — was ein NPC sagt, steht unten im Bild und nicht in einer Blase.
 ##
 ## Vorher lief jedes Gespräch über `_say()`, also über dieselbe Einblendung, die auch „Beutel
@@ -23,6 +23,8 @@ class_name DialogBox extends Control
 ## dass sich am Rest etwas ändert.
 
 signal dismissed
+
+const UiAssets = preload("res://scripts/UiAssets.gd")
 
 ## Maße bei 1280×720 Bezugsauflösung.
 const MARGIN: float = 22.0        # Abstand zum Bildrand

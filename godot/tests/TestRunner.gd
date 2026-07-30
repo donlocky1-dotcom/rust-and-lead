@@ -1,4 +1,7 @@
 extends Node
+
+const DialogBox = preload("res://scripts/DialogBox.gd")
+const PaperDoll = preload("res://scripts/PaperDoll.gd")
 ## TestRunner — abhängigkeitsfreie headless Test-Suite für das gesamte Backend.
 ##
 ## Ausführen (kein GUT-Addon nötig):  godot --headless --path godot

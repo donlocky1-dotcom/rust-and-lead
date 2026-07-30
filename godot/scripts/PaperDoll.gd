@@ -1,4 +1,4 @@
-class_name PaperDoll extends Control
+extends Control
 ## Die Puppe — getragene Ausrüstung als Figur statt als Liste (GDD §7.4).
 ##
 ## Bis hierher stand links im Charakter-Bildschirm eine Textliste: „Helm — leer", „Rüstung —
@@ -18,6 +18,8 @@ class_name PaperDoll extends Control
 ## getroffen wurde.
 
 signal picked(slot: String)
+
+const UiAssets = preload("res://scripts/UiAssets.gd")
 
 const W: float = 430.0
 const H: float = 436.0
