@@ -1465,6 +1465,40 @@ func _test_dialog() -> void:
 	_check("Ein Tipp daneben nicht", not d.hits(d.global_position - Vector2(10.0, 10.0)))
 	d.hide_box()
 	_check("Nach dem Schliessen ist sie weg", not d.visible)
+	# ── Gelieferte Grafiken ───────────────────────────────────────────────────
+	# Bildgeneratoren legen das Motiv gern als kleineres Quadrat mitten auf eine transparente
+	# Flaeche. Stur ins Feld gezeichnet waere das Gesicht entsprechend kleiner, mit einem Rand
+	# aus Nichts. Hier ein Bildnis mit einem Achtel Luft ringsum — der bemalte Teil muss
+	# gefunden werden.
+	var bild := Image.create(256, 256, false, Image.FORMAT_RGBA8)
+	bild.fill(Color(0, 0, 0, 0))
+	bild.fill_rect(Rect2i(32, 32, 192, 192), Color(0.2, 0.2, 0.2, 1.0))
+	d._set_portrait(ImageTexture.create_from_image(bild))
+	_check("Der bemalte Teil eines Bildnisses wird gefunden (%s)" % d._portrait_region,
+		d._portrait_region.position.x >= 30.0 and d._portrait_region.position.y >= 30.0
+			and d._portrait_region.size.x <= 194.0 and d._portrait_region.size.y <= 194.0)
+	var voll := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	voll.fill(Color(0.3, 0.2, 0.1, 1.0))
+	d._set_portrait(ImageTexture.create_from_image(voll))
+	_check("Ein randloses Bildnis wird ganz genommen",
+		is_equal_approx(d._portrait_region.size.x, 64.0))
+	d._set_portrait(null)
+	_check("Ohne Bildnis bleibt der Ausschnitt leer", d._portrait_region.size.x == 0.0)
+	# Der Tafelrahmen wird als 9-Patch gesetzt: Sonst werden die Nieten in den Ecken zu Ovalen,
+	# sobald die Tafel mit dem Text waechst.
+	var rahmen := Image.create(400, 100, false, Image.FORMAT_RGBA8)
+	rahmen.fill(Color(0.4, 0.3, 0.2, 1.0))
+	d.set_frame(ImageTexture.create_from_image(rahmen))
+	_check("Mit Grafik entsteht ein NinePatch", d._patch != null and d._patch.visible)
+	_check("Seine Raender folgen der Bildhoehe (%d px bei 100 px Hoehe)" % d._patch.patch_margin_top,
+		d._patch.patch_margin_top == int(round(100.0 * DialogBox.FRAME_BORDER_RATIO)))
+	_check("Alle vier Raender sind gleich",
+		d._patch.patch_margin_left == d._patch.patch_margin_top
+			and d._patch.patch_margin_right == d._patch.patch_margin_bottom
+			and d._patch.patch_margin_left == d._patch.patch_margin_bottom)
+	d.set_frame(null)
+	_check("Ohne Grafik zeichnet die Tafel wieder selbst",
+		d._patch == null or not d._patch.visible)
 	# ── Zueinanderdrehen ──────────────────────────────────────────────────────
 	# Nach Osten schauen heisst in Godot: rotation.y so, dass −z auf +x zeigt.
 	var ost: float = OverworldView._yaw_towards(Vector3.ZERO, Vector3(10.0, 0.0, 0.0))

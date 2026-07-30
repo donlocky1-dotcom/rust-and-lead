@@ -8,6 +8,26 @@ aufhören.
 **Ablage:** alles nach `godot/assets/ui/`, exakt unter dem angegebenen Dateinamen, PNG mit
 Alphakanal.
 
+> **Wichtig beim Schicken:** Die Bilder müssen als **Datei** in den Chat, nicht als Bild in den
+> Nachrichtentext eingefügt. Eingefügte Bilder kann ich ansehen, aber nicht speichern — sie
+> liegen nirgends auf der Platte, und ich kann sie nicht ins Repo legen. Ziehe die PNG-Dateien
+> also genauso in den Chat wie die 7z-Teile der 3D-Modelle.
+
+## Drei Dinge, die Gemini zuverlässig falsch macht
+
+Nach dem ersten Satz Bildnisse — alle drei gut getroffen, alle drei mit denselben drei Macken:
+
+1. **Das Wasserzeichen.** Gemini setzt ein kleines Funkel-Zeichen (✦) in eine Ecke. Auf einem
+   Bildnis ist das ein weißer Fleck im Spiel. Vor dem Schicken wegstempeln oder das Bild so
+   beschneiden, dass die Ecke wegfällt.
+2. **Der eingebaute Rahmen.** Ein Bildnis kam mit einem gemalten Rahmen ringsum. Den Rahmen
+   liefert `portrait_frame.png` und legt ihn selbst darüber — ein zweiter im Bild ergibt einen
+   doppelten. In den Prompt gehört deshalb: *no frame, no border, no passe-partout, the
+   illustration bleeds to all four edges of the square.*
+3. **Luft ringsum.** Das Motiv liegt oft als kleineres Quadrat auf einer größeren transparenten
+   Fläche. **Das ist inzwischen egal** — die Sprechtafel sucht sich seit dieser Fassung den
+   wirklich bemalten Teil selbst (`Image.get_used_rect`). Du musst also nicht zuschneiden.
+
 ---
 
 ## Der gemeinsame Stilsatz
@@ -65,9 +85,13 @@ rim light from the upper left, painted illustration in the style of a Diablo cha
 uneven edges, a thin tarnished brass inlay line running just inside the iron border, four heavy
 rivets in the corners. The paper area is flat and empty — it must stay readable under dark text.*
 
-**Achtung 9-Patch:** Die äußeren **24 px** an allen vier Seiten müssen den Rahmen enthalten, die
-Mitte muss ruhig und annähernd einfarbig bleiben. Godot streckt die Mitte; liegt dort ein Motiv,
-verzerrt es.
+**Achtung 9-Patch:** Das Rahmenband inklusive Eck-Nieten muss innerhalb der äußeren **12 % der
+Bildhöhe** liegen — bei 470 px Höhe also rund 56 px. Genau diesen Anteil nimmt die Oberfläche als
+Schnittkante (`DialogBox.FRAME_BORDER_RATIO`). Die Mitte muss ruhig und annähernd einfarbig
+bleiben: Sie wird gestreckt, und ein Motiv darin verzerrt.
+
+Die Tafel ist im Spiel 1236 px breit und je nach Textlänge 138 bis 268 px hoch — das
+Seitenverhältnis der Grafik ist deshalb **egal**, gestreckt wird nur die Mitte.
 
 ### 1.3 Rahmen des Bildnisses — `portrait_frame.png`
 

@@ -45,8 +45,19 @@ const INK: Color = Color(0.16, 0.13, 0.10)
 var speaker: String = ""
 var line: String = ""
 
+## Anteil der Bildhöhe, den das Rahmenband der Tafelgrafik einnimmt — die 9-Patch-Ränder.
+##
+## Warum überhaupt 9-Patch: Die Tafel ist im Spiel rund 1236 px breit und je nach Text 138 bis
+## 268 px hoch, die gelieferte Grafik hat ein festes Seitenverhältnis. Einfach gestreckt würden
+## die Nieten in den Ecken zu Ovalen und das Rahmenband oben und unten verschieden dick. Beim
+## 9-Patch bleiben die vier Ecken unangetastet, gestreckt wird nur die Mitte.
+const FRAME_BORDER_RATIO: float = 0.12
+
 var _portrait: Texture2D = null
+var _portrait_region: Rect2 = Rect2()   # der wirklich bemalte Teil, siehe `_set_portrait`
+var _portrait_frame: Texture2D = null
 var _frame: Texture2D = null
+var _patch: NinePatchRect = null
 var _label: Label
 var _blink: float = 0.0
 
@@ -75,7 +86,12 @@ func _init() -> void:
 	_label.add_theme_font_size_override("font_size", 16)
 	_label.add_theme_color_override("font_color", INK)
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Der Rahmen liegt UNTER dem Text. Als eigener Knoten und nicht in `_draw`, weil ein
+	# `NinePatchRect` das Zerlegen in neun Kacheln von sich aus kann — von Hand waeren es
+	# neun `draw_texture_rect_region`-Aufrufe mit vier Randbreiten.
+	set_frame(_load_ui("dialog_frame"))
 	add_child(_label)
+	_portrait_frame = _load_ui("portrait_frame")
 	resized.connect(_layout)
 	_layout()
 
@@ -94,7 +110,7 @@ func show_line(name_text: String, body: String, giver: String = "") -> void:
 	speaker = name_text
 	line = body
 	_label.text = body
-	_portrait = _load_ui("portrait_" + giver) if giver != "" else null
+	_set_portrait(_load_ui("portrait_" + giver) if giver != "" else null)
 	offset_top = -(_needed_height(body) + MARGIN)
 	visible = true
 	_blink = 0.0
@@ -151,7 +167,47 @@ static func _load_ui(basename: String) -> Texture2D:
 
 func set_frame(tex: Texture2D) -> void:
 	_frame = tex
+	if tex == null:
+		if _patch != null:
+			_patch.visible = false
+		queue_redraw()
+		return
+	if _patch == null:
+		_patch = NinePatchRect.new()
+		_patch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_patch)
+		move_child(_patch, 0)     # ganz nach hinten, unter Text und Bildnis
+	_patch.visible = true
+	_patch.texture = tex
+	_patch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var rand: int = maxi(2, int(round(float(tex.get_height()) * FRAME_BORDER_RATIO)))
+	_patch.patch_margin_left = rand
+	_patch.patch_margin_right = rand
+	_patch.patch_margin_top = rand
+	_patch.patch_margin_bottom = rand
 	queue_redraw()
+
+
+## Bildnis setzen und dabei den WIRKLICH BEMALTEN Teil bestimmen.
+##
+## Bildgeneratoren liefern das Motiv gern als Quadrat mitten auf einer groesseren, transparenten
+## Flaeche — bei den ersten Bildnissen war rund ein Achtel des Bildes ringsum leer. Stur in das
+## Feld gezeichnet, waere das Gesicht entsprechend kleiner und haette einen Rand aus Nichts.
+##
+## `Image.get_used_rect()` liefert genau den Ausschnitt, der nicht durchsichtig ist. Damit passt
+## jedes Bildnis in sein Feld, egal wie viel Luft drumherum liegt — und niemand muss vorher
+## zuschneiden.
+func _set_portrait(tex: Texture2D) -> void:
+	_portrait = tex
+	_portrait_region = Rect2()
+	if tex == null:
+		return
+	var bild: Image = tex.get_image()
+	if bild == null:
+		return
+	var benutzt: Rect2i = bild.get_used_rect()
+	if benutzt.size.x > 0 and benutzt.size.y > 0:
+		_portrait_region = Rect2(benutzt)
 
 
 func _process(delta: float) -> void:
@@ -163,10 +219,8 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var r := Rect2(Vector2.ZERO, size)
-	if _frame != null:
-		draw_texture_rect(_frame, r, false)
-	else:
-		_draw_frame(r)
+	if _frame == null:
+		_draw_frame(r)   # ohne Grafik zeichnet die Tafel sich selbst
 	_draw_portrait(Rect2(Vector2(PAD, PAD), Vector2(PORTRAIT, PORTRAIT)))
 	var schrift: Font = ThemeDB.fallback_font
 	if schrift == null:
@@ -214,9 +268,13 @@ func _draw_frame(r: Rect2) -> void:
 ## Das Bildnis. Ohne Datei ein dunkles Feld mit dem Anfangsbuchstaben — lesbar, ruhig, und
 ## unverwechselbar genug, dass man Mabel von Silas unterscheidet.
 func _draw_portrait(r: Rect2) -> void:
-	draw_rect(r.grow(2.0), IRON)
+	if _portrait_frame == null:
+		draw_rect(r.grow(2.0), IRON)   # ohne Rahmengrafik eine schlichte Eisenkante
 	if _portrait != null:
-		draw_texture_rect(_portrait, r, false)
+		if _portrait_region.size.x > 0.0:
+			draw_texture_rect_region(_portrait, r, _portrait_region)
+		else:
+			draw_texture_rect(_portrait, r, false)
 	else:
 		draw_rect(r, Color(0.17, 0.15, 0.14))
 		var schrift: Font = ThemeDB.fallback_font
@@ -225,4 +283,10 @@ func _draw_portrait(r: Rect2) -> void:
 			var m: Vector2 = schrift.get_string_size(z, HORIZONTAL_ALIGNMENT_LEFT, -1, 54)
 			draw_string(schrift, r.position + (r.size - m) * 0.5 + Vector2(0.0, m.y * 0.78),
 				z, HORIZONTAL_ALIGNMENT_LEFT, -1, 54, Color(0.62, 0.54, 0.38))
-	draw_rect(r, Color(BRASS.r, BRASS.g, BRASS.b, 0.7), false, 1.5)
+	if _portrait_frame != null:
+		# Der Rahmen liegt UEBER dem Bildnis und ragt bewusst darueber hinaus: Seine Mitte ist
+		# durchsichtig, sein Band deckt die Kante des Bildnisses ab. Ohne den Ueberstand blitzt
+		# zwischen Bild und Rahmen eine Fuge durch.
+		draw_texture_rect(_portrait_frame, r.grow(r.size.x * 0.11), false)
+	else:
+		draw_rect(r, Color(BRASS.r, BRASS.g, BRASS.b, 0.7), false, 1.5)
