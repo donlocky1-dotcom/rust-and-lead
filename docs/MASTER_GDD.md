@@ -139,13 +139,22 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   nicht Deko — die Wüste war eine Tischplatte, auf der sich beim Laufen nichts am Horizont
   bewegt. Über einen Kamm zu steigen und das nächste Tal zu sehen, gibt der Strecke einen
   Puls, und das kostet nichts außer der Formel.
-* **Der Strahlensumpf** (Gate 0, Sektor 1, y 520–640) — ein verstrahltes Moor quer über die
-  Karte, nördlich hinter den Schrott-Minen. Der ERSTE Riegel des Spiels und der einzige, der
-  vor Kapitel 4 greift: Er zieht die Startwelt auf Rustwater, die Grube und den Weg dazwischen
-  zusammen. Ohne Schutzanzug (Alchemie-Labor Stufe 1) tödlich in sechs Sekunden, mit Anzug nur
-  noch Gelände. Der Schaden wächst weich von den Rändern zur Mitte — die Grenze ist eine
+* **Der Strahlensumpf** (Gate 0, Sektor 1) — ein verstrahltes Moor **800 m nördlich von
+  Rustwater**, 2,5 km breit und 500 m tief (Weltkoordinaten x 0–1000, y 520–720). Ohne
+  Schutzanzug (Alchemie-Labor Stufe 1) tödlich in sechs Sekunden, mit Anzug nur noch Gelände.
+  Der Schaden wächst weich über 85 m von jedem Rand nach innen — die Grenze ist eine
   Entscheidung, keine Wand: Man kann hineinlaufen, sieht was dahinter liegt, und stirbt.
   Optisch: grüner Schleier über dem Sand, leuchtende Pfützen, kahle Moorbäume.
+  **Er ist ein Fleck, kein Band.** Anfangs lief er über die ganze Kartenbreite und riegelte den
+  Norden im Alleingang ab; das war ein gezeichneter Strich statt einer Landschaft und nahm die
+  Freiheit, den Spieler links und rechts davon anders zu bremsen. Was neben ihm den Weg
+  versperrt, bleibt bewusst offen und wird getrennt entschieden. Seine Mitte liegt bei y 620
+  und nicht bei 700 (dem exakten Kilometer), weil sonst das **Zugdepot** (450/750) mitten in
+  der Todeszone stünde — samt Bossarena und Schnellreiseziel.
+  Im Sumpf liegen **neun kleine Einschlagkrater** (Radius 10–14 m, 2,6–3,8 m tief): dieselbe
+  Bauart wie die Schrottgrube, ein Drittel so groß — steile Wand, flacher Grund, ein offener
+  Sektor als Ausgang, und abseits davon am tiefsten Punkt eine leuchtende Lache. Sie geben dem
+  Sumpf die dritte Dimension, die ihm als grüne Fläche fehlte.
 * **Fog of War** — die Karte zeigt nur, was man gesehen hat. Vorher lagen alle vierzehn Orte ab
   dem ersten Schritt offen; damit war das Erkunden erzählt, bevor es anfing. Unentdeckte Orte
   fehlen ganz (ein grauer Punkt mit Namen wäre verraten, einer ohne Namen eine Aufforderung,

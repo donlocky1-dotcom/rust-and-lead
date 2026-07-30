@@ -50,6 +50,20 @@ func _ready() -> void:
 		["krater_rand", krater + Vector3(0.0, 3.0, 17.0), krater + Vector3(0.0, -3.0, 0.0)],
 		["wueste", rw + Vector3(160.0, 22.0, 160.0), rw + Vector3(210.0, 0.0, 210.0)],
 	]
+	# Der Strahlensumpf: einmal von oben über ein Sumpfloch (liegt das Wasser wirklich IM Loch?),
+	# einmal aus Spielerhöhe davor (sieht man den Wall, bevor man drinsteht?) und einmal weit
+	# oben über der ganzen Zone.
+	for f in WorldManager.TERRAIN:
+		if not WorldManager.is_swamp_feature(f):
+			continue
+		var loch: Vector3 = WorldManager.feature_center(f)
+		_views.append(["sumpfloch_ueber", loch + Vector3(0.0, 24.0, 28.0), loch])
+		_views.append(["sumpfloch_flach", loch + Vector3(0.0, 3.4, 34.0),
+			loch + Vector3(0.0, -1.0, 0.0)])
+		break
+	var sumpf: Vector3 = WorldManager.world_to_scene(
+		Vector2(float(WorldManager.SWAMP_CENTER_X), float(WorldManager.SWAMP_CENTER_Y)))
+	_views.append(["sumpf_weit", sumpf + Vector3(0.0, 140.0, 210.0), sumpf])
 	_wait = 60
 
 

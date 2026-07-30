@@ -608,6 +608,11 @@ func _build_environment() -> void:
 	add_child(we)
 
 
+## Deckkraft der Biom-Tönung. 0,30 statt 1,0 (siehe unten): Die Salzpfanne soll den Sand
+## AUFHELLEN, nicht ersetzen — und vor allem soll man durch sie hindurch sehen, was im Boden
+## liegt. Etwas kräftiger als der Sumpfschleier (0,16), weil ein Biom über einen Kilometer
+## wirkt und nicht über hundert Meter.
+const BIOME_TINT_ALPHA: float = 0.30
 func _build_ground_and_biomes() -> void:
 	# Der Boden ist nicht mehr EINE Platte: Wo Gelände liegt (WorldManager.TERRAIN), wird ein
 	# Loch ausgespart und mit einem verformten Flicken gefuellt. Sonst laege die flache Platte
@@ -618,6 +623,18 @@ func _build_ground_and_biomes() -> void:
 	for f in WorldManager.TERRAIN:
 		_add_terrain_patch(f, mat)
 	# Benannte Biom-Kreiszonen (WorldManager.BIOMES) als getönte Scheiben.
+	#
+	# Sie waren DECKEND — eine 550-m-Platte aus Vollfarbe, 15 cm über dem Boden. Solange die
+	# Welt flach war, fiel das nicht auf: Die Scheibe lag auf dem Sand und sah aus wie
+	# eingefärbter Sand. Sobald aber Gelände darunter liegt, verschluckt sie es restlos — die
+	# ersten Sumpflöcher lagen in der Salzpfanne und waren im Bild weiße Kreise mit einem
+	# Sandring, weil man nur noch den Teil des Walls sah, der über die Platte ragte.
+	# (Dieselbe Falle wie die Piste über dem Krater, nur mit einer Scheibe statt einem Balken.)
+	#
+	# Jetzt durchscheinend, wie Smog- und Sumpfschleier auch: Godot zeichnet Durchsichtiges
+	# NACH dem Undurchsichtigen und ohne in den Tiefenpuffer zu schreiben. Die Senke rendert
+	# also zuerst mit ihrer echten Tiefe und wird anschließend nur noch eingefärbt — das ist
+	# genau das, was eine Biom-Tönung tun soll.
 	var tint: Dictionary = {
 		"oasis": Color(0.31, 0.56, 0.31), "salt": Color(0.85, 0.84, 0.78),
 		"rostwald": Color(0.54, 0.29, 0.18), "kupfer_hochland": Color(0.61, 0.42, 0.24),
@@ -629,10 +646,11 @@ func _build_ground_and_biomes() -> void:
 		var r_m: float = float(b["radius"]) * WorldManager.METERS_PER_UNIT
 		cyl.top_radius = r_m
 		cyl.bottom_radius = r_m
-		cyl.height = 0.3
+		cyl.height = 0.2
 		disc.mesh = cyl
-		disc.material_override = _mat(tint[id])
-		disc.position = WorldManager.world_to_scene(Vector2(float(b["cx"]), float(b["cy"]))) + Vector3(0.0, 0.15, 0.0)
+		disc.material_override = _mat(tint[id], false, BIOME_TINT_ALPHA)
+		disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		disc.position = WorldManager.world_to_scene(Vector2(float(b["cx"]), float(b["cy"]))) + Vector3(0.0, 0.10, 0.0)
 		add_child(disc)
 	# Smog-Senke: alles nördlich der Smog-Linie liegt unter giftgrünem Schleier.
 	var half: float = WorldManager.WORLD_METERS / 2.0
@@ -641,7 +659,7 @@ func _build_ground_and_biomes() -> void:
 	_box(Vector3(WorldManager.WORLD_METERS, 0.4, smog_depth_m), Vector3(half, 0.35, smog_z), Color(0.35, 0.65, 0.30), 0.35)
 
 
-## Der Strahlensumpf: ein Band quer über die Karte, nördlich hinter den Schrott-Minen.
+## Der Strahlensumpf: ein Fleck von 2,5 × 0,5 km, 800 m nördlich von Rustwater.
 ##
 ## Optisch lebt er von drei Dingen, und zwei davon kosten nichts:
 ##
@@ -657,27 +675,29 @@ func _build_ground_and_biomes() -> void:
 ##     dort kahle Stämme aus zwei Zylindern. Sie liefern die Silhouette, die aus einem grünen
 ##     Band ein Moor macht, und lassen sich später durch ein Modell ersetzen, ohne dass sich
 ##     hier etwas ändert.
-## Das Band ist 5 km breit — bei den ersten Zahlen (90 Pfützen, 44 Bäume) lag im Bild praktisch
-## nichts, weil sich das auf 1,5 km² verteilt. Ein Zwanzigstel eines Quadratkilometers je Pfütze
-## ist keine Sumpflandschaft. 420 und 240 sind noch billig (Pfütze 28 Dreiecke, Baum 26) und
-## ergeben endlich eine Dichte, die man beim Durchlaufen sieht.
+## Die Zone misst 2,5 × 0,5 km — bei den ersten Zahlen (90 Pfützen, 44 Bäume) lag im Bild
+## praktisch nichts, weil sich das damals sogar über die ganze Kartenbreite verteilte. 420 und
+## 240 sind noch billig (Pfütze 28 Dreiecke, Baum 26) und ergeben auf 1,25 km² endlich eine
+## Dichte, die man beim Durchlaufen sieht.
 const SWAMP_PUDDLES: int = 420
 const SWAMP_TREES: int = 240
 func _build_swamp() -> void:
 	var m: float = WorldManager.METERS_PER_UNIT
-	var sued: float = float(WorldManager.SWAMP_SOUTH_Y) * m
-	var nord: float = float(WorldManager.SWAMP_NORTH_Y) * m
-	var breite: float = nord - sued
-	var mitte_z: float = -(sued + breite * 0.5)
+	var zone: Rect2 = WorldManager.swamp_rect()
+	var breite_m: float = zone.size.x * m          # Ost–West
+	var tiefe_m: float = zone.size.y * m           # Süd–Nord
+	var mitte_x: float = (zone.position.x + zone.size.x * 0.5) * m
+	var mitte_z: float = -(zone.position.y + zone.size.y * 0.5) * m
+	var sued: float = zone.position.y * m          # Szenen-|z| des Südrands
 	# 1. Die Verfärbung. Knapp über dem Boden, durchscheinend — der Sand bleibt sichtbar.
 	# Alpha 0.16, nicht 0.55. Der erste Versuch war eine grüne Platte, die den Sand vollständig
 	# verdeckte — das Bild sah aus wie eine Wiese, nicht wie verseuchter Boden. Ein Schleier muss
 	# durchlassen, was er einfärbt; die Verseuchung liest man an den Pfützen, nicht am Anstrich.
-	var band := _box(Vector3(WorldManager.WORLD_METERS, 0.24, breite),
-		Vector3(WorldManager.WORLD_METERS * 0.5, 0.13, mitte_z),
+	var band := _box(Vector3(breite_m, 0.24, tiefe_m),
+		Vector3(mitte_x, 0.13, mitte_z),
 		Color(0.30, 0.50, 0.18), 0.16)
 	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_label(Vector3(WorldManager.WORLD_METERS * 0.5, 26.0, mitte_z),
+	_label(Vector3(mitte_x, 26.0, mitte_z),
 		"☢ STRAHLENSUMPF — ohne Schutzanzug tödlich", Color(0.62, 1.0, 0.45), 150, 900.0)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20250729
@@ -691,28 +711,70 @@ func _build_swamp() -> void:
 	lache.roughness = 0.14
 	lache.metallic = 0.25
 	for i in SWAMP_PUDDLES:
+		var r: float = rng.randf_range(1.1, 4.2)
+		# Nur dort, wo die Strahlung wirklich zubeisst: dichter in der Mitte der Zone.
+		var x: float = 0.0
+		var z: float = 0.0
+		var flach: bool = false
+		for versuch in 4:
+			var t: float = 0.5 + (rng.randf() - 0.5) * 1.4
+			z = -(sued + tiefe_m * clampf(t, 0.04, 0.96))
+			x = _swamp_x(rng)
+			if _liegt_flach(x, z, r):
+				flach = true
+				break
+		if not flach:
+			continue
 		var mi := MeshInstance3D.new()
 		var zyl := CylinderMesh.new()
-		var r: float = rng.randf_range(1.1, 4.2)
 		zyl.top_radius = r
 		zyl.bottom_radius = r
 		zyl.height = 0.06
 		zyl.radial_segments = 14
 		mi.mesh = zyl
 		mi.material_override = lache
-		# Nur dort, wo die Strahlung wirklich zubeisst: dichter in der Mitte des Bandes.
-		var t: float = 0.5 + (rng.randf() - 0.5) * 1.4
-		var z: float = -(sued + breite * clampf(t, 0.04, 0.96))
-		var x: float = _swamp_x(rng)
 		mi.position = Vector3(x, WorldManager.height_at(x, z) + 0.05, z)
 		mi.scale = Vector3(1.0, 1.0, rng.randf_range(0.45, 1.0))
 		mi.rotation.y = rng.randf() * TAU
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
+	# 2b. Jedes Sumpfloch bekommt seinen eigenen Tümpel — die Lache am tiefsten Punkt, wie in
+	#     der Schrottgrube. Ein Krater ohne Wasser wäre im Sumpf eine Baugrube; mit Wasser ist
+	#     er das, was die kleinen Einschläge überhaupt erzählen sollen.
+	#
+	#     Sie liegt NICHT in der Mitte, sondern der Rampe gegenüber. In der Rampe fällt der
+	#     flache Grund weg (`_floor_share` läuft dort gegen 0) und die Wand zieht sich bis zum
+	#     Mittelpunkt — eine mittige Scheibe wurde davon angeschnitten und sah aus wie ein
+	#     angebissener Keks. Physikalisch ist die Verschiebung ohnehin richtig: Wasser sammelt
+	#     sich am tiefsten Punkt, und der liegt bei einer einseitig offenen Senke abseits der
+	#     Öffnung. Maße als Anteil des flachen Grundes, damit sie mit jeder Kratergröße mitgehen.
+	for f in WorldManager.TERRAIN:
+		if not WorldManager.is_swamp_feature(f):
+			continue
+		var c: Vector3 = WorldManager.feature_center(f)
+		var grund: float = float(f["radius"]) * float(f.get("floor", 0.4))
+		# Weg von der Rampe. `ramp_deg` ist 0° = Osten, 90° = Norden; Norden ist −z.
+		var weg: float = deg_to_rad(float(f.get("ramp_deg", 0.0))) + PI
+		var mx: float = c.x + cos(weg) * grund * 0.45
+		var mz: float = c.z - sin(weg) * grund * 0.45
+		var tuempel := MeshInstance3D.new()
+		var scheibe := CylinderMesh.new()
+		var tr: float = grund * 0.42
+		scheibe.top_radius = tr
+		scheibe.bottom_radius = tr
+		scheibe.height = 0.08
+		scheibe.radial_segments = 20
+		tuempel.mesh = scheibe
+		tuempel.material_override = lache
+		tuempel.position = Vector3(mx, WorldManager.height_at(mx, mz) + 0.06, mz)
+		tuempel.scale = Vector3(1.0, 1.0, rng.randf_range(0.72, 1.0))
+		tuempel.rotation.y = rng.randf() * TAU
+		tuempel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(tuempel)
 	# 3. Tote Stämme. Platzhalter, bis ein Modell da ist — aber die Silhouette stimmt schon.
 	var holz: Material = _mat(Color(0.19, 0.17, 0.13))
 	for i in SWAMP_TREES:
-		var z2: float = -(sued + breite * rng.randf_range(0.08, 0.92))
+		var z2: float = -(sued + tiefe_m * rng.randf_range(0.08, 0.92))
 		var x2: float = _swamp_x(rng)
 		var hoehe: float = rng.randf_range(3.4, 6.8)
 		var baum := Node3D.new()
@@ -729,21 +791,47 @@ func _build_swamp() -> void:
 		_solid_pillar(baum.position, 0.35)
 
 
+## Passt eine flache Scheibe vom Radius `r` an dieser Stelle auf den Boden?
+##
+## Eine Pfütze ist eine waagerechte Scheibe. Solange der Sumpf eine Tischplatte war, durfte sie
+## überall liegen; seit Krater darin liegen, landet sonst eine auf einem Wall und ragt zur
+## Hälfte heraus — im Bild ein grüner Keil, der aus dem Hang wächst.
+##
+## Geprüft wird über HÖHENUNTERSCHIEDE am Rand der Scheibe, nicht über die Normale. Der erste
+## Versuch fragte `normal_at(x, z, r)` ab und ließ genau die schlimmsten Stellen durch: Auf
+## einem Wallkamm liegen beide Abtastpunkte gleich tief, die gemittelte Normale zeigt sauber
+## nach oben, und die Scheibe steckt trotzdem quer im Grat. Sechs Punkte auf dem Kreis
+## beantworten stattdessen direkt die Frage, die zählt — passt sie hin, ohne einzutauchen?
+const PUDDLE_FLAT_TOL_M: float = 0.16
+func _liegt_flach(x: float, z: float, r: float) -> bool:
+	var h0: float = WorldManager.height_at(x, z)
+	for k in 6:
+		var a: float = TAU * float(k) / 6.0
+		var h: float = WorldManager.height_at(x + cos(a) * r, z + sin(a) * r)
+		if absf(h - h0) > PUDDLE_FLAT_TOL_M:
+			return false
+	return true
+
+
 ## Ost-West-Lage eines Sumpf-Details, gewichtet zur ÜBERQUERUNG hin.
 ##
-## Das Band ist 5 km breit. Gleichmäßig gestreut sind selbst 420 Pfützen eine je 3 600 m² —
+## Die Zone ist 2,5 km breit. Gleichmäßig gestreut sind selbst 420 Pfützen eine je 3 000 m² —
 ## bei 30 m Sichtweite läuft man daran vorbei, ohne eine zu sehen, und der Sumpf bleibt ein
 ## grüner Anstrich. Zwei Drittel der Details liegen deshalb in einem 700-m-Fenster um die
-## Stelle, an der die Bahntrasse das Band schneidet: Dort kommt praktisch jeder durch. Das
+## Stelle, an der die Bahntrasse die Zone schneidet: Dort kommt praktisch jeder durch. Das
 ## letzte Drittel bleibt breit gestreut, damit der Sumpf auch abseits nicht plötzlich aufhört.
 func _swamp_x(rng: RandomNumberGenerator) -> float:
-	var rand_x: float = rng.randf_range(25.0, WorldManager.WORLD_METERS - 25.0)
+	var zone: Rect2 = WorldManager.swamp_rect()
+	var m: float = WorldManager.METERS_PER_UNIT
+	var links: float = zone.position.x * m + 12.0
+	var rechts: float = (zone.position.x + zone.size.x) * m - 12.0
+	var rand_x: float = rng.randf_range(links, rechts)
 	if rng.randf() > 0.66:
 		return rand_x
 	var mitte: float = _swamp_crossing_x()
-	if mitte < 0.0:
-		return rand_x
-	return clampf(mitte + rng.randf_range(-350.0, 350.0), 25.0, WorldManager.WORLD_METERS - 25.0)
+	if mitte < links or mitte > rechts:
+		return rand_x     # die Trasse quert daneben — dann gibt es keinen bevorzugten Ort
+	return clampf(mitte + rng.randf_range(-350.0, 350.0), links, rechts)
 
 
 ## Wo schneidet die Bahntrasse den Sumpf (Szenen-x, −1 = nirgends)?
@@ -1654,6 +1742,8 @@ func _fill_craters() -> void:
 	for f in WorldManager.TERRAIN:
 		if String(f.get("kind", "crater")) != "crater":
 			continue   # in ein Duenenfeld gehoert kein Schrott
+		if not bool(f.get("scrap", true)):
+			continue   # und in die Sumpfloecher auch nicht — dort liegt Wasser
 		var c: Vector3 = WorldManager.feature_center(f)
 		var radius: float = float(f["radius"])
 		# Bis an den Wandfuß plus ein Meter: Der Schrott soll die Wand berühren, nicht davor

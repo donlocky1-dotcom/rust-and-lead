@@ -1019,8 +1019,14 @@ func _test_terrain() -> void:
 	for tf in WorldManager.TERRAIN:
 		var rr: float = WorldManager.feature_reach(tf) + OverworldView.TERRAIN_MARGIN_M
 		loch += (rr * 2.0) * (rr * 2.0)
+	# Toleranz RELATIV, nicht absolut: `Rect2` rechnet in float32, und die Weltflaeche sind
+	# 25 Millionen m². Je Gelaendeform kommt ein Rechteck-Schnitt dazu, und jeder schleppt rund
+	# 8·10⁻⁸ relative Rundung mit — bei elf Formen sind das ein paar Quadratmeter Scheinflaeche.
+	# 4·10⁻⁷ (= 10 m²) laesst das durch und faengt trotzdem jeden echten Fehler: Ein verlorenes
+	# oder doppelt gezaehltes Stueck ist immer mindestens ein ganzes Rechteck gross.
+	var toleranz: float = w * w * 4e-7
 	_check("Restflaeche + Loecher = Weltflaeche (nichts verloren, nichts doppelt)",
-		absf(flaeche + loch - w * w) < 1.0,
+		absf(flaeche + loch - w * w) < toleranz,
 		"%.0f + %.0f = %.0f statt %.0f" % [flaeche, loch, flaeche + loch, w * w])
 	# Ueber die SCHMALSTE Kante geprueft, nicht ueber die Flaeche: Aneinanderstossende
 	# Rechtecke ueberlappen sich in float32 um rund 2 Hundertstel Millimeter — mal 4600 m
@@ -1317,30 +1323,81 @@ func _test_swamp() -> void:
 	print("· Strahlensumpf")
 	_reset_state()
 	var m: float = WorldManager.METERS_PER_UNIT
-	var mitte := Vector2(500.0, WorldManager.swamp_center_y())
-	var davor := Vector2(500.0, float(WorldManager.SWAMP_SOUTH_Y) - 30.0)
-	var dahinter := Vector2(500.0, float(WorldManager.SWAMP_NORTH_Y) + 30.0)
+	var zone: Rect2 = WorldManager.swamp_rect()
+	var mitte := Vector2(float(WorldManager.SWAMP_CENTER_X), float(WorldManager.SWAMP_CENTER_Y))
+	var davor := Vector2(mitte.x, zone.position.y - 30.0)
+	var dahinter := Vector2(mitte.x, zone.position.y + zone.size.y + 30.0)
+	# Die BESTELLTEN Maszte, in Metern nachgerechnet: 2,5 km breit, 500 m hoch, 1 km noerdlich
+	# von Rustwater (auf 800 m gerueckt, damit das Zugdepot nicht in der Todeszone steht).
+	_check("Die Zone ist 2,5 km breit (%.0f m)" % (zone.size.x * m),
+		is_equal_approx(zone.size.x * m, 2500.0))
+	_check("Die Zone ist 500 m hoch (%.0f m)" % (zone.size.y * m),
+		is_equal_approx(zone.size.y * m, 500.0))
+	var noerdlich: float = (mitte.y - WorldManager.poi_position("rustwater").y) * m
+	_check("Sie liegt rund 1 km noerdlich von Rustwater (%.0f m)" % noerdlich,
+		noerdlich >= 700.0 and noerdlich <= 1100.0)
+	_check("Sie deckt NICHT die ganze Kartenbreite ab — man kommt daran vorbei",
+		zone.size.x < float(WorldManager.WORLD_SIZE))
 	_check("Der Sumpf liegt NORDLICH der Schrott-Minen",
-		float(WorldManager.SWAMP_SOUTH_Y) > WorldManager.poi_position("schrott_minen").y)
+		zone.position.y > WorldManager.poi_position("schrott_minen").y)
 	_check("und SUEDLICH der Sprengtore (er kommt zuerst)",
-		WorldManager.SWAMP_NORTH_Y < WorldManager.BORDER_S1_S2_Y)
+		zone.position.y + zone.size.y < float(WorldManager.BORDER_S1_S2_Y))
 	_check("Rustwater liegt davor",
 		not WorldManager.is_in_swamp(WorldManager.poi_position("rustwater")))
 	_check("Die Schrott-Minen liegen davor",
 		not WorldManager.is_in_swamp(WorldManager.poi_position("schrott_minen")))
-	_check("Das Zugdepot liegt dahinter (wird zugeriegelt)",
-		WorldManager.poi_position("zugdepot").y > float(WorldManager.SWAMP_NORTH_Y))
+	# Das Zugdepot ist ein Bahnhof MIT Bossarena und Schnellreiseziel. Laege es in der Zone,
+	# setzte die Schnellreise den Spieler direkt in die Strahlung — genau deshalb steht die
+	# Mitte bei 620 und nicht bei 700.
+	_check("Das Zugdepot liegt NICHT in der Todeszone",
+		not WorldManager.is_in_swamp(WorldManager.poi_position("zugdepot")))
+	var getroffen: String = ""
+	for id in WorldManager.POIS.keys():
+		if WorldManager.is_in_swamp(WorldManager.poi_position(String(id))):
+			getroffen = String(id)
+	_check("Kein einziger Ort liegt in der Todeszone", getroffen.is_empty(),
+		"%s steht mitten drin" % getroffen)
 	_check("Mitten drin ist man im Sumpf", WorldManager.is_in_swamp(mitte))
 	_check("Davor und dahinter nicht",
 		not WorldManager.is_in_swamp(davor) and not WorldManager.is_in_swamp(dahinter))
+	_check("Oestlich und westlich daneben auch nicht",
+		not WorldManager.is_in_swamp(Vector2(zone.position.x - 30.0, mitte.y))
+			and not WorldManager.is_in_swamp(Vector2(zone.position.x + zone.size.x + 30.0, mitte.y)))
 	# Weicher Verlauf: Am Rand tut es weniger weh als in der Mitte. Eine harte Kante wuerde man
-	# ueberrennen und ohne Vorwarnung sterben.
-	var rand := Vector2(500.0, float(WorldManager.SWAMP_SOUTH_Y) + 4.0)
+	# ueberrennen und ohne Vorwarnung sterben. Der Verlauf haengt am ABSTAND zum Rand — also
+	# gilt er an der Ost- und Westkante genauso wie im Sueden.
+	var rand := Vector2(mitte.x, zone.position.y + 4.0)
+	var rand_ost := Vector2(zone.position.x + zone.size.x - 4.0, mitte.y)
 	_check("Am Rand ist die Strahlung schwaecher als in der Mitte (%.2f gegen %.2f)"
 		% [WorldManager.swamp_depth(rand), WorldManager.swamp_depth(mitte)],
 		WorldManager.swamp_depth(rand) < WorldManager.swamp_depth(mitte) * 0.5)
+	_check("Auch an der Ostkante (%.2f)" % WorldManager.swamp_depth(rand_ost),
+		WorldManager.swamp_depth(rand_ost) < WorldManager.swamp_depth(mitte) * 0.5)
 	_check("In der Mitte ist sie maximal",
 		is_equal_approx(WorldManager.swamp_depth(mitte), 1.0))
+	# Die kleinen Einschlaege: Sie sollen im Sumpf liegen, klein sein und keinen Schrott fuehren.
+	var loecher: int = 0
+	for f in WorldManager.TERRAIN:
+		if not WorldManager.is_swamp_feature(f):
+			continue
+		loecher += 1
+		var p := Vector2(float(f["x"]), float(f["y"]))
+		_check("%s liegt in der Zone" % String(f["id"]), WorldManager.is_in_swamp(p))
+		_check("%s ist kleiner als die Schrottgrube" % String(f["id"]),
+			float(f["radius"]) < float(WorldManager.TERRAIN[0]["radius"]))
+		_check("%s fuehrt keinen Schrott" % String(f["id"]), not bool(f.get("scrap", true)))
+		# Wie die Grube: eine Wand, die man SIEHT, und ein Sektor, in dem sie fehlt.
+		# Ein flaches Loch ist im Bild nur ein Ring auf dem Boden — genau daran ist der erste
+		# Versuch gescheitert. Also beides messen: Wand steil, Ausgang begehbar.
+		var wand: float = rad_to_deg(atan(1.5 * float(f["depth"])
+			/ (float(f["radius"]) * (1.0 - float(f.get("floor", 0.0))))))
+		_check("%s hat eine sichtbare Wand (%.0f°)" % [String(f["id"]), wand], wand > 45.0)
+		# In der Rampe faellt `floor` auf 0, das Profil zieht sich ueber den ganzen Radius —
+		# steilste Stelle dort: 1,5 · depth / radius.
+		var rampe: float = rad_to_deg(atan(1.5 * float(f["depth"]) / float(f["radius"])))
+		_check("%s hat einen begehbaren Ausgang (%.0f°)" % [String(f["id"]), rampe],
+			f.has("ramp_deg") and float(f.get("ramp_span", 0.0)) > 0.0 and rampe < 35.0)
+	_check("Es gibt mehrere Sumpfloecher (%d)" % loecher, loecher >= 5)
 	# Schaden: ohne Anzug toedlich, mit Anzug null.
 	GameState.economy["laboratory"] = 0
 	var dot: int = WorldManager.swamp_dot_damage(mitte, 1.0)

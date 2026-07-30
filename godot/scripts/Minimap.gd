@@ -109,12 +109,18 @@ func _draw() -> void:
 	var blast_y: float = world_to_map(Vector3(0.0, 0.0, -float(WorldManager.BORDER_S1_S2_Y) * m)).y
 	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, clampf(smog_y, 0.0, size.y))),
 		Color(0.35, 0.72, 0.30, 0.30))
-	# Strahlensumpf: ein Band, kein Strich. Er ist begehbar (und tödlich), keine Grenzlinie —
+	# Strahlensumpf: eine Fläche, kein Strich. Er ist begehbar (und tödlich), keine Grenzlinie —
 	# das muss die Karte zeigen, sonst hält man ihn für eine Wand und sucht einen Weg herum.
-	var sw_s: float = world_to_map(Vector3(0.0, 0.0, -float(WorldManager.SWAMP_SOUTH_Y) * m)).y
-	var sw_n: float = world_to_map(Vector3(0.0, 0.0, -float(WorldManager.SWAMP_NORTH_Y) * m)).y
-	if sw_s > 0.0 and sw_n < size.y:
-		draw_rect(Rect2(Vector2(0.0, sw_n), Vector2(size.x, sw_s - sw_n)),
+	# Seit er ein Rechteck ist statt eines Bandes über die ganze Breite, zeigt die Karte auch,
+	# wo er AUFHÖRT — und das ist die eigentliche Information beim Blick auf die Karte.
+	var sw: Rect2 = WorldManager.swamp_rect()
+	var sw_a: Vector2 = world_to_map(Vector3(sw.position.x * m, 0.0, -sw.position.y * m))
+	var sw_b: Vector2 = world_to_map(Vector3((sw.position.x + sw.size.x) * m, 0.0,
+		-(sw.position.y + sw.size.y) * m))
+	var sw_feld := Rect2(Vector2(minf(sw_a.x, sw_b.x), minf(sw_a.y, sw_b.y)),
+		Vector2(absf(sw_b.x - sw_a.x), absf(sw_b.y - sw_a.y)))
+	if sw_feld.intersects(rect):
+		draw_rect(sw_feld.intersection(rect),
 			Color(0.30, 0.78, 0.24, 0.34 if WorldManager.has_rad_suit() else 0.46))
 	# Sektorgrenzen als Linien — nur, wenn sie im Ausschnitt liegen.
 	if blast_y > 0.0 and blast_y < size.y:

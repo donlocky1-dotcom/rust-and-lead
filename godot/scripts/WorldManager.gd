@@ -89,9 +89,65 @@ const TERRAIN: Array = [
 	#
 	# `step` gröber als beim Krater: Bei 42 m Wellenlänge sieht man 2 m Netzauflösung nicht,
 	# und ein 320-m-Feld in Kraterauflösung wären zwei Millionen Dreiecke.
-	{ "id": "wellenmeer", "kind": "dunes", "x": 600, "y": 500,
+	#
+	# Auf y = 430 statt 500 gerückt: Der Strahlensumpf ist inzwischen ein Rechteck ab y = 520,
+	# und der Nordrand des Dünenfelds lag bei 564 — mitten drin. Ein Dünenkamm, der aus einem
+	# Moor ragt, ist keine Landschaft, sondern zwei Formeln, die sich nicht abgesprochen haben.
+	# 26 Welteinheiten Abstand (65 m) sind genug, damit beides für sich steht.
+	{ "id": "wellenmeer", "kind": "dunes", "x": 600, "y": 430,
 		"radius": 160.0, "amp": 5.0, "wave": 42.0, "skew": 0.55,
 		"dir_deg": 24.0, "step": 2.0 },
+	# Kleine Einschläge im Strahlensumpf — dieselbe Formel wie die Schrotthalde, ein Drittel groß.
+	#
+	# Wozu: Der Sumpf war bisher eine grüne Fläche mit Pfützen darauf, also flach. Ein Loch im
+	# Boden ist die billigste Art von Landschaft, die es gibt — es kostet neun Zeilen Zahlen und
+	# verändert, wie man läuft: Man sieht erst den Wall, dann was dahinter liegt.
+	#
+	# Der erste Versuch war flach — `floor` um 0,45, Wand rund 30°, damit man ohne Rampe wieder
+	# herauskommt. Im gerenderten Bild war das aus Spielerhöhe **kein Loch, sondern ein Ring auf
+	# dem Boden**: 2,5 m Tiefe auf 23 m Breite sieht die Iso-Kamera nicht. Deshalb jetzt
+	# dieselbe Bauart wie die Grube — steile Wand (50–55°), flacher Grund, und genau EIN Sektor,
+	# in dem die Wand fehlt. Der Ausgang liegt bei jedem Loch woanders (`ramp_deg`).
+	#
+	# Der Rest unterscheidet sich von der Grube:
+	#  • **`step` 0,7 statt 0,35** — die Grube ist 5 m tief, hier sind es 3; die doppelte
+	#    Auflösung wären viermal so viele Dreiecke ohne sichtbaren Gewinn.
+	#  • **`ramp_span` 90° statt 70°** — bei einem Drittel der Größe wäre ein 70°-Sektor keine
+	#    Rampe mehr, sondern eine Rinne.
+	#  • **`scrap: false`** — `_fill_craters` schüttet sonst in jedes Loch der Welt einen
+	#    Schrottteppich. Im Sumpf liegt kein Schrott, dort liegt Wasser.
+	#
+	# Sechs der neun liegen im 350-m-Fenster um die Bahnquerung, wo praktisch jeder durchkommt;
+	# drei stehen weiter östlich, damit der Sumpf abseits nicht plötzlich glatt wird. Keiner
+	# liegt näher als 75 m an der Trasse — `_ribbon_step` zieht das Gleisbett sonst in den
+	# Krater hinein, und eine Bahnlinie durch ein Loch sieht man sofort.
+	{ "id": "sumpfloch_1", "kind": "crater", "x": 283, "y": 599,
+		"radius": 11.6, "depth": 3.2, "rim": 0.70, "rim_width": 0.40,
+		"floor": 0.70, "ramp_deg": 210, "ramp_span": 90.0, "step": 0.7, "scrap": false },
+	{ "id": "sumpfloch_2", "kind": "crater", "x": 328, "y": 654,
+		"radius": 12.0, "depth": 3.4, "rim": 0.78, "rim_width": 0.40,
+		"floor": 0.68, "ramp_deg": 40, "ramp_span": 90.0, "step": 0.7, "scrap": false },
+	{ "id": "sumpfloch_3", "kind": "crater", "x": 370, "y": 694,
+		"radius": 10.6, "depth": 2.8, "rim": 0.55, "rim_width": 0.40,
+		"floor": 0.72, "ramp_deg": 150, "ramp_span": 90.0, "step": 0.7, "scrap": false },
+	{ "id": "sumpfloch_4", "kind": "crater", "x": 393, "y": 691,
+		"radius": 13.6, "depth": 3.8, "rim": 0.85, "rim_width": 0.40,
+		"floor": 0.66, "ramp_deg": 300, "ramp_span": 90.0, "step": 0.7, "scrap": false },
+	{ "id": "sumpfloch_5", "kind": "crater", "x": 459, "y": 576,
+		"radius": 9.9, "depth": 2.6, "rim": 0.50, "rim_width": 0.40,
+		"floor": 0.70, "ramp_deg": 95, "ramp_span": 90.0, "step": 0.7, "scrap": false },
+	{ "id": "sumpfloch_6", "kind": "crater", "x": 544, "y": 696,
+		"radius": 13.1, "depth": 3.4, "rim": 0.75, "rim_width": 0.40,
+		"floor": 0.68, "ramp_deg": 20, "ramp_span": 90.0, "step": 0.7, "scrap": false },
+	{ "id": "sumpfloch_7", "kind": "crater", "x": 610, "y": 558,
+		"radius": 11.2, "depth": 3.0, "rim": 0.58, "rim_width": 0.40,
+		"floor": 0.72, "ramp_deg": 250, "ramp_span": 90.0, "step": 0.7, "scrap": false },
+	{ "id": "sumpfloch_8", "kind": "crater", "x": 667, "y": 575,
+		"radius": 12.4, "depth": 3.2, "rim": 0.80, "rim_width": 0.40,
+		"floor": 0.66, "ramp_deg": 120, "ramp_span": 90.0, "step": 0.7, "scrap": false },
+	{ "id": "sumpfloch_9", "kind": "crater", "x": 852, "y": 621,
+		"radius": 12.4, "depth": 3.0, "rim": 0.65, "rim_width": 0.40,
+		"floor": 0.70, "ramp_deg": 330, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 ]
 
 
@@ -470,17 +526,32 @@ static func smog_dot_damage(pos: Vector2, delta_sec: float) -> int:
 ## keinen Grund, irgendwohin zu gehen. Die Sprengtore greifen erst in Kapitel 4 — bis dahin
 ## gibt es keine einzige Grenze.
 ##
-## Der Sumpf zieht die Startwelt auf ein Viertel zusammen: ein Band quer ueber die Karte,
-## NORDLICH hinter den Schrott-Minen. Alles dahinter — Rattengestruepp-Norden, Zugdepot,
-## Salzpfanne — wird erst mit Strahlenschutz begehbar. Damit hat der Anfang eine Form: Stadt,
-## Grube, und dazwischen der Weg.
-##
 ## Warum ein Sumpf und keine Mauer: Eine Mauer sagt „hier nicht", ein verstrahltes Moor sagt
 ## „hier noch nicht, und du siehst schon, was dahinter liegt". Man kann hineinlaufen und
 ## nimmt Schaden — die Grenze ist eine Entscheidung, keine Wand.
-const SWAMP_SOUTH_Y: int = 520      # Sued-Rand des Bandes (Welteinheiten)
-const SWAMP_NORTH_Y: int = 640      # Nord-Rand
-## Sekunden bis zum Tod ohne Schutz, mitten im Band. Kuerzer als beim Smog (3 s): Der Sumpf
+##
+## ── Ein FLECK, kein Band ─────────────────────────────────────────────────────
+## Bis hierher lief der Sumpf als Band ueber die ganze Kartenbreite. Das riegelte den Norden
+## zwar sicher ab, hatte aber zwei Fehler: Es sah aus wie ein gezeichneter Strich (2000
+## Einheiten Verseuchung, exakt gerade an beiden Raendern), und es nahm dem Auftraggeber die
+## Entscheidung, den Spieler woanders anders zu bremsen.
+##
+## Jetzt ist es ein Rechteck mit Ort und Groesse: **800 m noerdlich von Rustwater, 2,5 km
+## breit, 500 m hoch.** Das ist eine Landschaft, an der man vorbeikommt — was links und rechts
+## davon den Weg versperrt, entscheidet sich getrennt.
+##
+## Die Mitte liegt bei y = 620 und nicht bei 700 (= exakt 1 km): Bei 700 laege das **Zugdepot**
+## (450/750) mitten in der Todeszone — ein Bahnhof mit Bossarena und Schnellreiseziel, das
+## einen direkt in die Strahlung setzt. 800 m statt 1000 m halten es frei, alles andere bleibt
+## wie bestellt.
+const SWAMP_CENTER_X: int = 500     # Mitte der Zone (Welteinheiten)
+const SWAMP_CENTER_Y: int = 620     # = 800 m noerdlich von Rustwater (y = 300)
+const SWAMP_HALF_W: int = 500       # 2 × 500 × 2,5 m = 2,5 km breit
+const SWAMP_HALF_H: int = 100       # 2 × 100 × 2,5 m = 500 m hoch
+## Breite der weichen Randzone in Welteinheiten (34 = 85 m). Innerhalb davon steigt die
+## Strahlung von 0 auf voll; der Rest ist Hochplateau.
+const SWAMP_EDGE_UNITS: float = 34.0
+## Sekunden bis zum Tod ohne Schutz, mitten in der Zone. Kuerzer als beim Smog (3 s): Der Sumpf
 ## kommt frueh, und ein frueher Riegel muss unmissverstaendlich sein.
 const SWAMP_LETHAL_SECONDS: float = 6.0
 ## Der Schutzanzug haengt an derselben Werkstatt wie der Smog-Filter, nur eine Stufe frueher.
@@ -492,16 +563,29 @@ static func has_rad_suit() -> bool:
 	return GameState.building_level(REFINERY_BUILDING) >= SWAMP_SUIT_LEVEL
 
 
+## Die Zone als Rechteck in Welteinheiten — eine Quelle fuer Karte, Gelaende und Schaden.
+static func swamp_rect() -> Rect2:
+	return Rect2(float(SWAMP_CENTER_X - SWAMP_HALF_W), float(SWAMP_CENTER_Y - SWAMP_HALF_H),
+		float(SWAMP_HALF_W * 2), float(SWAMP_HALF_H * 2))
+
+
 ## Wie tief im Sumpf (0 = draussen, 1 = mitten drin)?
 ##
 ## Ein weicher Verlauf statt einer Kante: An den Raendern nimmt man wenig Schaden und merkt,
 ## dass es schlimmer wird. Eine harte Grenze wuerde man ueberrennen und ohne Vorwarnung
 ## sterben — das ist der Unterschied zwischen einer Warnung und einer Falle.
+##
+## Der Verlauf haengt am ABSTAND ZUM RAND, nicht am Anteil der Kantenlaenge. Ein Sinus ueber
+## die ganze Form waere hier Unsinn: Die Zone ist fuenfmal so breit wie hoch, damit haenge die
+## Strahlung davon ab, wie weit oestlich man steht. Eine feste Randzone von 85 m verhaelt sich
+## an allen vier Seiten gleich — man merkt an derselben Strecke, dass es schlimmer wird.
 static func swamp_depth(pos: Vector2) -> float:
-	if pos.y <= float(SWAMP_SOUTH_Y) or pos.y >= float(SWAMP_NORTH_Y):
+	var dx: float = float(SWAMP_HALF_W) - absf(pos.x - float(SWAMP_CENTER_X))
+	var dy: float = float(SWAMP_HALF_H) - absf(pos.y - float(SWAMP_CENTER_Y))
+	if dx <= 0.0 or dy <= 0.0:
 		return 0.0
-	var t: float = (pos.y - float(SWAMP_SOUTH_Y)) / float(SWAMP_NORTH_Y - SWAMP_SOUTH_Y)
-	return sin(PI * t)     # 0 an beiden Raendern, 1 in der Mitte
+	var rand: float = minf(dx, dy) / SWAMP_EDGE_UNITS   # 0 am Rand, ≥1 im Inneren
+	return smoothstep(0.0, 1.0, clampf(rand, 0.0, 1.0))
 
 
 static func is_in_swamp(pos: Vector2) -> bool:
@@ -516,9 +600,14 @@ static func swamp_dot_damage(pos: Vector2, delta_sec: float) -> int:
 	return ceili(float(GameState.max_hp()) / SWAMP_LETHAL_SECONDS * delta_sec * tiefe)
 
 
-## Mitte des Bandes in Welteinheiten — fuer Karte und Gelaendeaufbau.
+## Mitte der Zone in Welteinheiten — fuer Karte und Gelaendeaufbau.
 static func swamp_center_y() -> float:
-	return float(SWAMP_SOUTH_Y + SWAMP_NORTH_Y) * 0.5
+	return float(SWAMP_CENTER_Y)
+
+
+## Liegt diese Gelaendeform im Strahlensumpf? (Die kleinen Loecher tun es, die Grube nicht.)
+static func is_swamp_feature(f: Dictionary) -> bool:
+	return String(f.get("id", "")).begins_with("sumpfloch_")
 
 
 # ── Sektor-Zutritt (kombiniert) ───────────────────────────────────────────────
