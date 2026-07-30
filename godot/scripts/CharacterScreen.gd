@@ -35,6 +35,12 @@ var _grid_head: Label
 var _detail: Label
 var _act_equip: Button
 var _act_scrap: Button
+var _stats: Label
+var _doll: PaperDoll
+## Gewählte Fassung an der Puppe ("" = keine). Die Auswahl liegt HIER und nicht nur in der
+## Puppe, weil sie einen `refresh()` überleben muss: Nach dem Anlegen wird die linke Spalte neu
+## befüllt, und der Spieler soll danach immer noch sehen, worüber er gerade entscheidet.
+var _sel_slot: String = ""
 
 
 ## Feste Tafel statt verschachtelter Container.
@@ -97,13 +103,18 @@ func _ready() -> void:
 	_list.custom_minimum_size = Vector2(LEFT_W - 18.0, 0.0)
 	_list.add_theme_constant_override("separation", 4)
 	_scroll.add_child(_list)
+	# Die Puppe wird EINMAL gebaut und danach nur noch ein- und ausgehängt. `refresh()` leert
+	# die linke Spalte bei jeder Änderung; wäre sie ein normales Kind, entstünde sie bei jedem
+	# Anlegen neu und verlöre dabei ihre Auswahl.
+	_doll = PaperDoll.new()
+	_doll.picked.connect(_on_doll_picked)
 	_build_grid_column()
 	var hint := Label.new()
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.position = Vector2(0.0, PANEL_H - 24.0)
 	hint.custom_minimum_size = Vector2(PANEL_W, 0.0)
-	hint.text = "Teil im Raster antippen → Anlegen oder Verschrotten · [C]/[Esc] schließt"
+	hint.text = "Fassung an der Puppe oder Teil im Raster antippen → Anlegen / Ablegen · [C]/[Esc] schließt"
 	_panel.add_child(hint)
 
 
@@ -153,9 +164,30 @@ func _build_grid_column() -> void:
 	_act_scrap.add_theme_font_size_override("font_size", 15)
 	_act_scrap.pressed.connect(_scrap_selected)
 	_cols.add_child(_act_scrap)
+	_stats = Label.new()
+	_stats.add_theme_font_size_override("font_size", 13)
+	_stats.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78))
+	_stats.position = Vector2(GRID_W + 18.0, 292.0)
+	_stats.custom_minimum_size = Vector2(300.0, 200.0)
+	_cols.add_child(_stats)
 
 
+## Beutel und Puppe sind EINE Auswahl, nicht zwei. Wer im Raster tippt, hebt die Fassung auf und
+## umgekehrt — zwei gleichzeitig hervorgehobene Teile und ein Knopf „Anlegen" dazwischen wären
+## nicht zu beantworten.
 func _on_grid_picked(_index: int) -> void:
+	_sel_slot = ""
+	if _doll != null:
+		_doll.selected = ""
+		_doll.refresh()
+	_refresh_selection()
+
+
+func _on_doll_picked(slot: String) -> void:
+	_sel_slot = slot
+	if _grid != null:
+		_grid.selected = -1
+		_grid.refresh()
 	_refresh_selection()
 
 
@@ -164,9 +196,29 @@ func _on_grid_picked(_index: int) -> void:
 func _refresh_selection() -> void:
 	if _grid == null:
 		return
+	# Fall 1: eine Fassung an der Puppe. Dann heißt der erste Knopf „Ablegen", nicht „Anlegen".
+	if _sel_slot != "":
+		var worn: Dictionary = EquipManager.equipped(_sel_slot)
+		var cat: String = String(ProgressionManager.GEAR_SLOTS[
+			EquipManager.slot_type(_sel_slot)]["name"])
+		if worn.is_empty():
+			_detail.text = "%s — leer.\nLege hier ein Teil aus dem Beutel hinein." % cat
+			_detail.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+			_act_equip.text = "Anlegen"
+			_act_equip.disabled = true
+			_act_scrap.disabled = true
+			return
+		_detail.text = "%s\n%s" % [cat, _describe(worn)]
+		_detail.add_theme_color_override("font_color", _rarity_color(worn))
+		_act_equip.text = "Ablegen"
+		_act_equip.disabled = false
+		_act_scrap.disabled = false
+		return
+	# Fall 2: ein Teil im Beutel.
+	_act_equip.text = "Anlegen"
 	var i: int = _grid.selected
 	if i < 0 or i >= GameState.bag.size():
-		_detail.text = "Kein Teil gewählt — tippe eines im Raster an."
+		_detail.text = "Nichts gewählt — tippe ein Teil im Raster oder eine Fassung an der Puppe an."
 		_detail.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 		_act_equip.disabled = true
 		_act_scrap.disabled = true
@@ -190,7 +242,14 @@ func _refresh_selection() -> void:
 	_act_scrap.disabled = false
 
 
+## Der erste Knopf tut zweierlei, je nachdem, was gewählt ist: Ein Teil im Beutel wird ANGELEGT,
+## eine Fassung an der Puppe wird ABGELEGT. Zwei Knöpfe wären ehrlicher, aber einer von beiden
+## wäre immer gesperrt — und der Knopf beschriftet sich ohnehin selbst.
 func _equip_selected() -> void:
+	if _sel_slot != "":
+		if BagManager.unequip_to_bag(_sel_slot):
+			refresh()
+		return
 	var i: int = _grid.selected
 	if i >= 0 and BagManager.equip_from_bag(i):
 		_grid.selected = -1
@@ -198,6 +257,14 @@ func _equip_selected() -> void:
 
 
 func _scrap_selected() -> void:
+	# Getragenes wird erst in den Beutel gelegt und dann verschrottet. Direkt vom Körper zu
+	# verschrotten spart einen Tipp und kostet die Rückholmöglichkeit — bei einem Fehlgriff auf
+	# ein legendäres Teil ist das ein sehr teurer Tipp.
+	if _sel_slot != "":
+		if BagManager.unequip_to_bag(_sel_slot):
+			_sel_slot = ""
+			refresh()
+		return
 	var i: int = _grid.selected
 	if i < 0:
 		return
@@ -206,12 +273,18 @@ func _scrap_selected() -> void:
 	refresh()
 
 
-## Tipp aus `OverworldView` weiterreichen. `true`, wenn das Raster ihn verbraucht hat — dann
-## darf der Bildschirm nicht schliessen.
-func tap_grid(at: Vector2) -> bool:
-	if not visible or tab != Tab.AUSRUESTUNG or _grid == null:
+## Tipp aus `OverworldView` weiterreichen. `true`, wenn Puppe oder Raster ihn verbraucht haben —
+## dann darf der Bildschirm nicht schliessen.
+##
+## Puppe ZUERST: Sie liegt links, das Raster rechts, die beiden überlappen sich nicht — die
+## Reihenfolge entscheidet also nichts außer bei einem Tipp genau dazwischen, und dort ist die
+## Puppe die größere Fläche.
+func tap_panel(at: Vector2) -> bool:
+	if not visible or tab != Tab.AUSRUESTUNG:
 		return false
-	return _grid.tap(at)
+	if _doll != null and _doll.is_inside_tree() and _doll.tap(at):
+		return true
+	return _grid != null and _grid.tap(at)
 
 
 func open(which: int = Tab.AUSRUESTUNG) -> void:
@@ -240,6 +313,8 @@ func refresh() -> void:
 		c.queue_free()
 	for c in _list.get_children():
 		_list.remove_child(c)
+		if c == _doll:
+			continue     # die Puppe überlebt, siehe `_ready`
 		c.queue_free()
 	_head.text = "⭐ Stufe %d   💰 %d   %s %d/%d   %s %d/%d" % [
 		GameState.level, GameState.gold,
@@ -285,20 +360,27 @@ func _add_tab(text: String, which: int) -> void:
 # ── Reiter „Ausrüstung" ───────────────────────────────────────────────────────
 
 func _build_gear() -> void:
-	_caption("Getragen")
-	for slot in EquipManager.GEAR_SLOTS:
-		var worn: Dictionary = EquipManager.equipped(String(slot))
-		var cat: String = String(ProgressionManager.GEAR_SLOTS[String(slot)]["name"])
-		if worn.is_empty():
-			_row("%s\n   — leer —" % cat, Color(0.55, 0.55, 0.55), "", Callable())
-			continue
-		_row("%s\n   %s" % [cat, _describe(worn)], _rarity_color(worn), "Ablegen",
-			func() -> void:
-				if BagManager.unequip_to_bag(String(slot)):
-					refresh())
-	# Werte-Blatt: erst hier wird sichtbar, dass ein Fund überhaupt etwas bewirkt hat.
-	_caption("Wirksame Werte")
-	var sheet: Array = [
+	_caption("Getragen — Fassung antippen")
+	# Die Puppe ersetzt die frühere Textliste („Helm — leer", „Rüstung — …"). Dieselbe
+	# Information, andere Frage: Die Liste beantwortet „was trage ich?", die Puppe „wo ist noch
+	# eine Lücke?" — und das ist die Frage, mit der man den Bildschirm aufmacht.
+	_doll.selected = _sel_slot
+	_list.add_child(_doll)
+	_doll.refresh()
+	# Das Werte-Blatt steht RECHTS, unter den Knöpfen — nicht mehr unter der Puppe.
+	# Puppe (436 px) plus sieben Zeilen ergaben 580 px in einer 518 px hohen Spalte: Man musste
+	# scrollen, um zu sehen, ob ein Fund überhaupt etwas bewirkt hat. Rechts unter den Aktionen
+	# lag ohnehin leerer Platz, und dort steht es genau da, wo man gerade hinschaut, wenn man
+	# „Anlegen" erwägt.
+	_stats.text = _stat_sheet()
+	# Der Beutel steht rechts im Raster. Ihn hier NOCHMAL als Liste zu führen war der erste
+	# Reflex und wäre falsch: zwei Darstellungen desselben Zustands, die man beide aktuell
+	# halten muss, und der Spieler weiß nicht, welche gilt.
+
+
+## Was die Ausrüstung tatsächlich bewirkt — die einzige Stelle, an der ein Fund messbar wird.
+func _stat_sheet() -> String:
+	var zeilen: Array = [
 		["❤ Leben", "%d" % PlayerStats.max_hp()],
 		["🔫 Schaden/Schuss", "%d" % PlayerStats.damage_per_bullet("karabiner")],
 		["⚡ Feuerrate", "%d ms" % PlayerStats.fire_ms("karabiner")],
@@ -307,11 +389,10 @@ func _build_gear() -> void:
 		["🦿 Tempo", "%.0f" % PlayerStats.move_speed()],
 		["🧲 Magnet", "%d" % PlayerStats.magnet_dist()],
 	]
-	for r in sheet:
-		_row("%s: %s" % [String(r[0]), String(r[1])], Color(0.86, 0.84, 0.78), "", Callable())
-	# Der Beutel steht jetzt rechts im Raster. Ihn hier NOCHMAL als Liste zu führen war der
-	# erste Reflex und wäre falsch: zwei Darstellungen desselben Zustands, die man beide
-	# aktuell halten muss, und der Spieler weiß nicht, welche gilt.
+	var out: Array = ["Wirksame Werte"]
+	for r in zeilen:
+		out.append("%s: %s" % [String(r[0]), String(r[1])])
+	return "\n".join(out)
 
 
 func _describe(g: Dictionary) -> String:

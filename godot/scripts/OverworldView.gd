@@ -2690,10 +2690,10 @@ func _input(event: InputEvent) -> void:
 ## DANEBEN schließt den Laden und wird verbraucht.
 func _handle_overlay_tap(at: Vector2) -> bool:
 	if _char != null and _char.visible:
-		# Das Beutel-Raster ist GEZEICHNET, kein Knopf — es bekommt seinen Tipp deshalb nicht
-		# von der GUI, sondern hier von Hand. Muss VOR `hits_panel` stehen, sonst wird der Tipp
-		# als „irgendwo auf der Tafel" abgetan und die Auswahl aendert sich nie.
-		if _char.tap_grid(at):
+		# Puppe und Beutel-Raster sind GEZEICHNET, keine Knoepfe — sie bekommen ihren Tipp
+		# deshalb nicht von der GUI, sondern hier von Hand. Muss VOR `hits_panel` stehen, sonst
+		# wird der Tipp als „irgendwo auf der Tafel" abgetan und die Auswahl aendert sich nie.
+		if _char.tap_panel(at):
 			get_viewport().set_input_as_handled()
 			return true
 		if _char.hits_panel(at):

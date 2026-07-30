@@ -21,11 +21,13 @@ var _views: Array = []
 var _i: int = -1
 var _wait: int = 0
 var _cam: Camera3D
+var _welt: Node          # die geladene Overworld — fuer die Oberflaechen-Bilder
 
 
 func _ready() -> void:
 	get_window().size = Vector2i(1280, 720)
-	add_child(load("res://scenes/Overworld.tscn").instantiate())
+	_welt = load("res://scenes/Overworld.tscn").instantiate()
+	add_child(_welt)
 	_cam = Camera3D.new()
 	_cam.fov = 55.0
 	add_child(_cam)
@@ -69,7 +71,28 @@ func _ready() -> void:
 	var sumpf: Vector3 = WorldManager.world_to_scene(
 		Vector2(float(WorldManager.SWAMP_CENTER_X), float(WorldManager.SWAMP_CENTER_Y)))
 	_views.append(["sumpf_weit", sumpf + Vector3(0.0, 140.0, 210.0), sumpf])
+	# Oberflaechen-Bilder. Ein Eintrag mit `null` als Position ist kein Kamerastandpunkt,
+	# sondern ein Bildschirm — `_process` erkennt das am Typ und ruft `_setup_ui` auf.
+	_views.append(["ui_charakter", null, "charakter"])
 	_wait = 60
+
+
+## Ausgangslage fuer ein Oberflaechen-Bild. Eine leere Puppe und ein leerer Beutel zeigen
+## nichts von dem, worauf es ankommt — also erst Beute erzeugen, dann anlegen, dann knipsen.
+func _setup_ui(art: String) -> void:
+	var ow: OverworldView = _welt as OverworldView
+	if ow == null:
+		return
+	if art == "charakter":
+		GameState.bag = []
+		GameState.equip = {}
+		for slot in ["helmet", "armor", "weapon", "boots"]:
+			EquipManager.equip_item(ProgressionManager.make_gear(String(slot), "rare"), String(slot))
+		EquipManager.equip_item(ProgressionManager.make_gear("plate", "legendary"), "plate1")
+		EquipManager.equip_item(ProgressionManager.make_gear("plate", "common"), "plate3")
+		for s2 in ["weapon", "armor", "gadget", "helmet", "boots", "armor"]:
+			BagManager.add(ProgressionManager.make_gear(String(s2), "epic"))
+		ow._toggle_character(CharacterScreen.Tab.AUSRUESTUNG)
 
 
 func _process(_dt: float) -> void:
@@ -81,6 +104,10 @@ func _process(_dt: float) -> void:
 	_i += 1
 	if _i >= _views.size():
 		get_tree().quit()
+		return
+	if _views[_i][1] == null:
+		_setup_ui(String(_views[_i][2]))
+		_wait = 12
 		return
 	_cam.position = _views[_i][1]
 	_cam.look_at(_views[_i][2], Vector3.UP)

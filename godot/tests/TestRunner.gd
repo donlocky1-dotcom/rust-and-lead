@@ -34,6 +34,7 @@ func _ready() -> void:
 	_test_terrain()
 	_test_winding()
 	_test_inventory_grid()
+	_test_paperdoll()
 	_test_fog()
 	_test_swamp()
 	_test_dunes()
@@ -1220,6 +1221,88 @@ func _test_dunes() -> void:
 
 
 ## Beutel als Raster (GDD §7.4) — Fussabdruecke, Belegung, Trefferflaechen.
+## Die Puppe — getragene Ausruestung als Figur statt als Liste.
+##
+## Geprueft wird das, was beim Umbau von einer Liste auf eine gezeichnete Flaeche kaputtgehen
+## KANN: dass jede Fassung eine Lage hat, dass sich keine zwei ueberlappen, dass ein Tipp genau
+## die Fassung findet, ueber der er liegt, und dass alles in die linke Spalte passt. Die Optik
+## selbst prueft kein Test — dafuer gibt es `tools/Shot.gd`.
+func _test_paperdoll() -> void:
+	print("· Puppe (getragene Ausruestung)")
+	_reset_state()
+	var rects: Dictionary = PaperDoll.slot_rects()
+	var alle: Array = EquipManager.all_slots()
+	_check("Jede Fassung hat eine Lage (%d von %d)" % [rects.size(), alle.size()],
+		rects.size() == alle.size())
+	var fehlt: String = ""
+	for s in alle:
+		if not rects.has(String(s)):
+			fehlt = String(s)
+	_check("Keine Fassung vergessen", fehlt == "", "%s fehlt" % fehlt)
+	# Ueberlappung: Zwei Fassungen an derselben Stelle waeren im Bild unsichtbar und beim
+	# Tippen nicht zu treffen — der eine Fehler, den ein Layout aus Handzahlen wirklich macht.
+	var ueberlappt: String = ""
+	var ids: Array = rects.keys()
+	for i in ids.size():
+		for j in range(i + 1, ids.size()):
+			if (rects[ids[i]] as Rect2).intersects(rects[ids[j]]):
+				ueberlappt = "%s / %s" % [ids[i], ids[j]]
+	_check("Keine zwei Fassungen ueberlappen sich", ueberlappt == "", ueberlappt)
+	# Regression: Im ersten Entwurf lag der Helm-Kasten AUF dem Kopf. Im Bild sah es aus, als
+	# haette die Figur keinen — und der Test oben hat es nicht gesehen, weil eine Figur keine
+	# Fassung ist. Deshalb steht die Figur jetzt als Rechteck in `FIGURE_RECT` und wird
+	# mitgeprueft.
+	var auf_figur: String = ""
+	for s6 in rects:
+		if (rects[s6] as Rect2).intersects(PaperDoll.FIGURE_RECT):
+			auf_figur = String(s6)
+	_check("Keine Fassung liegt auf der Figur", auf_figur == "",
+		"%s ueberdeckt sie" % auf_figur)
+	_check("Die Figur liegt vollstaendig in der Puppe",
+		PaperDoll.FIGURE_RECT.position.x >= 0.0 and PaperDoll.FIGURE_RECT.position.y >= 0.0
+			and PaperDoll.FIGURE_RECT.end.x <= PaperDoll.W
+			and PaperDoll.FIGURE_RECT.end.y <= PaperDoll.H)
+	# Alles innerhalb der Puppe, und die Puppe innerhalb der linken Spalte.
+	var raus: String = ""
+	for s2 in rects:
+		var r: Rect2 = rects[s2]
+		if r.position.x < 0.0 or r.position.y < 0.0 \
+				or r.end.x > PaperDoll.W or r.end.y > PaperDoll.H:
+			raus = String(s2)
+	_check("Jede Fassung liegt innerhalb der Puppe", raus == "", "%s ragt heraus" % raus)
+	_check("Die Puppe passt in die linke Spalte (%.0f von %.0f px)"
+		% [PaperDoll.W, CharacterScreen.LEFT_W], PaperDoll.W <= CharacterScreen.LEFT_W)
+	# Trefferrueckrechnung, wie beim Beutel-Raster: aus einem Bildpunkt die richtige Fassung.
+	var d := PaperDoll.new()
+	_scratch.append(d)
+	var treffer_ok: bool = true
+	for s3 in rects:
+		if d.slot_at((rects[s3] as Rect2).get_center()) != String(s3):
+			treffer_ok = false
+	_check("Ein Tipp auf eine Fassung findet genau diese", treffer_ok)
+	_check("Ein Tipp weit daneben findet nichts", d.slot_at(Vector2(-80.0, -80.0)) == "")
+	# Zweimal dieselbe Fassung = Auswahl aufheben. Ohne das gaebe es auf dem Handy keinen Weg,
+	# eine Auswahl loszuwerden, ohne den ganzen Bildschirm zu schliessen.
+	var mitte: Vector2 = (rects["helmet"] as Rect2).get_center()
+	d.tap(mitte)
+	_check("Erster Tipp waehlt die Fassung", d.selected == "helmet")
+	d.tap(mitte)
+	_check("Zweiter Tipp hebt sie wieder auf", d.selected == "")
+	# Jede Fassung braucht ein Sinnbild — ein Fragezeichen an der Puppe ist ein vergessener Fall.
+	var ohne: String = ""
+	for s4 in alle:
+		if not InventoryGrid.SLOT_ICON.has(EquipManager.slot_type(String(s4))):
+			ohne = String(s4)
+	_check("Jede Fassung hat ein Sinnbild", ohne == "", "%s hat keines" % ohne)
+	# Die Namen kommen aus `ProgressionManager` — sonst stuende an der Puppe ein anderer Begriff
+	# als im Beutel.
+	var namenlos: String = ""
+	for s5 in alle:
+		if not ProgressionManager.GEAR_SLOTS.has(EquipManager.slot_type(String(s5))):
+			namenlos = String(s5)
+	_check("Jede Fassung hat einen Namen", namenlos == "", "%s hat keinen" % namenlos)
+
+
 func _test_inventory_grid() -> void:
 	print("· Beutel-Raster")
 	_reset_state()
