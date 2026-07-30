@@ -1386,6 +1386,14 @@ func _test_swamp() -> void:
 		_check("%s ist kleiner als die Schrottgrube" % String(f["id"]),
 			float(f["radius"]) < float(WorldManager.TERRAIN[0]["radius"]))
 		_check("%s fuehrt keinen Schrott" % String(f["id"]), not bool(f.get("scrap", true)))
+		# Regression: Der Auswurfwall war im Bild das Auffaelligste am ganzen Krater — ein
+		# blassrosa Ring. Er ist die einzige Flaeche ringsum, die der tiefstehenden Sonne ihre
+		# Oberseite zudreht, und unter Filmic-Tonemapping kippt der warme Sand dort ins Rosa.
+		# Gemessen (derselbe Krater mit und ohne Wall gerendert), nicht vermutet.
+		_check("%s hat keinen Auswurfwall" % String(f["id"]),
+			is_zero_approx(float(f["rim"])) and is_zero_approx(float(f["rim_width"])))
+		_check("%s spart sich damit auch den Gelaendeflicken dafuer" % String(f["id"]),
+			is_equal_approx(WorldManager.feature_reach(f), float(f["radius"])))
 		# Wie die Grube: eine Wand, die man SIEHT, und ein Sektor, in dem sie fehlt.
 		# Ein flaches Loch ist im Bild nur ein Ring auf dem Boden — genau daran ist der erste
 		# Versuch gescheitert. Also beides messen: Wand steil, Ausgang begehbar.

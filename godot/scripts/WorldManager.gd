@@ -110,6 +110,15 @@ const TERRAIN: Array = [
 	# in dem die Wand fehlt. Der Ausgang liegt bei jedem Loch woanders (`ramp_deg`).
 	#
 	# Der Rest unterscheidet sich von der Grube:
+	#  • **`rim` 0 — kein Auswurfwall.** Er war da (0,5–0,85 m) und im Bild das Auffälligste am
+	#    ganzen Krater: ein blassrosa Ring um jedes Loch. Der Wall ist die einzige Fläche weit
+	#    und breit, die der tiefstehenden Sonne ihre Oberseite voll zudreht; unter dem
+	#    Filmic-Tonemapping laufen die Lichter zusammen und der warme Sand kippt ins Rosa.
+	#    Gemessen, indem derselbe Krater einmal mit und einmal ohne Wall gerendert wurde — ohne
+	#    ihn ist der Ring restlos weg. Und aus Spielerhöhe liest sich das Loch DANACH besser:
+	#    vorher ein heller Ring und darin nichts, jetzt eine Mulde mit Schatten. Die
+	#    Schrottgrube behält ihren Wall — dort steht das Bild schon, und er liegt zur Hälfte
+	#    unter Schrott.
 	#  • **`step` 0,7 statt 0,35** — die Grube ist 5 m tief, hier sind es 3; die doppelte
 	#    Auflösung wären viermal so viele Dreiecke ohne sichtbaren Gewinn.
 	#  • **`ramp_span` 90° statt 70°** — bei einem Drittel der Größe wäre ein 70°-Sektor keine
@@ -122,31 +131,31 @@ const TERRAIN: Array = [
 	# liegt näher als 75 m an der Trasse — `_ribbon_step` zieht das Gleisbett sonst in den
 	# Krater hinein, und eine Bahnlinie durch ein Loch sieht man sofort.
 	{ "id": "sumpfloch_1", "kind": "crater", "x": 283, "y": 599,
-		"radius": 11.6, "depth": 3.2, "rim": 0.70, "rim_width": 0.40,
+		"radius": 11.6, "depth": 3.2, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.70, "ramp_deg": 210, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 	{ "id": "sumpfloch_2", "kind": "crater", "x": 328, "y": 654,
-		"radius": 12.0, "depth": 3.4, "rim": 0.78, "rim_width": 0.40,
+		"radius": 12.0, "depth": 3.4, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.68, "ramp_deg": 40, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 	{ "id": "sumpfloch_3", "kind": "crater", "x": 370, "y": 694,
-		"radius": 10.6, "depth": 2.8, "rim": 0.55, "rim_width": 0.40,
+		"radius": 10.6, "depth": 2.8, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.72, "ramp_deg": 150, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 	{ "id": "sumpfloch_4", "kind": "crater", "x": 393, "y": 691,
-		"radius": 13.6, "depth": 3.8, "rim": 0.85, "rim_width": 0.40,
+		"radius": 13.6, "depth": 3.8, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.66, "ramp_deg": 300, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 	{ "id": "sumpfloch_5", "kind": "crater", "x": 459, "y": 576,
-		"radius": 9.9, "depth": 2.6, "rim": 0.50, "rim_width": 0.40,
+		"radius": 9.9, "depth": 2.6, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.70, "ramp_deg": 95, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 	{ "id": "sumpfloch_6", "kind": "crater", "x": 544, "y": 696,
-		"radius": 13.1, "depth": 3.4, "rim": 0.75, "rim_width": 0.40,
+		"radius": 13.1, "depth": 3.4, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.68, "ramp_deg": 20, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 	{ "id": "sumpfloch_7", "kind": "crater", "x": 610, "y": 558,
-		"radius": 11.2, "depth": 3.0, "rim": 0.58, "rim_width": 0.40,
+		"radius": 11.2, "depth": 3.0, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.72, "ramp_deg": 250, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 	{ "id": "sumpfloch_8", "kind": "crater", "x": 667, "y": 575,
-		"radius": 12.4, "depth": 3.2, "rim": 0.80, "rim_width": 0.40,
+		"radius": 12.4, "depth": 3.2, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.66, "ramp_deg": 120, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 	{ "id": "sumpfloch_9", "kind": "crater", "x": 852, "y": 621,
-		"radius": 12.4, "depth": 3.0, "rim": 0.65, "rim_width": 0.40,
+		"radius": 12.4, "depth": 3.0, "rim": 0.00, "rim_width": 0.00,
 		"floor": 0.70, "ramp_deg": 330, "ramp_span": 90.0, "step": 0.7, "scrap": false },
 ]
 

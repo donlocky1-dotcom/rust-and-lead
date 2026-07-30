@@ -56,11 +56,16 @@ func _ready() -> void:
 	for f in WorldManager.TERRAIN:
 		if not WorldManager.is_swamp_feature(f):
 			continue
+		var id: String = String(f["id"])
+		# _1 liegt in der Salzpfanne, _7 ausserhalb. Zwei Bilder desselben Bauwerks unter
+		# unterschiedlicher Biom-Toenung — nur so laesst sich trennen, ob ein Farbunterschied
+		# vom Gelaende kommt oder von der Toenung darueber.
+		if id != "sumpfloch_1" and id != "sumpfloch_7":
+			continue
 		var loch: Vector3 = WorldManager.feature_center(f)
-		_views.append(["sumpfloch_ueber", loch + Vector3(0.0, 24.0, 28.0), loch])
-		_views.append(["sumpfloch_flach", loch + Vector3(0.0, 3.4, 34.0),
+		_views.append([id + "_ueber", loch + Vector3(0.0, 24.0, 28.0), loch])
+		_views.append([id + "_flach", loch + Vector3(0.0, 3.4, 34.0),
 			loch + Vector3(0.0, -1.0, 0.0)])
-		break
 	var sumpf: Vector3 = WorldManager.world_to_scene(
 		Vector2(float(WorldManager.SWAMP_CENTER_X), float(WorldManager.SWAMP_CENTER_Y)))
 	_views.append(["sumpf_weit", sumpf + Vector3(0.0, 140.0, 210.0), sumpf])

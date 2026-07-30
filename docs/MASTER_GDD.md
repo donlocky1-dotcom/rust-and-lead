@@ -154,7 +154,11 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   Im Sumpf liegen **neun kleine Einschlagkrater** (Radius 10–14 m, 2,6–3,8 m tief): dieselbe
   Bauart wie die Schrottgrube, ein Drittel so groß — steile Wand, flacher Grund, ein offener
   Sektor als Ausgang, und abseits davon am tiefsten Punkt eine leuchtende Lache. Sie geben dem
-  Sumpf die dritte Dimension, die ihm als grüne Fläche fehlte.
+  Sumpf die dritte Dimension, die ihm als grüne Fläche fehlte. **Ohne Auswurfwall**, anders als
+  die Grube: Der Wall ist die einzige Fläche ringsum, die der tiefstehenden Sonne ihre Oberseite
+  zudreht, und unter dem Filmic-Tonemapping kippt der warme Sand dort ins Rosa — im Bild lag um
+  jedes Loch ein blassrosa Ring, der mehr auffiel als das Loch. Ohne ihn liest sich die Mulde
+  aus Spielerhöhe sogar besser: vorher ein heller Ring und darin nichts, jetzt Schatten.
 * **Fog of War** — die Karte zeigt nur, was man gesehen hat. Vorher lagen alle vierzehn Orte ab
   dem ersten Schritt offen; damit war das Erkunden erzählt, bevor es anfing. Unentdeckte Orte
   fehlen ganz (ein grauer Punkt mit Namen wäre verraten, einer ohne Namen eine Aufforderung,
