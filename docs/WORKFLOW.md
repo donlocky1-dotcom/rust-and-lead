@@ -1,27 +1,39 @@
 # Zusammenarbeit — wie wir Sachen hin und her geben
 
-## Wenn du in Godot Gebäude umstellst
+## Wer darf wohin schreiben — die Ausgangslage
 
-Du hast recht: Ich sehe deine lokale Kopie nicht. Ich arbeite in einem eigenen Klon, der beim
-Sitzungsstart frisch von GitHub geholt wird. Was bei dir auf der Platte liegt und nicht gepusht
-ist, existiert für mich nicht.
+Gemessen, nicht vermutet:
 
-**Der Weg ist einfacher als du denkst: committe und pushe die Szene.**
+* Das Repo liegt unter **`s6w5jrpz7n-source`**. Das ist ein **Maschinenkonto der Arbeitssitzung**,
+  nicht das Konto des Auftraggebers (`donlocky`).
+* Die Mitarbeiterliste des Repos hat genau einen Eintrag: dieses Maschinenkonto, als Admin.
+* Damit gilt: **`donlocky` kann lesen (das Repo ist öffentlich), aber nicht pushen.**
 
-Rustwater ist bewusst so gebaut, dass deine Platzierung die Wahrheit ist. Sobald
-`godot/scenes/Rustwater.tscn` existiert, baut der Code die Stadt nicht mehr aus Zahlen, sondern
-lädt sie — und **die Kollision wird aus den tatsächlichen Positionen abgeleitet**, nicht aus
-Konstanten. Du kannst also jedes Haus anfassen, drehen, verschieben, und niemand muss
-programmieren.
+Das ist keine Einstellung, die sich hier drehen lässt. Der Werkzeugkasten der Sitzung kennt
+„Mitarbeiter auflisten", aber kein „Mitarbeiter hinzufügen", und ein Repo unter einem anderen
+Eigentümer lässt sich einer laufenden Sitzung nicht zuschalten:
 
-In GitHub Desktop:
+    add_repo: cross-tier adds are not supported in v1 — requested "donlocky/rust-and-lead"
+    but session already has repos from owner(s) [s6w5jrpz7n-source]
 
-1. Reiter **Changes** — dort steht `godot/scenes/Rustwater.tscn`
-2. Kurze Zeile ins Feld **Summary**, etwa „Saloon nach Norden, Schmiede an die Gasse"
-3. **Commit to main**
-4. **Push origin**
+**Eine frühere Fassung dieses Dokuments riet „committe und pushe die Szene". Das war falsch** und
+konnte gar nicht funktionieren.
 
-Danach sage mir einfach „hab die Stadt umgestellt" — ich hole den Stand und sehe jede Position.
+## Wenn du in Godot Gebäude umstellst — der Weg, der heute geht
+
+Derselbe wie bei den 3D-Modellen: **Datei in den Chat ziehen.**
+
+1. In Godot umstellen und speichern
+2. `godot/scenes/Rustwater.tscn` in den Chat ziehen (3,5 KB Text, geht sofort)
+3. Dazuschreiben, was du geändert hast
+
+Ich committe die Szene und pushe sie. Beim nächsten Pull hast du deinen eigenen Stand zurück —
+diesmal mit allem, was ich daran geprüft habe.
+
+Rustwater ist so gebaut, dass deine Platzierung die Wahrheit ist: Liegt die Szene vor, wird die
+Stadt nicht mehr aus Zahlen gebaut, sondern geladen, und **die Kollision wird aus den
+tatsächlichen Positionen abgeleitet**. Du kannst also jedes Haus anfassen, drehen, verschieben,
+ohne dass jemand programmieren muss.
 
 **Was ich dann von mir aus prüfe** (du musst es nicht ansprechen):
 
@@ -30,10 +42,25 @@ Danach sage mir einfach „hab die Stadt umgestellt" — ich hole den Stand und 
 * Bleibt zwischen den Häusern genug Gasse, dass man mit Spielerradius durchkommt?
 * Sind die NPCs noch erreichbar, oder steht jetzt ein Haus vor Mabel?
 
-Diese vier Fragen beantwortet die Testsuite bereits automatisch — ein Haus im Weg fällt beim
-nächsten Testlauf auf, nicht erst beim Spielen.
+Diese vier Fragen beantwortet die Testsuite automatisch — ein Haus im Weg fällt beim nächsten
+Testlauf auf, nicht erst beim Spielen.
 
-## Wenn ein Push scheitert
+## Der Weg, der das Problem dauerhaft löst
+
+Das Projekt gehört unter das Konto des Auftraggebers, nicht unter ein Sitzungskonto.
+
+1. Auf GitHub **Fork** von `s6w5jrpz7n-source/rust-and-lead` nach `donlocky`. Vollständige Kopie
+   samt Historie, und `donlocky` ist Eigentümer.
+2. **Die nächste Sitzung mit `donlocky/rust-and-lead` als Quelle starten.** Ab da schreiben beide
+   Seiten in dasselbe Repo, und alles unten Beschriebene (committen, pushen, Reihenfolge beim
+   Pull) gilt wieder.
+
+Schritt 2 ist der entscheidende — in einer laufenden Sitzung lässt sich die Quelle nicht wechseln.
+
+Ein Fork friert den Stand des Augenblicks ein: Was danach noch ins alte Repo gepusht wird, muss
+nachgezogen werden. Am saubersten also forken und direkt darauf weiterarbeiten.
+
+## Wenn ein Push scheitert## Wenn ein Push scheitert (gilt ab dem Fork)
 
 Meistens, weil Godot lokal Dateien angefasst hat. `.import`-Dateien und `.godot/` sind inzwischen
 aus der Versionsverwaltung genommen, das sollte nicht mehr passieren. Falls doch: **Changes →
