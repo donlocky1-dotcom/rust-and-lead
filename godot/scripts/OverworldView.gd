@@ -1538,7 +1538,7 @@ func _talk_to(giver: String) -> void:
 		return
 	var qid: String = _quest_for_giver(giver)
 	if qid == "":
-		_say("%s: %s" % [String(npc["name"]), _npc_line(giver, "idle")], 3.5)
+		_talk(npc, giver, _npc_line(giver, "idle"))
 		return
 	var def: Dictionary = QuestManager.QUESTS[qid]
 	var title: String = String(def["title"])
@@ -1555,24 +1555,39 @@ func _talk_to(giver: String) -> void:
 				var d: int = roundi(_player.position.distance_to(
 					WorldManager.poi_scene_position(ziel)))
 				wohin = "\n🧭 %s — %d m. Der Spur folgen." % [String(WorldManager.poi(ziel)["name"]), d]
-			_say("%s: %s\n📜 „%s“ — %s%s" % [String(npc["name"]), _npc_line(giver, "offer"),
-				title, goal, wohin], 5.5)
-			_play_closeup(npc["node"] as Node3D, 2.6)
+			_talk(npc, giver, "%s\n\n📜 „%s“ — %s%s"
+				% [_npc_line(giver, "offer"), title, goal, wohin])
 		else:
 			_say("🔒 „%s“ ist noch nicht verfügbar." % title, 2.5)
 	elif QuestManager.is_quest_complete(qid):
 		var gold_before: int = GameState.gold
 		if QuestManager.complete_quest(qid):
-			_say("%s: %s\n✅ „%s“ — +%d Gold" % [String(npc["name"]), _npc_line(giver, "done"),
-				title, GameState.gold - gold_before], 5.0)
-			_play_closeup(npc["node"] as Node3D, 2.6)
+			_talk(npc, giver, "%s\n\n✅ „%s“ — +%d Gold"
+				% [_npc_line(giver, "done"), title, GameState.gold - gold_before])
 			sfx_equip()
 		else:
 			_say("Hm — die Abgabe wurde abgelehnt.", 2.5)
 	else:
 		var p: Dictionary = QuestManager.check_quest_progress(qid)
-		_say("%s: %s\n📜 „%s“: %d/%d" % [String(npc["name"]), _npc_line(giver, "wait"),
-			title, int(p["current"]), int(p["target"])], 4.0)
+		_talk(npc, giver, "%s\n\n📜 „%s“: %d/%d"
+			% [_npc_line(giver, "wait"), title, int(p["current"]), int(p["target"])])
+
+
+## Ein Gespraech zeigen: Sprechtafel unten, Nahaufnahme dazu, beide drehen sich zueinander.
+##
+## EINE Stelle fuer alle vier Faelle (nichts zu tun, annehmen, warten, abgeben). Vorher stand in
+## jedem Zweig ein eigenes `_say(...)` mit eigener Anzeigedauer, und die Nahaufnahme kam nur bei
+## zweien davon — Mabel drehte sich also mal zum Spieler und mal nicht, je nachdem, ob gerade
+## eine Quest anstand.
+##
+## Die Tafel laeuft OHNE Zeitlimit und die Aufnahme mit: Solange der Text steht, bleibt auch das
+## Bild. Beendet wird beides zusammen — durch Tippen, durch eine Taste, oder von selbst, wenn
+## `CLOSEUP_SEC` abgelaufen ist.
+const CLOSEUP_SEC: float = 5.5
+func _talk(npc: Dictionary, giver: String, text: String) -> void:
+	if _dialog != null:
+		_dialog.show_line(String(npc["name"]), text, giver)
+	_play_closeup(npc["node"] as Node3D, CLOSEUP_SEC)
 
 
 ## Die Stimmen aus der Story-Bibel (GDD §4). Nach dem Reveal reden alle drei anders mit einem —
@@ -2156,6 +2171,9 @@ func _build_hud() -> void:
 	# Die Meldungszeile bekommt eine feste Breite und wird um die halbe davon nach links
 	# gerückt. Ohne das beginnt sie in der Bildmitte und wächst mit dem Text nach rechts aus
 	# dem Bild heraus — gemessen ragte sie bei 1152 px Fensterbreite 260 px darüber hinaus.
+	_dialog = DialogBox.new()
+	_dialog.dismissed.connect(_end_cine)
+	layer.add_child(_dialog)
 	_toast = Label.new()
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_toast.offset_left = -TOAST_W * 0.5
@@ -3027,7 +3045,12 @@ const CINE_SIDE: float = 0.55       # seitlich versetzt — frontal wirkt wie ei
 var _cine: Node3D = null            # wen wir gerade ansehen (null = normale Kamera)
 var _cine_left: float = 0.0
 var _cine_total: float = 0.0
-var _bars: Array = []               # die beiden schwarzen Balken
+var _bars: Array = []               # die schwarzen Balken (oben; unten sitzt die Sprechtafel)
+var _dialog: DialogBox              # die Sprechtafel
+## Wen wir beim Gespraech zueinander drehen, und wie sie vorher standen.
+var _face_a: Node3D = null
+var _face_b: Node3D = null
+var _face_back: float = 0.0         # urspruengliche Drehung von `_face_b`, zum Zuruecksetzen
 
 
 ## Nahaufnahme starten. `wer` ist die Zielperson, `secs` die Dauer.
@@ -3037,6 +3060,11 @@ func _play_closeup(wer: Node3D, secs: float) -> void:
 	_cine = wer
 	_cine_total = maxf(secs, 0.3)
 	_cine_left = _cine_total
+	# Zueinander drehen. Ein Gespraech, bei dem beide geradeaus schauen, sieht aus wie zwei
+	# Leute, die zufaellig nebeneinanderstehen — und in der Nahaufnahme faellt das sofort auf.
+	_face_a = _player
+	_face_b = wer
+	_face_back = wer.rotation.y
 	_set_hud_hidden(true)
 	_set_cine_clean(true)
 	_show_bars(true)
@@ -3048,6 +3076,14 @@ func _end_cine() -> void:
 		return
 	_cine = null
 	_cine_left = 0.0
+	_face_a = null
+	if _face_b != null and is_instance_valid(_face_b):
+		# Die Zielperson dreht sich zurueck. Ohne das steht Mabel danach dauerhaft schraeg und
+		# schaut einem hinterher, was auf Dauer unheimlicher ist als beabsichtigt.
+		_face_b.rotation.y = _face_back
+	_face_b = null
+	if _dialog != null and _dialog.visible:
+		_dialog.visible = false
 	_show_bars(false)
 	_set_cine_clean(false)
 	_set_hud_hidden(false)
@@ -3063,16 +3099,15 @@ func _show_bars(an: bool) -> void:
 	if _bars.is_empty():
 		if not an or _hud_layer == null:
 			return
-		for i in 2:
-			var r := ColorRect.new()
-			r.color = Color(0.0, 0.0, 0.0, 0.92)
-			r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			r.set_anchors_and_offsets_preset(
-				Control.PRESET_TOP_WIDE if i == 0 else Control.PRESET_BOTTOM_WIDE)
-			r.offset_bottom = 78.0 if i == 0 else 0.0
-			r.offset_top = 0.0 if i == 0 else -78.0
-			_hud_layer.add_child(r)
-			_bars.append(r)
+		# Nur OBEN ein Balken. Unten sitzt die Sprechtafel, und die ist selbst dunkel gerahmt —
+		# ein zweiter Balken darunter waere ein schwarzer Streifen unter einem schwarzen Rahmen.
+		var r := ColorRect.new()
+		r.color = Color(0.0, 0.0, 0.0, 0.92)
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		r.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		r.offset_bottom = 78.0
+		_hud_layer.add_child(r)
+		_bars.append(r)
 	for b in _bars:
 		(b as ColorRect).visible = an
 
@@ -3144,6 +3179,40 @@ func _cine_frame() -> Array:
 	return [pos, kopf]
 
 
+## Spieler und Gegenueber drehen sich zueinander.
+##
+## Weich, nicht gesprungen: Ein harter Schnitt auf die neue Blickrichtung sieht aus, als haette
+## jemand die Figur umgestellt. Ueber gut eine Viertelsekunde gedreht liest es sich als
+## Zuwendung — und genau die ist der Grund, warum ueberhaupt gedreht wird.
+##
+## `lerp_angle` und nicht `lerpf`: Zwischen 170° und −170° liegen zwanzig Grad, nicht 340. Ohne
+## das dreht sich die Figur einmal ganz herum, wenn das Gespraech ueber die Vorzeichengrenze
+## geht — und das passiert genau bei jedem zweiten NPC.
+const FACE_RATE: float = 7.0
+func _process_facing(delta: float) -> void:
+	if _face_a == null or _face_b == null:
+		return
+	if not is_instance_valid(_face_a) or not is_instance_valid(_face_b):
+		return
+	var k: float = clampf(delta * FACE_RATE, 0.0, 1.0)
+	_face_a.rotation.y = lerp_angle(_face_a.rotation.y,
+		_yaw_towards(_face_a.position, _face_b.position), k)
+	_face_b.rotation.y = lerp_angle(_face_b.rotation.y,
+		_yaw_towards(_face_b.position, _face_a.position), k)
+
+
+## Blickrichtung von `von` nach `nach` als Node3D-Drehung um die Hochachse.
+##
+## Dieselbe Rechnung, mit der die Figur beim Laufen zum Laufvektor schaut
+## (`rotation.y = atan2(-step.x, -step.z)`) — bewusst hier zentral, damit Laufen und Zuwenden
+## nicht zwei verschiedene Vorstellungen von „vorn" haben.
+static func _yaw_towards(von: Vector3, nach: Vector3) -> float:
+	var d := Vector3(nach.x - von.x, 0.0, nach.z - von.z)
+	if d.length() < 0.01:
+		return 0.0
+	return atan2(-d.x, -d.z)
+
+
 func _process_camera(delta: float) -> void:
 	if _cam == null:
 		return
@@ -3175,6 +3244,7 @@ func _process_camera(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_process_movement(delta)
+	_process_facing(delta)
 	_process_camera(delta)
 	_process_combat(delta)
 	_process_enemies(delta)

@@ -49,6 +49,7 @@ func _ready() -> void:
 	_test_quest_wayfinding()
 	_test_closeup()
 	_test_poi_walkable()
+	_test_dialog()
 	_test_memory_manager()
 	_test_encounter_manager()
 	_test_progression_manager()
@@ -1427,6 +1428,76 @@ func _test_quest_wayfinding() -> void:
 	_check("Auch im Krater folgt er dem Gelaende, nicht der Null-Ebene",
 		ow2._decal_height(WorldManager.poi_scene_position("schrott_minen").x,
 			WorldManager.poi_scene_position("schrott_minen").z) < 0.0)
+	_reset_state()
+
+
+## Sprechtafel & Zuwendung — wie ein Gespraech aussieht.
+##
+## Vorlage ist Diablo Immortal: Bildnis links, Name in Versalien, Text daneben, unten ueber die
+## ganze Breite. Geprueft wird, was daran schiefgehen KANN: dass der Text hineinpasst, dass ein
+## Tipp auf die Tafel dort bleibt, und dass sich beide Figuren wirklich zueinander drehen.
+func _test_dialog() -> void:
+	print("· Sprechtafel & Zuwendung")
+	_reset_state()
+	var d := DialogBox.new()
+	_scratch.append(d)
+	d.size = Vector2(1280.0 - DialogBox.MARGIN * 2.0, DialogBox.BOX_H)
+	_check("Vor dem ersten Satz ist sie unsichtbar", not d.visible)
+	d.show_line("Mamma „Rusty“ Mabel", "„Setz dich, Kind.“", "mabel")
+	_check("Nach dem Satz steht sie", d.visible)
+	_check("Sie merkt sich, wer spricht", d.speaker.begins_with("Mamma"))
+	# Der Fehler aus dem ersten Entwurf: feste Hoehe, und die vierte Zeile fiel unten heraus.
+	var kurz: float = d._needed_height("„Setz dich, Kind.“")
+	var lang: float = d._needed_height("„Setz dich, Kind. Aber vorher…“\n\n"
+		+ "📜 „Kopfgeld: Wegelagerer“ — 8 Gegner erlegen\n"
+		+ "🧭 Das Rattengestrüpp — 559 m. Der Spur folgen.")
+	_check("Die Tafel waechst mit dem Text (%.0f -> %.0f px)" % [kurz, lang], lang > kurz)
+	_check("Sie waechst aber nicht unbegrenzt",
+		d._needed_height("Wort ".repeat(400)) <= DialogBox.BOX_H_MAX)
+	_check("Kurzer Text bleibt bei der Mindesthoehe", is_equal_approx(kurz, DialogBox.BOX_H))
+	# Der Name wird gesperrt gesetzt — sonst liest er sich wie ein Satz, nicht wie eine Rubrik.
+	_check("Der Name wird gesperrt", DialogBox._sperren("AB") == "A B")
+	_check("Leerzeichen bekommen keinen Zusatz", DialogBox._sperren("A B") == "A  B")
+	# Ein Tipp auf die Tafel darf nicht am Joystick landen.
+	d.position = Vector2(22.0, 560.0)
+	_check("Ein Tipp auf der Tafel wird dort verbraucht",
+		d.hits(d.global_position + d.size * 0.5))
+	_check("Ein Tipp daneben nicht", not d.hits(d.global_position - Vector2(10.0, 10.0)))
+	d.hide_box()
+	_check("Nach dem Schliessen ist sie weg", not d.visible)
+	# ── Zueinanderdrehen ──────────────────────────────────────────────────────
+	# Nach Osten schauen heisst in Godot: rotation.y so, dass −z auf +x zeigt.
+	var ost: float = OverworldView._yaw_towards(Vector3.ZERO, Vector3(10.0, 0.0, 0.0))
+	var nord: float = OverworldView._yaw_towards(Vector3.ZERO, Vector3(0.0, 0.0, -10.0))
+	var richtung_ost: Vector3 = Basis.from_euler(Vector3(0.0, ost, 0.0)) * Vector3(0.0, 0.0, -1.0)
+	var richtung_nord: Vector3 = Basis.from_euler(Vector3(0.0, nord, 0.0)) * Vector3(0.0, 0.0, -1.0)
+	_check("Blick nach Osten zeigt nach +x (%.2f)" % richtung_ost.x, richtung_ost.x > 0.95)
+	_check("Blick nach Norden zeigt nach −z (%.2f)" % richtung_nord.z, richtung_nord.z < -0.95)
+	var ow := OverworldView.new()
+	_scratch.append(ow)
+	ow._player = Node3D.new()
+	_scratch.append(ow._player)
+	ow._cam = Camera3D.new()
+	_scratch.append(ow._cam)
+	var npc := Node3D.new()
+	_scratch.append(npc)
+	ow._player.position = Vector3(0.0, 0.0, 0.0)
+	npc.position = Vector3(6.0, 0.0, 0.0)
+	npc.rotation.y = PI          # schaut demonstrativ woanders hin
+	ow._play_closeup(npc, 3.0)
+	for i in 40:                 # ein paar Frames drehen lassen
+		ow._process_facing(0.05)
+	var soll_spieler: float = OverworldView._yaw_towards(ow._player.position, npc.position)
+	var soll_npc: float = OverworldView._yaw_towards(npc.position, ow._player.position)
+	_check("Der Spieler dreht sich zum Gegenueber (%.2f statt %.2f)"
+		% [ow._player.rotation.y, soll_spieler],
+		absf(wrapf(ow._player.rotation.y - soll_spieler, -PI, PI)) < 0.05)
+	_check("Und das Gegenueber zum Spieler (%.2f statt %.2f)" % [npc.rotation.y, soll_npc],
+		absf(wrapf(npc.rotation.y - soll_npc, -PI, PI)) < 0.05)
+	# Danach zurueck: Sonst steht Mabel dauerhaft schraeg und schaut einem hinterher.
+	ow._end_cine()
+	_check("Nach dem Gespraech steht das Gegenueber wieder wie vorher",
+		is_equal_approx(npc.rotation.y, PI))
 	_reset_state()
 
 

@@ -142,6 +142,7 @@ func _setup_ui(art: String) -> void:
 		# Fuer das Bild verlaengert: Sonst haengt es vom Bildtakt des Rechners ab, ob die
 		# Aufnahme beim Ausloesen noch laeuft. Die Fahrt nach innen ist davon unabhaengig.
 		ow._play_closeup(mabel["node"] as Node3D, 999.0)
+		# Die Drehung braucht ein paar Frames; das Bild wartet ohnehin.
 
 
 

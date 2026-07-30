@@ -85,6 +85,10 @@ Muster von `PROMPTS_GEBAEUDE.md`; Zielhöhe 6–7 m.
 
 # Grafiken für die Oberfläche
 
+> **Die fertigen Prompts stehen in `docs/PROMPTS_UI.md`** — mit dem gemeinsamen Stilsatz, den
+> 9-Patch-Maßen und den zwei Dingen, die man ausdrücklich verbieten muss (Schrift im Bild und
+> eigener Rahmen). Unten steht nur noch, warum es diese Bilder gibt.
+
 Kurze Antwort: **Für das Inventar brauchst du nichts.** Es ist fertig — Beutel-Raster UND Puppe —
 und funktioniert mit gezeichneten Feldern und Zeichen-Sinnbildern (⛑ 🧥 🔫 ⚙ 🥾). Das ist keine
 Notlösung — Rasterfelder mit Rahmen in Seltenheitsfarbe lesen sich sauber, und die Zeichen sind
