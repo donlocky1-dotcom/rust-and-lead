@@ -220,14 +220,16 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   wird — das entscheidet man, wenn die Orte stehen, nicht davor. Der Bahnsteig bleibt, weil die
   Schnellreise an ihm hängt; mit den Gleisen fällt auch die Sperre weg, die Streuwerk von der
   Trasse fernhält (sonst bliebe ein 15 m breiter, auffällig leerer Streifen durch die Wüste).
-* **Rustwaters Boden sind verlegte Kupferplatten**, kein Lehm. Rund 900 Stück in zwei
-  MultiMeshes (2,6 m Kantenlänge, zwei Sorten, Vierteldrehungen und ein Hauch Schiefe, damit
-  es verlegt aussieht und nicht gefräst). Der Rand endet nicht, sondern **löst sich auf**: Im
-  Auslaufband fällt mit wachsendem Abstand immer häufiger eine Platte weg, und der Sand nimmt
-  sich den Platz zurück — ein exakter Kreis aus Kupfer in der Wüste sähe ausgestanzt aus.
-  Draußen bleibt Wüste. Die Platten werden so eingesenkt, dass ihre Oberseite genau auf
-  `TOWN_GROUND_TOP` liegt; alles, was auf dem Stadtboden liegt, rechnet weiter mit dieser
-  einen Zahl.
+* **Rustwaters Boden sind verlegte Kupferplatten**, kein Lehm. Eine Sorte, 2,6 m Kantenlänge,
+  in einem MultiMesh; die Vielfalt tragen Vierteldrehungen und ein Hauch Schiefe, damit es
+  verlegt aussieht und nicht gefräst. **Gepflastert wird nur innerhalb der Palisade.** Wo die
+  steht, liest `_wall_outline()` aus den Mauerstücken der Szene ab — als Radius je Winkel, in
+  96 Fächern, mit Überbrückung der Lücken (Tor, offene Seiten). Ein fester Radius ginge nicht:
+  Die von Hand gebaute Mauer ist im Osten weit ausgebeult und im Süden dicht am Ort. Die Grenze
+  liegt auf der Mauerlinie, eine halbe Platte läuft also darunter — ein Streifen Sand zwischen
+  Belag und Mauer wäre zu sehen, das Kupfer unter der Mauer nicht. Draußen bleibt Wüste.
+  Die Platten werden so eingesenkt, dass ihre Oberseite genau auf `TOWN_GROUND_TOP` liegt;
+  alles, was auf dem Stadtboden liegt, rechnet weiter mit dieser einen Zahl.
 * **Die Schrottgrube ist eine Halde, kein Muster.** Zu den fünf gestapelten Sorten kommen
   Einzelstücke, die mit nichts anderem verwechselbar sind (Regal, Schreibtisch, Bürostuhl,
   Ölfass, Stacheldraht, Rostmedaillon, Betonbrocken), und **eine gestrandete Werkslok** von

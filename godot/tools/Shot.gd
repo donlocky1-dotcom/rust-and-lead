@@ -102,6 +102,8 @@ func _ready() -> void:
 	_views.append(["stadt_sperren_oben", rw + Vector3(0.0, 96.0, 58.0), rw])
 	# Aus Spielerhoehe durch das Tor hinein — der Weg, den jeder Spieler zuerst nimmt.
 	_views.append(["stadt_tor", rw + Vector3(2.0, 2.6, -34.0), rw + Vector3(0.0, 2.0, 0.0)])
+	# Und von INNEN, aus Spielkamera-Abstand: So sieht man den Kupferboden, wie man ihn spielt.
+	_views.append(["stadt_innen", rw + Vector3(6.0, 5.2, 12.0), rw + Vector3(-2.0, 0.6, -6.0)])
 	_wait = 60
 	# Ein einzelnes Bild statt aller: `godot … res://tools/Shot.tscn -- stadt`
 	var filter: PackedStringArray = OS.get_cmdline_user_args()

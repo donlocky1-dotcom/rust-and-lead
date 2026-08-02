@@ -1320,16 +1320,79 @@ func _child_box(parent: Node3D, size: Vector3, local_pos: Vector3, color: Color)
 ## Szene einmal erzeugt wurde.
 func _build_township() -> void:
 	var c: Vector3 = WorldManager.poi_scene_position("rustwater")
-	_build_town_ground(c)
+	# Erst die Stadt, dann der Boden: Gepflastert wird nur INNERHALB der Palisade, und wo die
+	# steht, weiss erst, wer die Szene geladen hat.
+	var umriss := PackedFloat32Array()
 	if ResourceLoader.exists(TOWN_SCENE):
 		var town: Node3D = (load(TOWN_SCENE) as PackedScene).instantiate()
 		town.position = c
 		add_child(town)
-		_register_town(town)
+		var sperren: Array = TownCollision.rects(town, town.transform)
+		_register_town_rects(sperren)
+		umriss = _wall_outline(sperren, c)
 	else:
 		_build_township_from_code(c)
+	_build_town_ground(c, umriss)
 	_label(c + Vector3(TOWER_SPOT.x, 21.0, TOWER_SPOT.y), "RUSTWATER",
 		Color(0.95, 0.82, 0.55), LBL_ORT, 350.0)
+
+
+## Der Umriss der Palisade, als **Radius je Winkel**.
+##
+## Gebraucht, weil der Kupferboden an der Mauer enden soll und die Mauer kein Kreis ist: Beim
+## Umbau von Hand ist sie im Osten weit ausgebeult und im Sueden dicht am Ort. Ein fester Radius
+## haette den Boden mal weit in die Wueste hinaus, mal mitten durch die Stadt enden lassen.
+##
+## Warum Winkel-Eimer und nicht die Mauerstuecke der Reihe nach zu einem Polygon verbinden: Die
+## Stuecke stehen in der Szene in beliebiger Reihenfolge und teils verschachtelt, und ein
+## Polygon aus falsch sortierten Ecken schlaegt Schlaufen. Der groesste Radius je Winkelfach ist
+## gegen beides unempfindlich.
+##
+## Luecken (das Tor, die offene Ostseite) werden zwischen den nachbarlichen Faechern
+## ueberbrueckt — rundherum, ueber die 0°-Grenze hinweg. Sonst laege vor jedem Tor ein Keil
+## ohne Boden.
+const WALL_BUCKETS: int = 96
+func _wall_outline(sperren: Array, c: Vector3) -> PackedFloat32Array:
+	var eimer := PackedFloat32Array()
+	eimer.resize(WALL_BUCKETS)
+	eimer.fill(0.0)
+	var besetzt: int = 0
+	for r in sperren:
+		if not AssetRegistry.is_wall(String(r["asset"])):
+			continue
+		var p: Vector2 = Vector2(r["c"]) - Vector2(c.x, c.z)
+		var laenge: float = p.length()
+		if laenge < 1.0:
+			continue
+		var i: int = int(fposmod(atan2(p.y, p.x), TAU) / TAU * float(WALL_BUCKETS)) % WALL_BUCKETS
+		if eimer[i] <= 0.0:
+			besetzt += 1
+		eimer[i] = maxf(eimer[i], laenge)
+	if besetzt < 8:
+		return PackedFloat32Array()      # keine erkennbare Mauer — dann eben ohne Umriss
+	var voll := PackedFloat32Array(eimer)
+	for i in WALL_BUCKETS:
+		if eimer[i] > 0.0:
+			continue
+		# Nachbarn in beide Richtungen suchen und dazwischen linear ueberbruecken.
+		var vor: int = 1
+		while vor < WALL_BUCKETS and eimer[(i - vor + WALL_BUCKETS) % WALL_BUCKETS] <= 0.0:
+			vor += 1
+		var nach: int = 1
+		while nach < WALL_BUCKETS and eimer[(i + nach) % WALL_BUCKETS] <= 0.0:
+			nach += 1
+		var a: float = eimer[(i - vor + WALL_BUCKETS) % WALL_BUCKETS]
+		var b: float = eimer[(i + nach) % WALL_BUCKETS]
+		voll[i] = lerpf(a, b, float(vor) / float(vor + nach))
+	return voll
+
+
+## Umriss an einem Winkel ablesen, zwischen den Faechern geglaettet.
+func _outline_at(umriss: PackedFloat32Array, winkel: float) -> float:
+	var f: float = fposmod(winkel, TAU) / TAU * float(WALL_BUCKETS)
+	var i: int = int(f) % WALL_BUCKETS
+	var j: int = (i + 1) % WALL_BUCKETS
+	return lerpf(umriss[i], umriss[j], f - floorf(f))
 
 
 ## Der Boden von Rustwater: **verlegte Kupferplatten**, kein Lehm.
@@ -1353,6 +1416,7 @@ const PLATE_M: float = 2.6            # Kantenlaenge einer Platte
 ## Platten ueberall ein Streifen Sand, und der Boden las sich als Fliesenraster statt als Belag.
 const PLATE_OVERLAP: float = 1.20
 const PLATE_JITTER_M: float = 0.05    # von Hand verlegt, nicht gefraest
+## Nur ohne Stadt-Szene gebraucht: Steht die Palisade, endet der Boden an IHR (`_wall_outline`).
 const TOWN_FLOOR_R: float = 38.0      # geschlossen gepflastert
 const TOWN_FLOOR_FADE: float = 11.0   # darin loest sich die Pflasterung auf
 ## Oberkante des Stadtbodens ueber dem Gelaende. Steht als Konstante da, weil etwas DARAUF
@@ -1360,13 +1424,17 @@ const TOWN_FLOOR_FADE: float = 11.0   # darin loest sich die Pflasterung auf
 ## werden so eingesenkt, dass ihre OBERSEITE genau hier liegt; alles, was auf dem Stadtboden
 ## liegt (Fussspur, Marken), rechnet weiter mit dieser einen Zahl.
 const TOWN_GROUND_TOP: float = 0.08
-func _build_town_ground(c: Vector3) -> void:
+func _build_town_ground(c: Vector3, umriss := PackedFloat32Array()) -> void:
 	# Je Sorte einmal das Modell laden, vermessen und wieder wegwerfen — gebraucht werden nur
 	# Netz und Masse, nicht der Knoten.
 	var netze: Array = []
 	var deckel: Array = []      # Oberkante der Platte in ihrem eigenen Raum (schon skaliert)
 	var innen: Array = []       # Netz → Modellwurzel: die Kette, die `instantiate` aufbaut
-	for name in ["copper_plate_a", "copper_plate_b"]:
+	# EINE Sorte, nicht zwei. Der Wechsel zwischen zwei Platten sollte die Flaeche beleben; im
+	# Bild wurde daraus ein Schachbrett aus zwei Brauntoenen, und der Boden las sich als Muster
+	# statt als Belag. Die Vielfalt tragen jetzt allein die Vierteldrehungen — dieselbe Platte,
+	# vier Lagen. `copper_plate_b` bleibt im Repo; umstellen ist ein Wort.
+	for name in ["copper_plate_a"]:
 		var probe: Node3D = AssetRegistry.instantiate(name, PLATE_M * PLATE_OVERLAP)
 		if probe == null:
 			continue
@@ -1402,14 +1470,24 @@ func _build_town_ground(c: Vector3) -> void:
 	var lagen: Array = []
 	for _v in netze.size():
 		lagen.append([])
-	var n: int = int(ceil((TOWN_FLOOR_R + TOWN_FLOOR_FADE) / PLATE_M))
+	var weiteste: float = TOWN_FLOOR_R + TOWN_FLOOR_FADE
+	for v in umriss:
+		weiteste = maxf(weiteste, v)
+	var n: int = int(ceil(weiteste / PLATE_M))
 	for iz in range(-n, n + 1):
 		for ix in range(-n, n + 1):
 			var raster := Vector2(float(ix) * PLATE_M, float(iz) * PLATE_M)
 			var r: float = raster.length()
-			if r > TOWN_FLOOR_R + TOWN_FLOOR_FADE:
+			if not umriss.is_empty():
+				# Mit Palisade: Der Boden endet AN IHR und franst nicht aus. Die Grenze liegt
+				# auf der Mauerlinie, nicht davor — eine halbe Platte laeuft also unter die
+				# Palisade. Genau so herum ist es richtig: Ein Streifen Sand zwischen Belag und
+				# Mauer waere zu sehen, das Stueck Kupfer unter der Mauer nicht.
+				if r > _outline_at(umriss, atan2(raster.y, raster.x)):
+					continue
+			elif r > TOWN_FLOOR_R + TOWN_FLOOR_FADE:
 				continue
-			if r > TOWN_FLOOR_R \
+			elif r > TOWN_FLOOR_R \
 					and rng.randf() < (r - TOWN_FLOOR_R) / TOWN_FLOOR_FADE:
 				continue
 			var v: int = rng.randi_range(0, netze.size() - 1)
@@ -1424,6 +1502,12 @@ func _build_town_ground(c: Vector3) -> void:
 			(lagen[v] as Array).append(platz * (innen[v] as Transform3D))
 
 	var gelegt: int = 0
+	var reichweite: float = 0.0
+	for liste2 in lagen:
+		for t in liste2:
+			reichweite = maxf(reichweite,
+				Vector2((t as Transform3D).origin.x - c.x, (t as Transform3D).origin.z - c.z).length())
+	reichweite += PLATE_M * 0.5
 	for v in netze.size():
 		var liste: Array = lagen[v]
 		if liste.is_empty():
@@ -1443,10 +1527,15 @@ func _build_town_ground(c: Vector3) -> void:
 		add_child(mmi)
 		gelegt += liste.size()
 	_town_plates = gelegt
+	_town_floor_reach = reichweite
 
 
 ## Wie viele Platten liegen (0 = die Modelle fehlen, es liegt Lehm).
 var _town_plates: int = 0
+## Wie weit der Belag reicht. Alles, was auf ihm LIEGT (Fussspur, Marken), muss um seine Dicke
+## angehoben werden — und zwar genau dort, wo er ist. Mit der Palisade als Grenze ist das keine
+## Konstante mehr, also wird beim Pflastern der groesste vorkommende Abstand gemerkt.
+var _town_floor_reach: float = TOWN_FLOOR_R + TOWN_FLOOR_FADE
 
 
 ## Rueckfall ohne Plattenmodelle: die alte Lehmscheibe. Bleibt, damit das Projekt auch mit
@@ -1487,7 +1576,14 @@ func _build_town_ground_lehm(c: Vector3) -> void:
 ## braucht: Er rastert Rustwater ab und faellt durch, sobald eine Flaeche nicht mehr erreichbar
 ## ist. Hier bleibt nur das Eintragen.
 func _register_town(town: Node3D) -> void:
-	for r in TownCollision.rects(town, town.transform):
+	_register_town_rects(TownCollision.rects(town, town.transform))
+
+
+## Wie `_register_town`, aber mit bereits abgeleiteten Sperren — der Aufbau der Stadt braucht
+## sie ohnehin ein zweites Mal (fuer den Umriss der Palisade) und soll sie nicht zweimal
+## ausrechnen.
+func _register_town_rects(sperren: Array) -> void:
+	for r in sperren:
 		_solid_rect_rot(Vector3(r["c"].x, 0.0, r["c"].y), r["h"], float(r["yaw"]))
 		var text: String = String(r["label"])
 		if text != "":
@@ -1881,7 +1977,7 @@ const DECAL_LIFT_M: float = 0.06
 func _decal_height(x: float, z: float) -> float:
 	var boden: float = WorldManager.height_at(x, z)
 	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
-	if Vector2(x - stadt.x, z - stadt.z).length() <= TOWN_FLOOR_R + TOWN_FLOOR_FADE:
+	if Vector2(x - stadt.x, z - stadt.z).length() <= _town_floor_reach:
 		boden += TOWN_GROUND_TOP
 	return boden + DECAL_LIFT_M
 
