@@ -54,6 +54,7 @@ func _ready() -> void:
 	_test_closeup()
 	_test_poi_walkable()
 	_test_town_walkable()
+	_test_enemy_attacks()
 	_test_dialog()
 	_test_memory_manager()
 	_test_encounter_manager()
@@ -1474,6 +1475,122 @@ func _test_quest_wayfinding() -> void:
 	_check("Auch im Krater folgt er dem Gelaende, nicht der Null-Ebene",
 		ow2._decal_height(WorldManager.poi_scene_position("schrott_minen").x,
 			WorldManager.poi_scene_position("schrott_minen").z) < 0.0)
+	_reset_state()
+
+
+## Gegner greifen an — mit Ausholen, Treffer und Pause.
+##
+## Vorher floss im Nahkampf Schaden je Sekunde, solange man in Reichweite stand: kein Schlag,
+## kein Ausholen, keine Pause, und die Angriffs-Animation lief nebenher als Dauerschleife. Man
+## verlor Leben, ohne dass irgendetwas im Bild dafuer verantwortlich war. Und die beiden
+## Fernkaempfer trugen einen `ranged`-Block, den niemand las — sie rannten wie alle anderen bis
+## auf zwei Meter heran.
+##
+## Geprueft wird deshalb genau das, was daran neu ist: dass der Treffer NACH dem Ausholen faellt,
+## dass er ausbleibt, wenn man ausweicht, dass die Schadensrate dieselbe geblieben ist, und dass
+## ein Schuetze Abstand haelt.
+func _test_enemy_attacks() -> void:
+	print("· Gegner greifen an")
+	_reset_state()
+	# ── Die Reichweitenbaender muessen ueberhaupt spielbar liegen ──────────────
+	for id in CombatData.ENEMY_TYPES.keys():
+		var f: Dictionary = CombatData.ENEMY_TYPES[id].get("ranged", {})
+		if f.is_empty():
+			continue
+		var weit: float = float(f["max"]) * CombatData.RANGE_PX_TO_M
+		var nah: float = float(f["min"]) * CombatData.RANGE_PX_TO_M
+		_check("%s: Schussweite groesser als Ausweichabstand (%.1f > %.1f m)" % [id, weit, nah],
+			weit > nah + 2.0)
+		_check("%s ist in Reichweite, sobald er erwacht (%.1f < %.1f m)"
+			% [id, weit, OverworldView.AGGRO_M], weit < OverworldView.AGGRO_M)
+		_check("%s haelt mehr Abstand als der Nahkampf (%.1f > %.1f m)"
+			% [id, nah, OverworldView.CONTACT_RANGE_M], nah > OverworldView.CONTACT_RANGE_M)
+
+	# ── Der Nahkampf: ausholen, treffen, Pause ────────────────────────────────
+	var ow := OverworldView.new()
+	_scratch.append(ow)
+	ow._player = Node3D.new()
+	_scratch.append(ow._player)
+	ow._player.position = Vector3(400.0, 0.0, -400.0)
+	ow._hp = 500.0
+	var bandit: Dictionary = ow._make_enemy("outlaw")
+	ow.add_child(bandit["node"])
+	ow._enemies.append(bandit)
+	(bandit["node"] as Node3D).position = ow._player.position + Vector3(1.4, 0.0, 0.0)
+	var vorher: float = ow._hp
+	ow._process_enemies(0.016)
+	_check("Der Schlag holt erst aus", float(bandit["windup"]) > 0.0)
+	_check("Waehrend des Ausholens faellt kein Schaden", is_equal_approx(ow._hp, vorher))
+	for _i in 60:
+		ow._process_enemies(0.016)
+		if float(bandit["windup"]) < 0.0:
+			break
+	var schaden: float = vorher - ow._hp
+	var erwartet: float = float((bandit["target"] as CombatTarget).contact_dps) \
+		* CombatData.MELEE_INTERVAL_SEC * CombatEngine.player_damage_taken_mul(0)
+	_check("Dann sitzt ein ganzer Schlag (%.1f, erwartet %.1f)" % [schaden, erwartet],
+		absf(schaden - erwartet) < 0.6)
+	_check("Und danach laeuft die Pause (%.2f s)" % float(bandit["cooldown"]),
+		float(bandit["cooldown"]) > CombatData.MELEE_INTERVAL_SEC * 0.8)
+	# Die Schadensrate ist dieselbe geblieben wie beim alten Dauerschaden — das ist der Punkt:
+	# Es aendert sich, wie man den Schaden erlebt, nicht wie viel es ist.
+	var rate: float = erwartet / CombatData.MELEE_INTERVAL_SEC
+	_check("Schaden je Sekunde unveraendert (%.1f)" % rate,
+		absf(rate - float((bandit["target"] as CombatTarget).contact_dps)
+			* CombatEngine.player_damage_taken_mul(0)) < 0.01)
+
+	# ── Ausweichen wirkt ──────────────────────────────────────────────────────
+	ow._hp = 500.0
+	bandit["cooldown"] = 0.0
+	bandit["windup"] = -1.0
+	(bandit["node"] as Node3D).position = ow._player.position + Vector3(1.4, 0.0, 0.0)
+	ow._process_enemies(0.016)
+	_check("Der naechste Schlag holt wieder aus", float(bandit["windup"]) > 0.0)
+	(bandit["node"] as Node3D).position = ow._player.position + Vector3(12.0, 0.0, 0.0)
+	var hp2: float = ow._hp
+	for _j in 60:
+		ow._process_enemies(0.016)
+		if float(bandit["windup"]) < 0.0:
+			break
+	_check("Wer waehrend des Ausholens weggeht, wird nicht getroffen",
+		is_equal_approx(ow._hp, hp2), "verlor %.1f" % (hp2 - ow._hp))
+
+	# ── Der Schuetze haelt Abstand ────────────────────────────────────────────
+	var ow2 := OverworldView.new()
+	_scratch.append(ow2)
+	ow2._player = Node3D.new()
+	_scratch.append(ow2._player)
+	ow2._player.position = Vector3(400.0, 0.0, -400.0)
+	ow2._hp = 5000.0
+	var held: Dictionary = ow2._make_enemy("revolver")
+	ow2.add_child(held["node"])
+	ow2._enemies.append(held)
+	(held["node"] as Node3D).position = ow2._player.position + Vector3(2.0, 0.0, 0.0)
+	var d0: float = 2.0
+	for _k in 40:
+		ow2._process_enemies(0.05)
+	var d1: float = Vector2((held["node"] as Node3D).position.x - ow2._player.position.x,
+		(held["node"] as Node3D).position.z - ow2._player.position.z).length()
+	_check("Der Revolverheld weicht zurueck statt heranzurennen (%.1f -> %.1f m)" % [d0, d1],
+		d1 > d0 + 0.5)
+	_check("Und er hat dabei geschossen (%.0f Schaden)" % (5000.0 - ow2._hp), ow2._hp < 5000.0)
+
+	# ── Die Modelle bringen die noetigen Clips mit ────────────────────────────
+	for kind in ["enemy_outlaw", "enemy_revolver"]:
+		var m: Node3D = AssetRegistry.instantiate(String(kind), AssetRegistry.height_of(String(kind)))
+		if m == null:
+			continue
+		_scratch.append(m)
+		_check("%s hat eine Angriffs-Animation" % kind,
+			AssetRegistry.play_clip(m, "attack", false))
+		# Ohne Ruhepose lief vorher der letzte Clip weiter — der Grenzgaenger ging auf der Stelle.
+		_check("%s kommt zur Ruhe, auch ohne Idle-Clip" % kind, AssetRegistry.rest(m))
+	var schuetze: Node3D = AssetRegistry.instantiate("enemy_revolver",
+		AssetRegistry.height_of("enemy_revolver"))
+	if schuetze != null:
+		_scratch.append(schuetze)
+		_check("Der Revolverheld kann rueckwaerts gehen",
+			AssetRegistry.play_clip(schuetze, "retreat"))
 	_reset_state()
 
 

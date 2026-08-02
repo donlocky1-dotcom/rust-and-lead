@@ -87,6 +87,7 @@ func _ready() -> void:
 	_views.append(["gegner_neu", null, "gegner"])
 	_views.append(["blickrichtung", null, "blick"])
 	_views.append(["gegner_leiste", null, "leiste"])
+	_views.append(["gegner_kampf", null, "kampf"])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -226,6 +227,30 @@ func _setup_ui(art: String) -> void:
 			i3 += 1
 		_cam.position = _buehne + Vector3(0.0, 1.9, 3.4)
 		_cam.look_at(_buehne + Vector3(0.0, 1.5, 0.0), Vector3.UP)
+		_cam.current = true
+	elif art == "kampf":
+		# Ein Nahkaempfer im Schlag und ein Schuetze auf Schussdistanz — beide in dem Bild, in
+		# dem der Treffer faellt. Nur so sieht man, ob die Animation zum Schaden passt.
+		ow._end_cine()
+		ow._close_character()
+		ow._enemies.clear()
+		var mitte: Vector3 = _buehne
+		ow._player.position = Vector3(mitte.x, WorldManager.height_at(mitte.x, mitte.z), mitte.z)
+		ow._hp = 500.0
+		var stellen: Array = [["outlaw", Vector3(1.6, 0.0, 0.4)],
+			["revolver", Vector3(-6.5, 0.0, 3.0)]]
+		for eintrag in stellen:
+			var e2: Dictionary = ow._make_enemy(String(eintrag[0]))
+			var n3: Node3D = e2["node"]
+			ow.add_child(n3)
+			n3.position = ow._player.position + (eintrag[1] as Vector3)
+			n3.position.y = WorldManager.height_at(n3.position.x, n3.position.z)
+			ow._enemies.append(e2)
+		# Bis kurz VOR den Treffer vorspulen: Dann steht die Angriffs-Animation im Bild.
+		for _f in 12:
+			ow._process_enemies(0.02)
+		_cam.position = ow._player.position + Vector3(3.4, 2.2, 6.0)
+		_cam.look_at(ow._player.position + Vector3(-1.0, 1.1, 0.0), Vector3.UP)
 		_cam.current = true
 	elif art == "umweg":
 		# Der Fall, der ohne Wegweisung toedlich endet: Die gerade Linie zum Zugdepot fuehrt

@@ -379,6 +379,9 @@ const CLIP_ALIASES: Dictionary = {
 	"attack": ["attack", "shoot", "fire", "punch", "angriff", "schuss", "schlag"],
 	"hit":    ["hit", "impact", "damage", "flinch", "treffer"],
 	"death":  ["death", "die", "dead", "sterb", "tod"],
+	# Rueckwaertsgehen: die Gangart eines Fernkaempfers, der Abstand haelt, ohne den Spieler
+	# aus dem Blick zu lassen. Ohne eigene Rolle liefe er vorwaerts, waehrend er sich entfernt.
+	"retreat": ["backward", "retreat", "rueckwaerts", "zurueck", "backpedal"],
 }
 
 ## Feste Clip-Zuordnung je Asset, wo die Namenssuche raten müsste. Ein Animations-Paket
@@ -397,6 +400,19 @@ const CLIP_OVERRIDES: Dictionary = {
 	"npc_mabel": { "idle": "Stand_and_Chat", "walk": "Walking", "run": "Running" },
 	"npc_silas": { "idle": "Stand_and_Chat", "walk": "Walking", "run": "Running" },
 	"npc_doc":   { "idle": "Stand_and_Chat", "walk": "Walking", "run": "Running" },
+	# Der Grenzgaenger bringt neun Clips mit, davon SIEBEN Angriffe („Charged_Slash",
+	# „Heavy_Hammer_Swing", „Sword_Judgment", …) — und keine Ruhepose. Die Namenssuche haette
+	# unter den sieben den kuerzesten genommen, was zufaellig richtig waere; hier steht es
+	# ausdruecklich. Dass `idle` fehlt, faengt `rest()` ab.
+	"enemy_outlaw": { "walk": "Walking", "run": "Running", "attack": "Attack" },
+	# Der Revolverheld hat ebenfalls kein „Idle", aber `Alert` ist genau das: die wachsame
+	# Standpose eines Schuetzen. `Cowboy_Quick_Draw_Shooting` ist der Schuss aus dem Stand —
+	# `Run_and_Shoot` und `Walk_Forward_While_Shooting` sind Fortbewegung, kein Angriff im Stand.
+	"enemy_revolver": {
+		"idle": "Alert", "walk": "Walking", "run": "Running",
+		"attack": "Cowboy_Quick_Draw_Shooting",
+		"retreat": "Walk_Backward_with_Bow_Aimed",
+	},
 }
 
 ## Erster AnimationPlayer unter `root` (glTF legt ihn beim Import automatisch an), sonst `null`.
@@ -455,6 +471,24 @@ static func play_clip(root: Node, kind: String, loop: bool = true) -> bool:
 		anim.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
 	ap.play(clip)
 	return true
+
+## Haelt die Animation an und stellt die erste Pose des laufenden Clips her.
+##
+## Fuer Modelle OHNE Ruhepose. `play_clip("idle")` liefert bei ihnen `false` und laesst den
+## VORHERIGEN Clip weiterlaufen — der Grenzgaenger lief dann auf der Stelle weiter, obwohl er
+## stehen sollte. Ein angehaltener Clip auf Bild 0 ist eine brauchbare Standpose; das ist
+## keine Animation, aber ehrlicher als Gehen ohne Weg.
+##
+## `false`, wenn es nichts anzuhalten gibt.
+static func rest(root: Node) -> bool:
+	var ap: AnimationPlayer = animation_player(root)
+	if ap == null or ap.current_animation == "":
+		return false
+	if ap.is_playing():
+		ap.pause()
+		ap.seek(0.0, true)
+	return true
+
 
 ## Lädt das erste PBR-Material eines Modells zur Wiederverwendung — z. B. um die Sand-Textur
 ## eines kleinen CC0-Bodenstücks gekachelt auf eine große Bodenfläche zu legen, statt das

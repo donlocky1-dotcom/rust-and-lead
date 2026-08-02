@@ -35,7 +35,7 @@ Ohne Modell zeichnet die Szene eine farbige Kapsel. Man kämpft also gegen Kapse
 |---|---|---|---|
 | `enemies/fauna.glb` | Ölfresser-Ratte | 0,6 m | ✅ da |
 | `enemies/konstrukt.glb` | Konzern-Konstrukt | 2,0 m | ✅ da |
-| `enemies/outlaw.glb` | Grenzgänger | 1,6 m | ✅ da (9 Animationen) |
+| `enemies/outlaw.glb` | Grenzgänger | 1,6 m | ✅ da (9 Animationen — **keine Ruhepose**, sieben davon sind Angriffe; `AssetRegistry.rest()` hält ersatzweise das erste Bild) |
 | `enemies/revolver.glb` | Revolverheld | 1,6 m | ✅ da (12 Animationen) |
 | `enemies/klaeffer.glb` | Kessel-Kläffer | 0,8 m | `PROMPTS_GEGNER.md` |
 | `enemies/goliath.glb` | Schwerer Ernter (Boss) | 4,0 m | `PROMPTS_GEGNER.md` (vorne + hinten) |

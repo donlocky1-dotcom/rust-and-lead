@@ -77,6 +77,38 @@ const WEAPONS: Dictionary = {
 }
 
 ## Gegner-Statblöcke (Master-GDD §7.3). `ranged` = Fernkämpfer-Parameter.
+## Reichweiten der Fernkaempfer: die Tabellenwerte stehen in PIXELN, hier gilt METER.
+##
+## Die `ranged`-Angaben stammen aus dem Web-Prototyp. Unumgerechnet waeren 150–360 Pixel
+## 150–360 Meter — der Revolverheld haette aus einem Drittel Kilometer geschossen, weit
+## ausserhalb der Sichtweite, in der er ueberhaupt erwacht.
+##
+## Der Faktor ist nicht geraten, sondern angelegt: Die groesste Reichweite der Tabelle (360)
+## soll knapp INNERHALB des Aggro-Radius liegen (`OverworldView.AGGRO_M` = 16 m), sonst waere
+## ein Schuetze in dem Augenblick, in dem er aufwacht, ausserhalb seiner eigenen Reichweite.
+## 360 px = 12 m ergibt genau 1/30. Damit schiesst der Revolverheld von 5,0–12,0 m, das
+## Konstrukt von 4,3–11,3 m — und die im Prototyp erprobten VERHAELTNISSE bleiben erhalten
+## (das Konstrukt haelt weniger Abstand als der Revolverheld).
+const RANGE_PX_TO_M: float = 12.0 / 360.0
+
+## Sekunden, die eine Angriffs-Animation laeuft, BEVOR der Treffer sitzt.
+##
+## Ohne diese Verzoegerung faellt der Schaden in dem Bild, in dem die Animation ANFAENGT — man
+## verliert Leben, waehrend der Gegner noch ausholt. Mit ihr liegt der Treffer da, wo das Auge
+## ihn erwartet, und ein Wimpernschlag reicht, um aus der Reichweite zu gehen. Gemessen an den
+## Clips: Der Schlag des Grenzgaengers trifft nach gut einem Drittel, der Schnellzieher des
+## Revolverhelden frueher.
+const WINDUP_MELEE_SEC: float = 0.34
+const WINDUP_SHOT_SEC: float = 0.28
+
+## Sekunden zwischen zwei Nahkampfschlaegen.
+##
+## Der Nahkampf war bisher ein Dauerschaden je Sekunde (`contact`), der floss, solange man in
+## Reichweite stand — ohne Schlag, ohne Ausholen, ohne Pause. Als EINZELSCHLAG braucht er einen
+## Takt. Der Schaden je Schlag ist `contact × dieser Takt`, die Schadensrate bleibt also exakt
+## dieselbe wie vorher; es aendert sich nur, dass man sie sieht und ihr ausweichen kann.
+const MELEE_INTERVAL_SEC: float = 1.1
+
 const ENEMY_TYPES: Dictionary = {
 	"outlaw":    { "name": "Grenzgänger", "class": BIOLOGICAL, "sub": "outlaw", "hp": 55, "speed": 82, "armor": 0, "contact": 12, "gold_min": 1, "gold_max": 3 },
 	"fauna":     { "name": "Ölfresser-Ratte", "class": BIOLOGICAL, "sub": "fauna", "hp": 32, "speed": 122, "armor": 0, "contact": 9, "gold_min": 1, "gold_max": 2, "swarm": true },

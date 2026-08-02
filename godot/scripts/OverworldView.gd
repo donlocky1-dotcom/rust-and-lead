@@ -2576,8 +2576,12 @@ func _make_enemy(type_id: String) -> Dictionary:
 	# kleineres Ziel als der Schwere Ernter (4 m), und genau das soll die Streuung spueren.
 	# Gedeckelt, damit weder eine Ratte unmoeglich noch ein Boss trivial wird.
 	var radius: float = clampf(AssetRegistry.height_of(asset) * 0.30, 0.32, 1.40)
+	# `windup` = −1 heisst „holt gerade nicht aus", `cooldown` zaehlt bis zum naechsten Angriff.
+	# Beide gehoeren in den Gegner, nicht in eine Nebenliste: Ein Gegner, der stirbt, nimmt
+	# seinen halb ausgefuehrten Schlag mit.
 	return { "node": node, "target": target, "bar": bar, "model": model,
-		"animated": animated, "phase": randf() * TAU, "radius": radius }
+		"animated": animated, "phase": randf() * TAU, "radius": radius,
+		"windup": -1.0, "cooldown": 0.0 }
 
 
 func _spawn_pack() -> void:
@@ -3590,41 +3594,166 @@ func _roll_material_drop(at: Vector3) -> void:
 
 
 func _spawn_tracer(to_pos: Vector3) -> void:
-	var from_pos: Vector3 = _player.position + Vector3(0.0, 1.2, 0.0)
+	_tracer(_player.position + Vector3(0.0, 1.2, 0.0), Vector3(to_pos.x, 1.0, to_pos.z),
+		TRACER_COLOR[_weapon_id])
+
+
+## Ein Schuss als Strich, 70 ms lang. Eine Funktion fuer beide Richtungen: Seit die Gegner
+## zurueckschiessen, gibt es zwei Quellen, und zwei Kopien derselben sieben Zeilen waeren
+## genau die Stelle, an der eine Aenderung nur in einer Haelfte landet.
+func _tracer(von: Vector3, nach: Vector3, farbe: Color) -> void:
+	if not is_inside_tree():
+		return           # Testlauf ohne Szenenbaum: es gibt kein Bild, in dem etwas aufblitzen kann
 	var tracer := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.07, 0.07, from_pos.distance_to(to_pos))
+	mesh.size = Vector3(0.07, 0.07, von.distance_to(nach))
 	tracer.mesh = mesh
-	tracer.material_override = _mat(TRACER_COLOR[_weapon_id], true)
+	tracer.material_override = _mat(farbe, true)
 	add_child(tracer)
-	tracer.position = (from_pos + Vector3(to_pos.x, 1.0, to_pos.z)) / 2.0
-	tracer.look_at(Vector3(to_pos.x, 1.0, to_pos.z))
+	tracer.position = (von + nach) / 2.0
+	tracer.look_at(nach)
 	get_tree().create_timer(0.07).timeout.connect(tracer.queue_free)
 
 
+## Die Gegner: heranrücken, zuschlagen, Abstand halten.
+##
+## Vorher gab es zwei Zustände — laufen und „in Reichweite". In Reichweite floss Schaden je
+## Sekunde, solange man dort stand: kein Schlag, kein Ausholen, keine Pause, und die
+## Angriffs-Animation lief nebenher als Dauerschleife. Man verlor Leben, ohne dass irgendetwas
+## im Bild dafür verantwortlich war.
+##
+## Jetzt hat ein Angriff einen ABLAUF: ausholen (`windup`) → treffen → nachladen (`cooldown`).
+## Der Schaden fällt in dem Bild, in dem die Animation ihn zeigt, und wer in der Zeit aus der
+## Reichweite geht, wird nicht getroffen. Die Schadensrate ist dieselbe geblieben
+## (`contact × MELEE_INTERVAL_SEC` je Schlag) — es ändert sich nur, dass man sie sieht.
+##
+## Und Fernkämpfer kämpfen fern. Revolverheld und Konstrukt tragen in `CombatData` seit jeher
+## einen `ranged`-Block, den niemand gelesen hat; sie sind bisher wie alle anderen bis auf zwei
+## Meter herangerannt. Jetzt bleiben sie in ihrem Reichweitenband stehen und **weichen zurück**,
+## wenn man ihnen zu nah kommt.
 func _process_enemies(delta: float) -> void:
 	for e in _enemies:
 		var node: Node3D = e["node"]
-		var d: float = _player.position.distance_to(node.position)
+		var zu := Vector3(_player.position.x - node.position.x, 0.0,
+			_player.position.z - node.position.z)
+		var d: float = zu.length()
+		e["cooldown"] = maxf(0.0, float(e.get("cooldown", 0.0)) - delta)
+		# Im Ausholen wird weder gelaufen noch neu entschieden — sonst bricht der Schlag ab,
+		# sobald sich der Spieler einen Schritt bewegt, und man sähe nie einen ganzen.
+		if float(e.get("windup", -1.0)) >= 0.0:
+			if _tick_windup(e, d, delta):
+				return                       # Spieler gestorben; `_enemies` ist neu
+			continue
 		if d > AGGRO_M:
-			AssetRegistry.play_clip(e["model"], "idle")
+			if not AssetRegistry.play_clip(e["model"], "idle"):
+				AssetRegistry.rest(e["model"])
 			_scurry(e, false)
 			continue
-		if d > CONTACT_RANGE_M:
-			var dir: Vector3 = (_player.position - node.position).normalized()
-			node.position += dir * _enemy_speed(e) * delta
-			node.rotation.y = atan2(-dir.x, -dir.z)   # Gegner schaut, wohin er läuft
-			node.position.y = WorldManager.height_at(node.position.x, node.position.z)
+		var dir: Vector3 = zu / maxf(d, 0.001)
+		node.rotation.y = atan2(-dir.x, -dir.z)   # wach heißt: zum Spieler gedreht
+		var weit: float = _attack_range(e)
+		var nah: float = _min_range(e)
+		if d > weit:
+			_move_enemy(e, dir, 1.0, delta)
 			AssetRegistry.play_clip(e["model"], _gait(_enemy_speed(e)))
-			_scurry(e, true)
+		elif nah > 0.0 and d < nah:
+			# Zu nah für einen Schützen. Rückwärts, ohne den Spieler aus dem Blick zu lassen —
+			# langsamer als vorwärts, sonst kommt man ihm nie bei.
+			_move_enemy(e, dir, -RETREAT_SPEED_MUL, delta)
+			if not AssetRegistry.play_clip(e["model"], "retreat"):
+				AssetRegistry.play_clip(e["model"], _gait(_enemy_speed(e)))
+			if float(e["cooldown"]) <= 0.0:
+				_begin_attack(e)
 		else:
-			AssetRegistry.play_clip(e["model"], "attack")
-			_scurry(e, true)
-			var target: CombatTarget = e["target"]
-			_hp -= float(target.contact_dps) * delta * CombatEngine.player_damage_taken_mul(0)
-			if _hp <= 0.0:
-				_respawn()
-				return
+			_scurry(e, false)
+			if float(e["cooldown"]) <= 0.0:
+				_begin_attack(e)
+			elif not AssetRegistry.play_clip(e["model"], "idle"):
+				AssetRegistry.rest(e["model"])
+
+
+## Tempo beim Rückwärtsgehen, als Anteil des Vorwärtstempos.
+const RETREAT_SPEED_MUL: float = 0.62
+## Kulanz beim Treffer: So weit darf man sich während des Ausholens aus der Reichweite bewegt
+## haben und wird trotzdem getroffen. Ohne sie verfehlt ein Schlag schon, wenn man beim Ausholen
+## normal weitergeht — und Ausweichen wäre nicht Können, sondern Zufall.
+const ATTACK_FORGIVE_M: float = 0.8
+## Farbe der gegnerischen Leuchtspur. Bewusst NICHT die der eigenen Waffen: Wer im Getümmel
+## sehen soll, was auf ihn zufliegt, darf es nicht mit dem eigenen Feuer verwechseln.
+const ENEMY_TRACER_COLOR: Color = Color(1.0, 0.42, 0.22)
+
+
+## Ein Schritt Gegnerbewegung. `mul` < 0 heißt rückwärts.
+##
+## Steht dort ein Bauwerk, bleibt der Gegner stehen, statt hineinzulaufen. Das galt vorher für
+## niemanden — solange alle nur vorwärts auf den Spieler zuliefen, fiel es kaum auf; ein
+## Schütze, der rückwärts durch eine Hauswand weicht, dagegen sofort.
+func _move_enemy(e: Dictionary, dir: Vector3, mul: float, delta: float) -> void:
+	var node: Node3D = e["node"]
+	var ziel: Vector3 = node.position + dir * _enemy_speed(e) * mul * delta
+	if not _blocked(ziel):
+		node.position = Vector3(ziel.x, WorldManager.height_at(ziel.x, ziel.z), ziel.z)
+	_scurry(e, true)
+
+
+## Fernkampf-Block eines Gegners (leer = Nahkämpfer).
+func _ranged(e: Dictionary) -> Dictionary:
+	var id: String = (e["target"] as CombatTarget).type_id
+	return CombatData.ENEMY_TYPES[id].get("ranged", {})
+
+
+## Entfernung, ab der dieser Gegner angreifen kann.
+func _attack_range(e: Dictionary) -> float:
+	var f: Dictionary = _ranged(e)
+	return CONTACT_RANGE_M if f.is_empty() else float(f["max"]) * CombatData.RANGE_PX_TO_M
+
+
+## Entfernung, unter der er zurückweicht (0 = weicht nicht).
+func _min_range(e: Dictionary) -> float:
+	var f: Dictionary = _ranged(e)
+	return 0.0 if f.is_empty() else float(f["min"]) * CombatData.RANGE_PX_TO_M
+
+
+## Holt aus: Animation an, Uhr gestellt. Der Treffer fällt in `_tick_windup`.
+func _begin_attack(e: Dictionary) -> void:
+	var fern: bool = not _ranged(e).is_empty()
+	e["windup"] = CombatData.WINDUP_SHOT_SEC if fern else CombatData.WINDUP_MELEE_SEC
+	AssetRegistry.play_clip(e["model"], "attack", false)
+
+
+## Läuft das Ausholen ab und setzt den Treffer. `true` = der Spieler ist dabei gestorben.
+func _tick_windup(e: Dictionary, d: float, delta: float) -> bool:
+	_scurry(e, false)
+	e["windup"] = float(e["windup"]) - delta
+	if float(e["windup"]) > 0.0:
+		return false
+	e["windup"] = -1.0
+	var fern: Dictionary = _ranged(e)
+	e["cooldown"] = float(fern["rate"]) / 1000.0 if not fern.is_empty() \
+		else CombatData.MELEE_INTERVAL_SEC
+	# Wer während des Ausholens weggegangen ist, wird nicht getroffen. Das ist der ganze Grund
+	# für das Ausholen: Ohne es gäbe es kein Zeitfenster, in dem Ausweichen etwas nützt.
+	if d > _attack_range(e) + ATTACK_FORGIVE_M:
+		return false
+	var schaden: float = float(fern["dmg"]) if not fern.is_empty() \
+		else float((e["target"] as CombatTarget).contact_dps) * CombatData.MELEE_INTERVAL_SEC
+	if not fern.is_empty():
+		_enemy_tracer(e)
+	_hp -= schaden * CombatEngine.player_damage_taken_mul(0)
+	if _hp <= 0.0:
+		_respawn()
+		return true
+	return false
+
+
+## Leuchtspur vom Gegner zum Spieler. Ohne sie ist ein Fernkämpfer ein unsichtbarer Schaden aus
+## dem Nichts: Man verliert Leben und sieht nicht, woher.
+func _enemy_tracer(e: Dictionary) -> void:
+	var node: Node3D = e["node"]
+	var hoehe: float = AssetRegistry.height_of(
+		AssetRegistry.enemy_asset((e["target"] as CombatTarget).type_id))
+	_tracer(node.position + Vector3(0.0, hoehe * 0.72, 0.0),
+		_player.position + Vector3(0.0, 1.1, 0.0), ENEMY_TRACER_COLOR)
 
 
 ## Gangart zur Geschwindigkeit. Eine Geh-Animation bei 4,7 m/s (knapp 17 km/h) sieht aus, als

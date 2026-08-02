@@ -1072,6 +1072,22 @@ Distanz-Bandbreite (heranrücken/zurückweichen), feuern auf Cooldown; Automaten
 keine Flucht/Heilung. Kern-Kampf: **Auto-Ziel** auf den nächsten Gegner (kein Zielen per
 Bewegung), Aggro/Leash-Radien, Kontakt- und Projektilschaden.
 
+**Ein Angriff hat einen Ablauf:** ausholen → treffen → nachladen. Der Schaden fällt in dem
+Bild, in dem die Animation ihn zeigt (`WINDUP_MELEE_SEC` 0,34 s, `WINDUP_SHOT_SEC` 0,28 s),
+und wer in dieser Zeit aus der Reichweite geht, wird **nicht getroffen** — das ist der ganze
+Zweck des Ausholens: ein Zeitfenster, in dem Ausweichen etwas nützt. Vorher floss im Nahkampf
+Schaden je Sekunde, solange man in Reichweite stand; die Rate ist unverändert geblieben
+(`contact × MELEE_INTERVAL_SEC` je Schlag), nur sichtbar geworden.
+
+**Reichweiten:** Die `ranged`-Werte der Tabelle stammen aus dem Web-Prototyp und stehen in
+PIXELN; `CombatData.RANGE_PX_TO_M` rechnet sie um. Der Faktor ist angelegt statt geraten — die
+größte Reichweite (360) soll knapp innerhalb des Aggro-Radius (16 m) liegen, sonst wäre ein
+Schütze im Augenblick des Erwachens außerhalb seiner eigenen Reichweite. 360 px = 12 m ergibt
+1/30: Revolverheld 5,0–12,0 m, Konstrukt 4,3–11,3 m. Unterhalb der Untergrenze **weicht der
+Schütze zurück** (62 % Tempo, mit eigener Rückwärts-Animation) und schießt dabei weiter.
+Gegnerisches Feuer hat eine eigene Leuchtspurfarbe — im Getümmel darf man das, was auf einen
+zufliegt, nicht mit dem eigenen Feuer verwechseln.
+
 ## 7.4 Ausrüstung, Seltenheit & Grid-Inventar
 **Ausrüstungs-Slots (Paper-Doll):** Helm (`hp`), Rüstung (`armor`), Waffe (`damage`),
 Gadget (`firerate`), Stiefel (`speed`) + **acht Platten-/Tech-Slots** (`plate1…plate8`).
