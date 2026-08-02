@@ -2,6 +2,7 @@ extends Node
 
 const DialogBox = preload("res://scripts/DialogBox.gd")
 const PaperDoll = preload("res://scripts/PaperDoll.gd")
+const TownCollision = preload("res://scripts/TownCollision.gd")
 ## TestRunner — abhängigkeitsfreie headless Test-Suite für das gesamte Backend.
 ##
 ## Ausführen (kein GUT-Addon nötig):  godot --headless --path godot
@@ -52,6 +53,7 @@ func _ready() -> void:
 	_test_quest_wayfinding()
 	_test_closeup()
 	_test_poi_walkable()
+	_test_town_walkable()
 	_test_dialog()
 	_test_memory_manager()
 	_test_encounter_manager()
@@ -1432,6 +1434,123 @@ func _test_quest_wayfinding() -> void:
 		ow2._decal_height(WorldManager.poi_scene_position("schrott_minen").x,
 			WorldManager.poi_scene_position("schrott_minen").z) < 0.0)
 	_reset_state()
+
+
+## Rustwater muss BEGEHBAR bleiben, egal wie jemand die Stadt im Editor umbaut.
+##
+## Der Anlass: Nach dem ersten Umbau von Hand kam man in der Stadt kaum noch vorwaerts. Ursache
+## war nicht die Platzierung, sondern die Ableitung. Wer im Editor ein Palisadenstueck
+## dupliziert, waehrend das erste ausgewaehlt ist, bekommt es als KIND — und die alte Regel
+## vermass einen instanzierten Knoten samt allem, was darunterhing, als EINEN Kasten. Vier
+## Generationen tief war das eine 90 × 60 m grosse unsichtbare Wand mitten in Rustwater.
+##
+## Deshalb prueft dieser Test nicht Zahlen, sondern die Stadt: Er rastert sie ab und laeuft
+## los. Was er findet, findet auch der Spieler.
+func _test_town_walkable() -> void:
+	print("· Rustwater ist begehbar")
+	var szene: PackedScene = load("res://scenes/Rustwater.tscn") as PackedScene
+	_check("Die Stadt-Szene laedt", szene != null)
+	if szene == null:
+		return
+	var stadt: Node3D = szene.instantiate() as Node3D
+	_scratch.append(stadt)
+	var sperren: Array = TownCollision.rects(stadt)
+	_check("Die Stadt traegt Sperren ein", sperren.size() >= 10,
+		"nur %d" % sperren.size())
+
+	# 1. Keine Riesensperre. Nichts in Rustwater ist groesser als der Saloon (13,3 m); eine
+	#    Sperre ueber 25 m kann nur aus zusammengezaehlten Unterbauten stammen.
+	var groesste: float = 0.0
+	var uebeltaeter: String = ""
+	for r in sperren:
+		var kante: float = maxf(float(r["h"].x), float(r["h"].y)) * 2.0
+		if kante > groesste:
+			groesste = kante
+			uebeltaeter = String(r["name"])
+	_check("Keine Sperre spannt ueber den halben Ort", groesste <= 25.0,
+		"%s sperrt %.1f m" % [uebeltaeter, groesste])
+
+	# 2. Jedes Tor hat einen Durchgang — sonst ist die Mauer schoen und die Stadt zu.
+	var tore: int = 0
+	for kind in stadt.get_children():
+		var name: String = TownCollision.asset_name(kind as Node3D)
+		if not name.begins_with("gate"):
+			continue
+		tore += 1
+		# Nicht nur die Mitte, sondern der ganze WEG hindurch: davor, drin, dahinter. Ein Tor,
+		# dessen Mitte frei ist und vor dem ein Palisadenstueck steht, ist immer noch zu.
+		var knoten: Node3D = kind as Node3D
+		var durch: Vector3 = knoten.transform.basis.z.normalized()
+		for m in [-3.5, 0.0, 3.5]:
+			var p: Vector3 = knoten.position + durch * m
+			var wer: String = TownCollision.wer_blockiert(sperren, Vector2(p.x, p.z), 0.6)
+			_check("Durch %s kommt man hindurch (%+.0f m)" % [kind.name, m], wer == "",
+				"%s steht im Weg" % wer)
+	_check("Rustwater hat ueberhaupt ein Tor", tore > 0)
+
+	# 3. Der Rundgang. Von aussen hinein, und drinnen ueberall hin.
+	var schritt: float = 0.5
+	var reichweite: float = 62.0
+	var n: int = int(reichweite / schritt)
+	var frei: Dictionary = {}
+	for iz in range(-n, n + 1):
+		for ix in range(-n, n + 1):
+			var p := Vector2(float(ix) * schritt, float(iz) * schritt)
+			if p.length() > reichweite:
+				continue
+			if not TownCollision.blockiert(sperren, p, 0.6):
+				frei[Vector2i(ix, iz)] = true
+	# Start am Ortsrand, also dort, wo der Spieler ankommt.
+	var start := Vector2i(0, n - 2)
+	while not frei.has(start) and start.y > 0:
+		start.y -= 1
+	var erreicht: Dictionary = { start: true }
+	var stapel: Array = [start]
+	while not stapel.is_empty():
+		var q: Vector2i = stapel.pop_back()
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nb: Vector2i = q + d
+			if frei.has(nb) and not erreicht.has(nb):
+				erreicht[nb] = true
+				stapel.append(nb)
+	_check("Man kommt in die Stadt hinein",
+		erreicht.has(Vector2i(0, 0)) or erreicht.size() > frei.size() / 2)
+	# Innerhalb der Mauer darf keine Flaeche abgeschnitten sein. 45 m deckt den Stadtplan.
+	# Gemessen wird die groesste zusammenhaengende Insel, nicht ihre Summe: Eine einzelne
+	# Rasterzelle zwischen zwei Sperren ist keine verlorene Flaeche, sondern eine Ritze, in die
+	# der Spieler ohnehin nicht passt. Ab 4 m² ist es ein Fleck, den man betreten wollen wuerde.
+	var innen: float = 45.0
+	var rest: Dictionary = {}
+	for k in frei.keys():
+		var p := Vector2(float(k.x) * schritt, float(k.y) * schritt)
+		if p.length() <= innen and not erreicht.has(k):
+			rest[k] = true
+	var groesste_insel: int = 0
+	var beispiel := Vector2.ZERO
+	while not rest.is_empty():
+		var saat: Vector2i = rest.keys()[0]
+		rest.erase(saat)
+		var gruppe: Array = [saat]
+		var s2: Array = [saat]
+		while not s2.is_empty():
+			var q: Vector2i = s2.pop_back()
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var nb: Vector2i = q + d
+				if rest.has(nb):
+					rest.erase(nb)
+					gruppe.append(nb)
+					s2.append(nb)
+		if gruppe.size() > groesste_insel:
+			groesste_insel = gruppe.size()
+			beispiel = Vector2(float(saat.x) * schritt, float(saat.y) * schritt)
+	var insel_m2: float = float(groesste_insel) * schritt * schritt
+	_check("Keine abgeschnittene Flaeche in Rustwater", insel_m2 < 4.0,
+		"%.1f m² unerreichbar, z. B. bei (%.1f / %.1f)" % [insel_m2, beispiel.x, beispiel.y])
+	# Und genug Platz zum Spielen: unter der Haelfte waere die Stadt ein Labyrinth.
+	var flaeche: float = float(erreicht.size()) * schritt * schritt
+	_check("Rustwater bietet Bewegungsraum", flaeche >= 3000.0, "nur %.0f m²" % flaeche)
+	print("    begehbar und erreichbar: %.0f m², %d Sperren, groesste %.1f m"
+		% [flaeche, sperren.size(), groesste])
 
 
 ## Sprechtafel & Zuwendung — wie ein Gespraech aussieht.

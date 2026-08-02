@@ -1,65 +1,167 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene format=3 uid="uid://06gsffuntvgg"]
 
-[ext_resource type="PackedScene" path="res://assets/models/buildings/saloon.glb" id="1_0mdfh"]
-[ext_resource type="PackedScene" path="res://assets/models/buildings/forge.glb" id="2_q6y6r"]
-[ext_resource type="PackedScene" path="res://assets/models/buildings/water_tower.glb" id="3_m1gqn"]
-[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_a.glb" id="4_7fkv1"]
-[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_b.glb" id="5_bav70"]
-[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_c.glb" id="6_8svoa"]
-[ext_resource type="PackedScene" path="res://assets/models/buildings/shack_d.glb" id="7_6ffvv"]
+[ext_resource type="PackedScene" uid="uid://tq7eeg6ati3t" path="res://assets/models/buildings/saloon.glb" id="1_0mdfh"]
+[ext_resource type="PackedScene" uid="uid://ynxocum2nhmn" path="res://assets/models/buildings/forge.glb" id="2_q6y6r"]
+[ext_resource type="PackedScene" uid="uid://cnqevmdmiowtq" path="res://assets/models/buildings/water_tower.glb" id="3_m1gqn"]
+[ext_resource type="PackedScene" uid="uid://82w3bwqu7fw5" path="res://assets/models/buildings/shack_a.glb" id="4_7fkv1"]
+[ext_resource type="PackedScene" uid="uid://bcsweihscs08f" path="res://assets/models/buildings/shack_b.glb" id="5_bav70"]
+[ext_resource type="PackedScene" uid="uid://bw80qfu0h6gag" path="res://assets/models/buildings/shack_c.glb" id="6_8svoa"]
+[ext_resource type="PackedScene" uid="uid://b62kf6w1f8v58" path="res://assets/models/buildings/shack_d.glb" id="7_6ffvv"]
+[ext_resource type="PackedScene" path="res://scenes/parts/gate.tscn" id="8_ci27e"]
+[ext_resource type="PackedScene" path="res://scenes/parts/palisade_a.tscn" id="9_8rkhw"]
+[ext_resource type="PackedScene" path="res://scenes/parts/palisade_b.tscn" id="10_7ve2f"]
+[ext_resource type="PackedScene" path="res://scenes/parts/palisade_c.tscn" id="11_1fpcm"]
+[ext_resource type="PackedScene" path="res://scenes/parts/palisade_d.tscn" id="12_meog0"]
+[ext_resource type="PackedScene" uid="uid://cxy4202wxjy2n" path="res://assets/models/props/barrels.glb" id="13_8rkhw"]
+[ext_resource type="PackedScene" uid="uid://jlvvejx523xe" path="res://assets/models/buildings/bahnhof.glb" id="14_7ve2f"]
 
-[node name="Rustwater" type="Node3D"]
+[node name="Rustwater" type="Node3D" unique_id=1889173542]
 
-[node name="Saloon" type="Node3D" parent="." instance=ExtResource("1_0mdfh")]
-transform = Transform3D(6.82182, 0, 1.70087, 0, 7.03066, 0, -1.70087, 0, 6.82182, -13.5, 4.28167, 1)
+[node name="Saloon" parent="." unique_id=1168707582 instance=ExtResource("1_0mdfh")]
+transform = Transform3D(5.326587, 0, 4.5888615, 0, 7.0306587, 0, -4.5888615, 0, 5.326587, -9.52667, 4.28167, -2.8330593)
 metadata/label = "🍺 Gatling-Saloon"
 metadata/asset = "saloon"
 
-[node name="Schmiede" type="Node3D" parent="." instance=ExtResource("2_q6y6r")]
-transform = Transform3D(4.62453, 0, 2.45891, 0, 5.23761, 0, -2.45891, 0, 4.62453, 13.5, 3.50811, 1)
+[node name="Schmiede" parent="." unique_id=1559253342 instance=ExtResource("2_q6y6r")]
+transform = Transform3D(4.4472227, 0, -2.7667177, 0, 5.2376094, 0, 2.7667177, 0, 4.4472227, 16.943102, 3.50811, -7.0289907)
 metadata/label = "🔨 Eiserne Schmiede"
 metadata/asset = "forge"
 
-[node name="Wasserturm" type="Node3D" parent="." instance=ExtResource("3_m1gqn")]
-transform = Transform3D(-9.47219, 0, -8.28085e-07, 0, 9.47219, 0, 8.28085e-07, 0, -9.47219, -14, 9.00832, -18)
+[node name="Wasserturm" parent="." unique_id=1076767127 instance=ExtResource("3_m1gqn")]
+transform = Transform3D(-9.47219, 0, -8.28085e-07, 0, 9.47219, 0, 8.28085e-07, 0, -9.47219, -14.008921, 8.969069, 28.113071)
 metadata/asset = "water_tower"
 
-[node name="Huette04" type="Node3D" parent="." instance=ExtResource("4_7fkv1")]
-transform = Transform3D(2.93719, 0, 1.49657, 0, 3.29648, 0, -1.49657, 0, 2.93719, -11, 2.24924, 28)
+[node name="Huette04" parent="." unique_id=1124154406 instance=ExtResource("4_7fkv1")]
+transform = Transform3D(-3.2134247, 0, -0.73532945, 0, 3.2964804, 0, 0.73532945, 0, -3.2134247, -0.7333646, 2.3917305, -8.749046)
 metadata/asset = "shack_a"
 
-[node name="Huette05" type="Node3D" parent="." instance=ExtResource("5_bav70")]
-transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, 11, 2.10258, 28)
+[node name="Huette05" parent="." unique_id=2144855607 instance=ExtResource("5_bav70")]
+transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, -28.87051, 2.10258, 17.953882)
 metadata/asset = "shack_b"
 
-[node name="Huette06" type="Node3D" parent="." instance=ExtResource("6_8svoa")]
-transform = Transform3D(3.38601, 0, 1.72526, 0, 3.8002, 0, -1.72526, 0, 3.38601, -11, 2.0057, 36)
+[node name="Huette06" parent="." unique_id=1607913921 instance=ExtResource("6_8svoa")]
+transform = Transform3D(2.5531273, 4.0885384e-10, -2.814804, 6.3897794e-09, 3.8002, 6.347748e-09, 2.814804, -8.997536e-09, 2.5531273, 25.708286, 2.0057, -2.094019)
 metadata/asset = "shack_c"
 
-[node name="Huette07" type="Node3D" parent="." instance=ExtResource("7_6ffvv")]
-transform = Transform3D(2.95284, 0, 0.573975, 0, 3.00811, 0, -0.573975, 0, 2.95284, 11, 2.62953, 36)
+[node name="Huette07" parent="." unique_id=1523976548 instance=ExtResource("7_6ffvv")]
+transform = Transform3D(1.9756694, 0, 2.2683568, 0, 3.00811, 0, -2.2683568, 0, 1.9756694, -16.564396, 2.62953, 3.6629605)
 metadata/asset = "shack_d"
 
-[node name="Huette08" type="Node3D" parent="." instance=ExtResource("4_7fkv1")]
-transform = Transform3D(2.93719, 0, 1.49657, 0, 3.29648, 0, -1.49657, 0, 2.93719, -11, 2.24924, 44)
+[node name="Huette08" parent="." unique_id=287649737 instance=ExtResource("4_7fkv1")]
+transform = Transform3D(3.1371112, 0, 1.0125922, 0, 3.2964802, 0, -1.0125922, 0, 3.1371112, -22.704325, 2.24924, 4.710582)
 metadata/asset = "shack_a"
 
-[node name="Huette09" type="Node3D" parent="." instance=ExtResource("5_bav70")]
-transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, 11, 2.10258, 44)
+[node name="Huette08" parent="Huette08" unique_id=39946483 instance=ExtResource("4_7fkv1")]
+transform = Transform3D(0.5398642, 0, 0.2601431, 0, 0.80608475, 0, -0.17425658, 0, 0.80594933, 0.9122119, -0.14839888, -1.5436084)
+metadata/asset = "shack_a"
+
+[node name="Huette08" parent="Huette08/Huette08" unique_id=663385361 instance=ExtResource("4_7fkv1")]
+transform = Transform3D(0.65273136, 0, 0.22726494, 0, 0.80608475, 0, -0.21068768, 0, 0.7040893, 1.8514795, -0.15590352, -1.707849)
+metadata/asset = "shack_a"
+
+[node name="Huette09" parent="." unique_id=2037693816 instance=ExtResource("5_bav70")]
+transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, 33.339005, 2.10258, 12.596399)
 metadata/asset = "shack_b"
 
-[node name="Huette10" type="Node3D" parent="." instance=ExtResource("6_8svoa")]
-transform = Transform3D(3.38601, 0, 1.72526, 0, 3.8002, 0, -1.72526, 0, 3.38601, -26, 2.0057, 8)
+[node name="Huette10" parent="." unique_id=406418437 instance=ExtResource("6_8svoa")]
+transform = Transform3D(1.9233828, 0, 3.2775269, 0, 3.8002, 0, -3.2775269, 0, 1.9233828, -27.694805, 2.0057, 9.020504)
 metadata/asset = "shack_c"
 
-[node name="Huette11" type="Node3D" parent="." instance=ExtResource("7_6ffvv")]
-transform = Transform3D(2.95284, 0, 0.573975, 0, 3.00811, 0, -0.573975, 0, 2.95284, 26, 2.62953, 8)
+[node name="Huette11" parent="." unique_id=1651383608 instance=ExtResource("7_6ffvv")]
+transform = Transform3D(-2.8129692, 0, 1.0657904, 0, 3.008109, 0, -1.0657904, 0, -2.8129692, 10.235081, 2.62953, -9.140348)
 metadata/asset = "shack_d"
 
-[node name="Huette12" type="Node3D" parent="." instance=ExtResource("4_7fkv1")]
-transform = Transform3D(2.93719, 0, 1.49657, 0, 3.29648, 0, -1.49657, 0, 2.93719, -26, 2.24924, -8)
+[node name="Huette12" parent="." unique_id=438375712 instance=ExtResource("4_7fkv1")]
+transform = Transform3D(3.2809062, 0, -0.32009578, 0, 3.2964804, 0, 0.32009578, 0, 3.2809062, 4.0485077, 2.24924, -9.692874)
 metadata/asset = "shack_a"
 
-[node name="Huette13" type="Node3D" parent="." instance=ExtResource("5_bav70")]
-transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, 26, 2.10258, -8)
+[node name="Huette13" parent="." unique_id=1929608111 instance=ExtResource("5_bav70")]
+transform = Transform3D(3.70471, 0, 0.720123, 0, 3.77405, 0, -0.720123, 0, 3.70471, 30.081238, 2.10258, 6.402858)
 metadata/asset = "shack_b"
+
+[node name="gate" parent="." unique_id=108297808 instance=ExtResource("8_ci27e")]
+transform = Transform3D(0.9987025, 0, -0.050923746, 0, 1, 0, 0.050923746, 0, 0.9987025, 0.6937671, -0.008780718, -16.102121)
+
+[node name="palisade_a" parent="." unique_id=1716645828 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(0.20904103, 0.0019256047, -0.97790504, -0.0023501876, 0.9999961, 0.0014667077, 0.97790396, 0.001991648, 0.20904475, 40.26989, 0, 15.921413)
+
+[node name="palisade_a2" parent="palisade_a" unique_id=1463857840 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.99582654, -0.0033801605, -0.09120394, -0.0038813013, 0.9999786, 0.005317821, 0.09118414, 0.0056496286, -0.99581873, -8.632347, 0.0231307, 0.41347504)
+
+[node name="palisade_a3" parent="palisade_a" unique_id=680685598 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(0.945147, -0.029708516, 0.32529318, -0.006555035, 0.99393046, 0.10981986, -0.32658154, -0.10592819, 0.93921566, -16.916624, -0.1291299, 2.5900307)
+
+[node name="palisade_a2" parent="palisade_a/palisade_a3" unique_id=386793525 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.99582654, -0.0033801605, -0.09120394, -0.0038813013, 0.9999786, 0.005317821, 0.09118414, 0.0056496286, -0.99581873, -8.632347, 0.0231307, 0.41347504)
+
+[node name="palisade_a4" parent="palisade_a" unique_id=265096905 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.11597558, -0.0069065625, -0.99322826, -0.0023236857, 0.9999752, -0.006682164, 0.99324954, 0.0015329767, -0.115988694, 6.6164875, -0.08256507, 18.289282)
+
+[node name="palisade_a2" parent="palisade_a/palisade_a4" unique_id=2083748876 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.99582654, -0.0033801605, -0.09120394, -0.0038813013, 0.9999786, 0.005317821, 0.09118414, 0.0056496286, -0.99581873, -8.632347, 0.0231307, 0.41347504)
+
+[node name="palisade_a3" parent="palisade_a/palisade_a4" unique_id=118386395 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(0.56716174, -0.08420361, 0.81929165, -0.00902502, 0.9940655, 0.10841387, -0.8235579, -0.068882294, 0.5630361, -14.683968, -0.1186969, 4.605547)
+
+[node name="palisade_b" parent="." unique_id=273945250 instance=ExtResource("10_7ve2f")]
+transform = Transform3D(0.86081564, 0, -0.50891685, 0, 1, 0, 0.50891685, 0, 0.86081564, 22.817284, 4.7683716e-07, -11.859872)
+
+[node name="palisade_c" parent="." unique_id=1300154930 instance=ExtResource("11_1fpcm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.373088, 0, -15.880972)
+
+[node name="palisade_a" parent="palisade_c" unique_id=1584638339 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(0.99219984, 0.0021490478, 0.12463803, -0.0023501876, 0.9999963, 0.0014667079, -0.12463449, -0.0017482017, 0.99220127, -15.96801, 0, 0.045785904)
+
+[node name="palisade_a2" parent="palisade_c/palisade_a" unique_id=27990730 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.99582654, -0.0033801605, -0.09120394, -0.0038813013, 0.9999786, 0.005317821, 0.09118414, 0.0056496286, -0.99581873, -8.632347, 0.0231307, 0.41347504)
+
+[node name="palisade_a3" parent="palisade_c/palisade_a" unique_id=1707958306 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(0.94435346, 0.0052429503, 0.3288923, -0.037308995, 0.99512833, 0.091262266, -0.3268116, -0.09845445, 0.93994844, -16.916622, -0.12912992, 2.5900307)
+
+[node name="palisade_a2" parent="palisade_c/palisade_a/palisade_a3" unique_id=722564884 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.9487935, -0.024028562, -0.3149816, -0.022663157, 0.9997116, -0.007997185, 0.31508297, -0.00044914335, -0.94906473, -8.334215, -0.04738748, 1.307045)
+
+[node name="palisade_a4" parent="palisade_c/palisade_a" unique_id=1355362519 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.5257545, -0.0071442975, 0.85060567, -0.004852863, 0.9999742, 0.0053993138, -0.850622, -0.0012891488, -0.52577543, -30.473827, -0.08526318, 34.933784)
+
+[node name="palisade_a2" parent="palisade_c/palisade_a/palisade_a4" unique_id=1640921694 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.99582654, -0.0033801605, -0.09120394, -0.0038813013, 0.9999786, 0.005317821, 0.09118414, 0.0056496286, -0.99581873, -8.632347, 0.0231307, 0.41347504)
+
+[node name="palisade_a3" parent="palisade_c/palisade_a/palisade_a4" unique_id=589642780 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(0.94435346, 0.0052429503, 0.3288923, -0.037308995, 0.99512833, 0.091262266, -0.3268116, -0.09845445, 0.93994844, -16.916622, -0.12912992, 2.5900307)
+
+[node name="palisade_a2" parent="palisade_c/palisade_a/palisade_a4/palisade_a3" unique_id=72954671 instance=ExtResource("9_8rkhw")]
+transform = Transform3D(-0.9487935, -0.024028562, -0.3149816, -0.022663157, 0.9997116, -0.007997185, 0.31508297, -0.00044914335, -0.94906473, -8.334215, -0.04738748, 1.307045)
+
+[node name="palisade_b" parent="palisade_c/palisade_a" unique_id=1954616992 instance=ExtResource("10_7ve2f")]
+transform = Transform3D(-0.9992131, -0.0046610534, -0.039381787, -0.004655028, 0.99998915, -0.00024470966, 0.039382413, -6.119488e-05, -0.99922425, -4.076618, 0.038852718, 52.520252)
+
+[node name="palisade_c2" parent="palisade_c/palisade_a" unique_id=1689195495 instance=ExtResource("11_1fpcm")]
+transform = Transform3D(-0.84009653, -0.004661053, -0.54241705, -0.0038825832, 0.99998915, -0.0025796727, 0.54242295, -6.1194994e-05, -0.8401055, 10.239008, 0.10530616, 48.06354)
+
+[node name="palisade_d" parent="palisade_c/palisade_a" unique_id=187020384 instance=ExtResource("12_meog0")]
+transform = Transform3D(-0.91580087, -0.004661053, -0.40160552, -0.004244067, 0.99998915, -0.0019279706, 0.4016105, -6.119476e-05, -0.91581047, 3.5274005, -0.1298032, 51.460583)
+
+[node name="palisade_b" parent="palisade_c" unique_id=1410662963 instance=ExtResource("10_7ve2f")]
+transform = Transform3D(0.3795145, 0, 0.9251858, 0, 1, 0, -0.9251858, 0, 0.3795145, -42.93557, -4.7683716e-07, 16.744963)
+
+[node name="palisade_c2" parent="palisade_c" unique_id=953998104 instance=ExtResource("11_1fpcm")]
+transform = Transform3D(-0.14415056, 0, 0.9895557, 0, 1, 0, -0.9895557, 0, -0.14415056, -44.83253, -9.536743e-07, 31.617945)
+
+[node name="palisade_d" parent="palisade_c" unique_id=599711289 instance=ExtResource("12_meog0")]
+transform = Transform3D(0.015388906, 0, 0.99988157, 0, 1, 0, -0.99988157, 0, 0.015388906, -45.13206, -0.20403242, 24.10066)
+
+[node name="palisade_d" parent="." unique_id=168216130 instance=ExtResource("12_meog0")]
+transform = Transform3D(0.9872203, 0, -0.15936173, 0, 1, 0, 0.15936173, 0, 0.9872203, 15.855034, -0.20403147, -15.093756)
+
+[node name="barrels" parent="." unique_id=472796833 instance=ExtResource("13_8rkhw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28.442707, 0.66880965, 14.086596)
+
+[node name="barrels" parent="barrels" unique_id=1109386021 instance=ExtResource("13_8rkhw")]
+transform = Transform3D(-0.43688422, 0, -0.8995178, 0, 1, 0, 0.8995178, 0, -0.43688422, -1.0061531, 0.0152003765, -1.4460297)
+
+[node name="bahnhof" parent="." unique_id=252565690 instance=ExtResource("14_7ve2f")]
+transform = Transform3D(5.727942, 0, 1.7862478, 0, 6, 0, -1.7862478, 0, 5.727942, 0.7991915, 2.8966694, 42.33897)
+
+[node name="gate2" parent="." unique_id=80532984 instance=ExtResource("8_ci27e")]
+transform = Transform3D(0.994023, 0, 0.10917165, 0, 1, 0, -0.10917165, 0, 0.994023, 15.668922, -0.008780718, 27.653362)

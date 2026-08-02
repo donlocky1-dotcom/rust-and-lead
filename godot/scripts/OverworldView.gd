@@ -95,6 +95,8 @@ const UiAssets = preload("res://scripts/UiAssets.gd")
 
 const DialogBox = preload("res://scripts/DialogBox.gd")
 
+const TownCollision = preload("res://scripts/TownCollision.gd")
+
 # ── NPCs & Quests: der QuestManager ist seit Phase 2 fertig, hier zum ersten Mal
 # an die sichtbare Welt angeschlossen. Auftraggeber stehen bei ihren Gebäuden. ──
 const NPC_INTERACT_M: float = 4.5
@@ -241,12 +243,12 @@ const SHACK_SPOTS: Array = [
 ]
 ## Gebäude-Kollision etwas kleiner als die Bounding-Box: Vordächer, Schornsteine und Anbauten
 ## stecken darin, und man soll am Haus entlanglaufen können, nicht an dessen Luftraum.
-const BUILDING_COLLISION_SHRINK: float = 0.82
+const BUILDING_COLLISION_SHRINK: float = TownCollision.GEBAEUDE_SCHRUMPF
 ## Notfall-Regel für Bauteile ohne feststellbaren Asset-Namen (rohe Meshes): Ab diesem
 ## Seitenverhältnis der Grundfläche gilt eines als WAND und wird nicht geschrumpft. Gemessen
 ## liegen die Häuser bei 1,01–1,56:1 und die Mauerstücke bei 2,13–16,22:1 — die Grenze sitzt
 ## genau in dieser Lücke. Der Regelfall läuft über `AssetRegistry.is_wall`.
-const WALL_ASPECT: float = 1.85
+const WALL_ASPECT: float = TownCollision.WAND_VERHAELTNIS
 
 # ── Eisenbahn (GDD §1.4a): Schnellreise nur noch von Bahnhof zu Bahnhof ───────
 const RAIL_GAUGE_M: float = 3.2        # Spurweite der Iron Rail (Breitspur, Panzerzug-tauglich)
@@ -1335,65 +1337,19 @@ func _build_town_ground(c: Vector3) -> void:
 
 
 ## Traegt Kollision und Beschriftung fuer alles ein, was in der Stadt-Szene steht — egal ob es
-## dort seit der Erzeugung liegt oder von Hand dazugestellt wurde. Gemessen wird das MODELL,
-## gedreht wird mit seiner eigenen Drehung: verschiebt man ein Haus im Editor, wandert seine
-## Sperre mit, ohne dass hier eine Zahl steht. Das gilt seit dem Ausbau der Palisade auch fuer
-## Mauerstuecke und Tore — die stehen jetzt genauso in der Szene wie die Haeuser.
+## dort seit der Erzeugung liegt oder von Hand dazugestellt wurde. Verschiebt man ein Haus im
+## Editor, wandert seine Sperre mit, ohne dass hier eine Zahl steht.
+##
+## Die Ableitung selbst steht in `TownCollision`, weil der Test sie ohne die gebaute Welt
+## braucht: Er rastert Rustwater ab und faellt durch, sobald eine Flaeche nicht mehr erreichbar
+## ist. Hier bleibt nur das Eintragen.
 func _register_town(town: Node3D) -> void:
-	for child in town.get_children():
-		if child is Node3D:
-			_register_town_node(child as Node3D)
-
-
-## Ein Knoten aus der Stadt-Szene.
-##
-## Gruppierungs-Knoten werden DURCHLAUFEN statt vermessen. Dreissig Palisadenstuecke ordnet man
-## im Editor selbstverstaendlich unter einem gemeinsamen Node3D — ohne diese Unterscheidung
-## waere die Sperre dieser Gruppe eine einzige Box ueber der halben Stadt, und Rustwater waere
-## von aussen nicht mehr betretbar. Erkennungsmerkmal ist `scene_file_path`: Ein aus dem
-## Dateisystem gezogenes Modell ist eine instanzierte Szene und hat einen Pfad, ein von Hand
-## angelegter Ordnerknoten nicht.
-func _register_town_node(node: Node3D) -> void:
-	if node.scene_file_path == "" and not (node is MeshInstance3D):
-		var nested: bool = false
-		for child in node.get_children():
-			if child is Node3D:
-				_register_town_node(child as Node3D)
-				nested = true
-		if nested:
-			return
-	var b: AABB = AssetRegistry.local_bounds(node)
-	if b.size.y < 0.01:
-		return
-	var foot := Vector2(b.size.x * node.scale.x, b.size.z * node.scale.z)
-	# Der Schrumpf-Faktor gilt Gebaeuden, nicht Mauern (Begruendung in `AssetRegistry.is_wall`).
-	# Erst am Namen entscheiden — der ist exakt. Nur wenn keiner zu holen ist (rohes Mesh von
-	# Hand gebaut), zaehlt die Form: Haeuser messen 1,0–1,6:1, Mauerstuecke ab 2,1:1.
-	var asset: String = _town_asset_name(node)
-	var wall_like: bool = AssetRegistry.is_wall(asset)
-	if asset == "":
-		var slim: float = minf(foot.x, foot.y)
-		wall_like = slim > 0.01 and maxf(foot.x, foot.y) / slim >= WALL_ASPECT
-	_solid_rect_rot(node.global_position, foot * 0.5 * (1.0 if wall_like else BUILDING_COLLISION_SHRINK),
-		node.rotation.y)
-	if node.has_meta("label"):
-		_label(node.global_position + Vector3(0.0, b.size.y * node.scale.y + 2.2, 0.0),
-			String(node.get_meta("label")), Color(0.98, 0.90, 0.72), 95, 150.0)
-
-
-## Logischer Asset-Name eines Stadt-Knotens ("" = nicht feststellbar).
-##
-## Zwei Quellen, weil es zwei Wege in die Szene gibt: Die erzeugten Knoten tragen `asset` als
-## Metadatum, ein aus dem Dateisystem gezogenes Modell nicht — dessen Herkunft steht dafuer in
-## `scene_file_path` (`…/palisade_a.glb` → `palisade_a`). Damit ist ein von Hand gestelltes
-## Mauerstueck genauso erkennbar wie ein erzeugtes, ohne dass man im Editor etwas eintragen
-## muss.
-func _town_asset_name(node: Node3D) -> String:
-	if node.has_meta("asset"):
-		return String(node.get_meta("asset"))
-	if node.scene_file_path != "":
-		return node.scene_file_path.get_file().get_basename()
-	return ""
+	for r in TownCollision.rects(town, town.transform):
+		_solid_rect_rot(Vector3(r["c"].x, 0.0, r["c"].y), r["h"], float(r["yaw"]))
+		var text: String = String(r["label"])
+		if text != "":
+			_label(Vector3(r["c"].x, float(r["deckel"]) + 2.2, r["c"].y), text,
+				Color(0.98, 0.90, 0.72), 95, 150.0)
 
 
 ## Rueckfall: Stadt aus dem Stadtplan im Code bauen (Stand vor `Rustwater.tscn`).

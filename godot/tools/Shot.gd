@@ -90,7 +90,25 @@ func _ready() -> void:
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
 	_views.append(["ort_rattengestruepp", ratten + Vector3(0.0, 12.0, 26.0), ratten])
+	# Rustwater von oben, und dasselbe Bild noch einmal mit eingezeichneten Sperren. Ein
+	# Kollisionsfehler ist als ZAHL kaum zu erkennen und als Ueberlagerung sofort: Wo Rot ueber
+	# Sand liegt statt ueber einem Dach, steht eine unsichtbare Wand.
+	_views.append(["stadt_oben", rw + Vector3(0.0, 96.0, 58.0), rw])
+	_views.append(["stadt_sperren", null, "sperren"])
+	_views.append(["stadt_sperren_oben", rw + Vector3(0.0, 96.0, 58.0), rw])
+	# Aus Spielerhoehe durch das Tor hinein — der Weg, den jeder Spieler zuerst nimmt.
+	_views.append(["stadt_tor", rw + Vector3(2.0, 2.6, -34.0), rw + Vector3(0.0, 2.0, 0.0)])
 	_wait = 60
+	# Ein einzelnes Bild statt aller: `godot … res://tools/Shot.tscn -- stadt`
+	var filter: PackedStringArray = OS.get_cmdline_user_args()
+	if filter.size() > 0:
+		var muster: String = filter[0]
+		var gewaehlt: Array = []
+		for v in _views:
+			if String(v[0]).begins_with(muster):
+				gewaehlt.append(v)
+		if not gewaehlt.is_empty():
+			_views = gewaehlt
 
 
 ## Ausgangslage fuer ein Oberflaechen-Bild. Eine leere Puppe und ein leerer Beutel zeigen
@@ -121,6 +139,26 @@ func _setup_ui(art: String) -> void:
 		_cam.position = ow._player.position - dir * 12.0 + Vector3(0.0, 9.0, 0.0)
 		_cam.look_at(ow._player.position + dir * 20.0, Vector3.UP)
 		_cam.current = true
+	elif art == "sperren":
+		# Jede eingetragene Sperre als rote Platte AUF dem Bild (ohne Tiefentest, sonst
+		# verschwindet sie unter dem Dach, das sie beschreibt). Deckt sich das Rot mit den
+		# Gebaeuden, stimmt die Kollision; liegt es daneben, steht dort eine unsichtbare Wand.
+		for b in ow._rot_blockers:
+			var c: Vector2 = b["c"]
+			var h: Vector2 = b["h"]
+			var platte := MeshInstance3D.new()
+			var box := BoxMesh.new()
+			box.size = Vector3(h.x * 2.0, 0.3, h.y * 2.0)
+			platte.mesh = box
+			platte.position = Vector3(c.x, WorldManager.height_at(c.x, c.y) + 0.3, c.y)
+			platte.rotation.y = float(b["yaw"])
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = Color(0.95, 0.15, 0.12, 0.45)
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			mat.no_depth_test = true
+			platte.material_override = mat
+			ow.add_child(platte)
 	elif art == "blick":
 		# Blickrichtungspruefung: alle Figuren UNGEDREHT nebeneinander, Kamera auf +Z.
 		# Wer sein Gesicht zeigt, schaut nach +Z und braucht die 180°-Korrektur, denn Godot
