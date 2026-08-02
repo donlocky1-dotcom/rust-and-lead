@@ -705,7 +705,7 @@ func _build_swamp() -> void:
 		Color(0.30, 0.50, 0.18), 0.16)
 	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_label(Vector3(mitte_x, 26.0, mitte_z),
-		"☢ STRAHLENSUMPF — ohne Schutzanzug tödlich", Color(0.62, 1.0, 0.45), 150, 900.0)
+		"☢ STRAHLENSUMPF — ohne Schutzanzug tödlich", Color(0.62, 1.0, 0.45), LBL_LANDMARKE, 900.0)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20250729
 	# 2. Pfützen. Leuchtendes Material, flache Scheibe, zufällig gestreckt — ein Kreis liest
@@ -796,7 +796,7 @@ func _build_swamp() -> void:
 		# Nicht auf die Gleise. Die Trasse quert den Sumpf genau dort, wo die Streuung am
 		# dichtesten ist — im ersten Bild lag prompt ein Strahlenfass zwischen den Schwellen.
 		# Ein Zug faehrt da durch; was dort liegt, sieht nach Fehler aus, nicht nach Absicht.
-		if WorldManager.on_rail(WorldManager.scene_to_world(Vector3(x2, 0.0, z2))):
+		if _auf_trasse(Vector3(x2, 0.0, z2)):
 			continue
 		var wuerfel: float = rng.randf()
 		var art: String = "deadtree"
@@ -917,10 +917,10 @@ func _build_sector_lines_and_rim() -> void:
 	var smog_z: float = -float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT
 	# Gate 1 — Iron-Rail-Sprengtore (dunkle Stahlwand quer über den Krater).
 	_box(Vector3(w, 22.0, 5.0), Vector3(half, 11.0, blast_z), Color(0.24, 0.16, 0.13))
-	_label(Vector3(half, 30.0, blast_z), "⛔ IRON-RAIL-SPRENGTORE", Color(1.0, 0.55, 0.35), 150, 600.0)
+	_label(Vector3(half, 30.0, blast_z), "⛔ IRON-RAIL-SPRENGTORE", Color(1.0, 0.55, 0.35), LBL_LANDMARKE, 600.0)
 	# Gate 2 — Smog-Linie (durchscheinend, giftgrün).
 	_box(Vector3(w, 28.0, 4.0), Vector3(half, 14.0, smog_z), Color(0.35, 0.75, 0.30), 0.45)
-	_label(Vector3(half, 38.0, smog_z), "☣ SMOG-LINIE", Color(0.6, 1.0, 0.5), 150, 600.0)
+	_label(Vector3(half, 38.0, smog_z), "☣ SMOG-LINIE", Color(0.6, 1.0, 0.5), LBL_LANDMARKE, 600.0)
 	# Kraterrand: 350 m Fels an allen vier Horizonten — die diegetische Außengrenze.
 	var rock := Color(0.28, 0.22, 0.18)
 	_box(Vector3(w + 300.0, 350.0, 150.0), Vector3(half, 175.0, 75.0), rock)            # Süd
@@ -929,7 +929,7 @@ func _build_sector_lines_and_rim() -> void:
 	_box(Vector3(150.0, 350.0, w + 300.0), Vector3(w + 75.0, 175.0, -half), rock)       # Ost
 	# Rand-Tunnel (§1.7.4): das eine, verriegelte Tor durch die Nordwand.
 	_box(Vector3(60.0, 80.0, 40.0), Vector3(half, 40.0, -w - 20.0), Color(0.08, 0.07, 0.06))
-	_label(Vector3(half, 95.0, -w + 5.0), "🚪 RAND-TUNNEL (verriegelt)", Color(0.95, 0.85, 0.6), 130, 500.0)
+	_label(Vector3(half, 95.0, -w + 5.0), "🚪 RAND-TUNNEL (verriegelt)", Color(0.95, 0.85, 0.6), LBL_LANDMARKE, 500.0)
 
 
 ## Schwebende Beschriftung. Höhe in Weltmetern = font_size × pixel_size; mit LABEL_PIXEL
@@ -937,6 +937,16 @@ func _build_sector_lines_and_rim() -> void:
 ## 7,5 m, was die Szene zugepflastert hat. `fade_m` blendet die Schrift auf Distanz aus,
 ## damit ferne POI-Namen nicht über der halben Karte kleben.
 const LABEL_PIXEL: float = 0.012
+## Schriftgrößen als eigene Namen, weil sie zusammengehören und einzeln gesetzt auseinander
+## laufen. `size × LABEL_PIXEL` ist die Zeichenhöhe in METERN — daran misst man sie:
+## Ein Name über einer 1,8-m-Figur, der 1,0 m hoch ist, ist keine Beschriftung mehr, sondern
+## eine Bauchbinde. Bei Kameraabstand 9,5 m entspricht ein Meter Welthöhe rund 73 Bildpunkten.
+const LBL_FIGUR: int = 25       # Namen über Personen    ≈ 0,30 m  ≈ 22 px
+const LBL_BEUTE: int = 20       # Beute am Boden         ≈ 0,24 m
+const LBL_TRUHE: int = 24
+const LBL_HAUS: int = 34        # Gebäudeschilder        ≈ 0,41 m
+const LBL_ORT: int = 60         # Ortsnamen              ≈ 0,72 m
+const LBL_LANDMARKE: int = 150  # Eisernes Herz, Zonengrenzen — die sieht man aus Kilometern
 
 func _label(pos: Vector3, text: String, color: Color, size: int = 120, fade_m: float = 260.0) -> Label3D:
 	var l := Label3D.new()
@@ -965,7 +975,7 @@ func _build_pois() -> void:
 			# Zentrale Landmarke: hoher, dunkler Turm — von überall am Horizont sichtbar.
 			# Der Turm trägt die Fernsicht; die Schrift bleibt dezent und blendet früher aus.
 			_solid_box(Vector3(120.0, 420.0, 120.0), pos + Vector3(0.0, 210.0, 0.0), Color(0.15, 0.13, 0.14))
-			_label(pos + Vector3(0.0, 445.0, 0.0), "🖤 " + String(p["name"]), Color(1.0, 0.45, 0.35), 220, 900.0)
+			_label(pos + Vector3(0.0, 445.0, 0.0), "🖤 " + String(p["name"]), Color(1.0, 0.45, 0.35), LBL_LANDMARKE, 900.0)
 			continue
 		# Ein Ort ist eine SCHRIFT, kein Pfahl.
 		#
@@ -985,7 +995,7 @@ func _build_pois() -> void:
 		# Landmarken macht ab jetzt das Gelaende: Krater, Duenenfeld, Sumpf. Die sieht man von
 		# weitem, sie sperren nichts, und sie sehen nicht aus wie ein Baustellenpoller.
 		var hoch: float = WorldManager.height_at(pos.x, pos.z) + 22.0
-		_label(pos + Vector3(0.0, hoch, 0.0), String(p["name"]), col.lightened(0.35), 130, 420.0)
+		_label(pos + Vector3(0.0, hoch, 0.0), String(p["name"]), col.lightened(0.35), LBL_ORT, 420.0)
 
 
 ## Gelaendeform an einem Ort ({} = keine).
@@ -1112,11 +1122,36 @@ func _is_built_town(poi_id: String) -> bool:
 	return poi_id == "rustwater" and ResourceLoader.exists(TOWN_SCENE)
 
 
+## Die GLEISE sind vorerst AUS.
+##
+## Eine Trasse quer durch die Welt ist eine Entscheidung ueber die ganze Karte: Sie legt fest,
+## welche Orte Nachbarn sind, wo man langlaeuft und wovon die Landschaft durchschnitten wird.
+## Das macht man am Ende, wenn die Orte stehen — nicht am Anfang.
+##
+## Der BAHNSTEIG bleibt stehen: An ihm haengt die Schnellreise (`_fast_travel`), und ohne sie
+## ist die Welt zum Ausprobieren zu gross. Wieder anschalten ist ein Wort.
+const ZEIGE_GLEISE: bool = false
+
+
+## Liegt dieser Punkt auf der Trasse — und ist die ueberhaupt zu sehen?
+##
+## Streuwerk (Baeume, Faesser, Steine) wird von der Trasse ferngehalten, damit nichts zwischen
+## den Schwellen steht. Ohne sichtbare Gleise waere dieselbe Sperre ein 15 m breiter,
+## schnurgerader, auffaellig LEERER Streifen quer durch die Wueste — der Abdruck von etwas, das
+## man nicht sieht. Also faellt sie mit den Gleisen zusammen weg.
+func _auf_trasse(pos: Vector3) -> bool:
+	return ZEIGE_GLEISE and WorldManager.on_rail(WorldManager.scene_to_world(pos))
+
+
 ## Die Iron Rail (GDD §1.4a): Schotterbett mit Schwellen + zwei Schienen auf den Routen
 ## zwischen den Bahnhoefen, dazu an jedem Knoten ein Bahnsteig. Der lange Fussmarsch durch die
-## Wueste bleibt moeglich — spaeter faehrt man ihn. Fahren darf man nur AM Bahnsteig
-## (`_fast_travel`), damit Schnellreise ein Ort in der Welt ist und kein Menuepunkt.
+## Wueste bleibt moeglich — spaeter faehrt man ihn. Fahren darf man nur AM Bahnsteig, damit
+## Schnellreise ein Ort in der Welt ist und kein Menuepunkt.
 func _build_railway() -> void:
+	for id in WorldManager.RAIL_STATIONS:
+		_build_station(String(id))
+	if not ZEIGE_GLEISE:
+		return
 	var steel: Material = _mat(Color(0.62, 0.60, 0.58))
 	var bed_shader: Shader = load("res://shaders/rail_bed.gdshader") as Shader
 	for seg_ids in WorldManager.rail_segments():
@@ -1138,8 +1173,6 @@ func _build_railway() -> void:
 		_add_ribbon(pair[0], pair[1], (RAIL_GAUGE_M + 3.0) * 0.5, 0.0, 0.10, bed_mat)
 		for side in [-1.0, 1.0]:
 			_add_ribbon(pair[0], pair[1], 0.08, side * RAIL_GAUGE_M * 0.5, 0.30, steel)
-	for id in WorldManager.RAIL_STATIONS:
-		_build_station(String(id))
 
 
 ## Richtung, in die die Trasse einen Knoten verlaesst (Einheitsvektor, XZ-Ebene).
@@ -1181,7 +1214,7 @@ func _build_station(poi_id: String) -> void:
 	# Schrift laesst das Gebaeude die Hauptsache bleiben.
 	var label_at: Vector3 = platform + Vector3(0.0, 13.0, 0.0)
 	_label(label_at, "🚂 Bahnhof " + String(WorldManager.poi(poi_id)["name"]),
-		Color(0.92, 0.86, 0.70), 64, 200.0)
+		Color(0.92, 0.86, 0.70), LBL_HAUS, 200.0)
 	_stations.append({ "id": poi_id, "pos": platform })
 
 
@@ -1296,7 +1329,7 @@ func _build_township() -> void:
 	else:
 		_build_township_from_code(c)
 	_label(c + Vector3(TOWER_SPOT.x, 21.0, TOWER_SPOT.y), "RUSTWATER",
-		Color(0.95, 0.82, 0.55), 120, 350.0)
+		Color(0.95, 0.82, 0.55), LBL_ORT, 350.0)
 
 
 ## Fester, heller Platz unter der ganzen Stadt — ein plattgetretener Lehmboden, der bis knapp
@@ -1349,7 +1382,7 @@ func _register_town(town: Node3D) -> void:
 		var text: String = String(r["label"])
 		if text != "":
 			_label(Vector3(r["c"].x, float(r["deckel"]) + 2.2, r["c"].y), text,
-				Color(0.98, 0.90, 0.72), 95, 150.0)
+				Color(0.98, 0.90, 0.72), LBL_HAUS, 150.0)
 
 
 ## Rueckfall: Stadt aus dem Stadtplan im Code bauen (Stand vor `Rustwater.tscn`).
@@ -1360,7 +1393,7 @@ func _build_township_from_code(c: Vector3) -> void:
 			b[4], Color(b[5]))
 		if String(b[0]) != "":
 			_label(pos + Vector3(0.0, size.y + 2.2, 0.0), String(b[0]),
-				Color(0.98, 0.90, 0.72), 95, 150.0)
+				Color(0.98, 0.90, 0.72), LBL_HAUS, 150.0)
 	var shacks: Array = []
 	for suffix in ["a", "b", "c", "d"]:
 		if AssetRegistry.has_model("shack_" + suffix):
@@ -1425,7 +1458,7 @@ func _build_npcs() -> void:
 		# Zur Straßenmitte schauen (x = 0), wie die Häuser hinter ihnen — nicht zum Stadtplatz.
 		node.rotation.y = PI * 0.5 if spot.x < 0.0 else -PI * 0.5
 		add_child(node)
-		var label: Label3D = _label(pos + Vector3(0.0, 2.5, 0.0), String(n[1]), Color(0.98, 0.94, 0.82), 85, 140.0)
+		var label: Label3D = _label(pos + Vector3(0.0, 2.5, 0.0), String(n[1]), Color(0.98, 0.94, 0.82), LBL_FIGUR, 140.0)
 		_npcs.append({ "giver": String(n[0]), "name": String(n[1]), "node": node, "label": label, "pos": pos })
 
 
@@ -1635,16 +1668,39 @@ func _npc_line(giver: String, kind: String) -> String:
 ## Die Spur läuft dem Spieler VORAUS und endet nach 30 m. Eine Spur bis zum Ziel wäre bei 1200 m
 ## Entfernung ein leuchtender Strich durch die halbe Welt — und würde die Reise erzählen, statt
 ## sie stattfinden zu lassen.
-const TRAIL_STEPS: int = 14        # Anzahl Abdrücke
+## Und die Spur STEHT. Der erste Versuch hat die vierzehn Abdrücke jeden Frame neu vor die Figur
+## gerechnet — damit klebten sie am Spieler und glitten mit ihm über den Sand. Es sind aber
+## Abdrücke: Sie gehören dem Boden, nicht dem Läufer. Sie schweben nicht in der Gegend herum.
+##
+## Deshalb hängt die Spur jetzt an einem **Anker** in der Welt. Zwischen zwei Schritten bewegt
+## sich kein einziger Abdruck. Erst wenn der Spieler einen ganzen Schrittabstand zurückgelegt
+## hat, rückt der Anker um genau diesen Abstand vor und richtet sich neu aufs Ziel aus: Vorn
+## kommt ein Abdruck dazu, hinten verschwindet einer unter den Füßen. Man LÄUFT die Spur ab,
+## statt sie vor sich herzuschieben.
+const TRAIL_STEPS: int = 16        # Anzahl Abdrücke ≈ 33 m Vorlauf
 const TRAIL_SPACING_M: float = 2.1 # Abstand von Abdruck zu Abdruck
-const TRAIL_START_M: float = 2.6   # der erste liegt VOR der Figur, nicht unter ihr
 const TRAIL_SIDE_M: float = 0.34   # links/rechts versetzt — sonst ist es eine Linie, kein Gang
+## Weicht man so weit seitlich vom Anker ab, wird neu angesetzt. Ohne das zeigt die Spur noch in
+## die Richtung, in die man vor zwanzig Metern gelaufen ist.
+const TRAIL_DRIFT_M: float = 2.5
+## Unter den Füßen blendet ein Abdruck aus, statt zu verschwinden. Ein Abdruck, der einen Meter
+## vor der Figur wegploppt, ist auffälliger als einer, der nie da war.
+const TRAIL_FADE_NEAR_M: float = 2.6
 ## Näher als das ist man da; dann verschwindet die Spur. Ein Wegweiser, der noch zeigt, wenn man
 ## schon steht, sieht aus wie ein Fehler.
 const TRAIL_ARRIVED_M: float = 14.0
+## Ein Abdruck ist eine VERTIEFUNG, also dunkel. Vorher war er ein gelbes Leuchtzeichen — auf
+## dem hellen Stadtboden von Rustwater war davon nichts zu sehen, und draussen sah es aus, als
+## schwebten Lichter ueber dem Sand. Jetzt liegt eingedrueckte Erde am Boden, und durch sie
+## laeuft ein warmer Puls: Der traegt die Richtung, ohne dass der Abdruck aufhoert, einer zu sein.
+const TRAIL_DUNKEL: Color = Color(0.22, 0.14, 0.06)
+const TRAIL_HELL: Color = Color(0.98, 0.78, 0.34)
 var _trail: Array = []             # MeshInstance3D je Abdruck
 var _trail_mats: Array = []        # je Abdruck ein eigenes Material (für die Laufwelle)
 var _trail_t: float = 0.0
+var _trail_anker: Vector3 = Vector3.INF   # Weltpunkt, an dem der erste Abdruck liegt
+var _trail_dir: Vector3 = Vector3.FORWARD # Richtung der Spur, wird beim Vorrücken erneuert
+var _trail_paritaet: int = 0              # linker oder rechter Fuß zuerst
 
 
 func _build_trail() -> void:
@@ -1656,7 +1712,7 @@ func _build_trail() -> void:
 		q.size = Vector2(0.46, 0.88)
 		mi.mesh = q
 		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(1.0, 0.86, 0.34, 0.75)
+		m.albedo_color = Color(TRAIL_DUNKEL, 0.75)
 		# Liegt eine Sohle (`footprint.png`), wird aus dem Viereck ein echter Abdruck. Die
 		# Textur ist weiss und traegt nur die Deckung — die Farbe kommt aus `albedo_color`,
 		# damit die Laufwelle weiter ueber `albedo_color.a` gesteuert werden kann.
@@ -1667,9 +1723,6 @@ func _build_trail() -> void:
 			q.size = Vector2(0.46 * (s_gr.x / maxf(s_gr.y, 1.0)), 0.88)
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.emission_enabled = true
-		m.emission = Color(1.0, 0.80, 0.25)
-		m.emission_energy_multiplier = 1.2
 		# Nicht in den Tiefenpuffer schreiben: Der Abdruck liegt 6 cm über dem Sand und würde
 		# sonst mit ihm um jedes Pixel streiten (Z-Fighting), sobald das Gelände ansteigt.
 		m.no_depth_test = false
@@ -1735,28 +1788,62 @@ func _process_trail(delta: float) -> void:
 		if flach.length() < TRAIL_ARRIVED_M:
 			sichtbar = false
 		else:
-			var dir: Vector3 = flach.normalized()
-			var quer := Vector3(-dir.z, 0.0, dir.x)
+			_advance_trail(flach.normalized())
+			var quer := Vector3(-_trail_dir.z, 0.0, _trail_dir.x)
 			for i in _trail.size():
 				var mi: MeshInstance3D = _trail[i]
-				var weit: float = TRAIL_START_M + float(i) * TRAIL_SPACING_M
-				var seite: float = TRAIL_SIDE_M * (1.0 if i % 2 == 0 else -1.0)
-				var p: Vector3 = _player.position + dir * weit + quer * seite
+				var seite: float = TRAIL_SIDE_M * (1.0 if (i + _trail_paritaet) % 2 == 0 else -1.0)
+				var p: Vector3 = _trail_anker + _trail_dir * (float(i) * TRAIL_SPACING_M) \
+					+ quer * seite
 				mi.position = Vector3(p.x, _decal_height(p.x, p.z), p.z)
 				# Der Abdruck liegt flach; gedreht wird um die Hochachse in Laufrichtung.
-				mi.rotation = Vector3(-PI * 0.5, atan2(dir.x, dir.z), 0.0)
+				# Godots Vorne ist −Z, deshalb die negierten Komponenten — mit `atan2(x, z)`
+				# zeigten alle Zehen nach hinten, und die Spur wies aus dem Ziel heraus.
+				mi.rotation = Vector3(-PI * 0.5, atan2(-_trail_dir.x, -_trail_dir.z), 0.0)
+				# Ein- und Ausblenden nach ECHTER Entfernung zum Spieler, nicht nach Platznummer:
+				# Die Abdrücke stehen still, also wandert der Spieler durch sie hindurch — und
+				# was er erreicht, muss unter ihm verlöschen statt wegzuploppen.
+				var d: float = Vector2(p.x - _player.position.x, p.z - _player.position.z).length()
+				var nah: float = smoothstep(0.0, TRAIL_FADE_NEAR_M, d)
+				var fern: float = 1.0 - smoothstep(0.55, 1.0,
+					d / (float(TRAIL_STEPS) * TRAIL_SPACING_M))
 				# Laufwelle: Die Helligkeit wandert vom Spieler weg. Statische Punkte lesen sich
 				# als Markierung, wandernde als Richtung — es ist derselbe Unterschied wie
 				# zwischen einem Pfeil und einem Blinker.
-				var phase: float = fposmod(_trail_t * 1.6 - float(i) * 0.16, 1.0)
-				var hell: float = 0.30 + 0.65 * (1.0 - phase)
-				# Ausblenden nach hinten: Die letzten Abdrücke sollen verlaufen, nicht abbrechen.
-				var rand: float = 1.0 - smoothstep(0.55, 1.0, float(i) / float(TRAIL_STEPS - 1))
+				var phase: float = fposmod(_trail_t * 1.6 - d / TRAIL_SPACING_M * 0.16, 1.0)
+				var hell: float = 0.10 + 0.75 * (1.0 - phase)
 				var m: StandardMaterial3D = _trail_mats[i]
-				m.albedo_color = Color(1.0, 0.86, 0.34, hell * rand * 0.85)
-				m.emission_energy_multiplier = 0.5 + hell * 1.3
+				m.albedo_color = Color(TRAIL_DUNKEL.lerp(TRAIL_HELL, hell), nah * fern * 0.9)
 	for mi2 in _trail:
 		(mi2 as MeshInstance3D).visible = sichtbar
+
+
+## Rückt den Anker nach, wenn der Spieler einen Schritt gegangen ist — und nur dann.
+##
+## Zwei Fälle setzen neu an statt vorzurücken: der erste Frame (es gibt noch keinen Anker) und
+## eine zu große seitliche Abweichung. Ohne den zweiten Fall zeigt die Spur nach einem Bogen
+## noch dorthin, wo das Ziel vor zwanzig Metern lag.
+func _advance_trail(dir: Vector3) -> void:
+	var quer := Vector3(-_trail_dir.z, 0.0, _trail_dir.x)
+	if _trail_anker == Vector3.INF \
+			or absf((_player.position - _trail_anker).dot(quer)) > TRAIL_DRIFT_M:
+		_trail_anker = _player.position
+		_trail_dir = dir
+		return
+	var vor: float = (_player.position - _trail_anker).dot(_trail_dir)
+	if vor < 0.0:
+		# Rückwärts gelaufen: Der Anker darf nicht hinter dem Spieler bleiben.
+		_trail_anker = _player.position
+		_trail_dir = dir
+		return
+	# Mehrere Schritte auf einmal kommen beim Schnellreisen vor; dann wird ohnehin neu angesetzt,
+	# sobald die Abweichung zu groß ist. Die Schleife ist deshalb gedeckelt.
+	var schritte: int = mini(int(vor / TRAIL_SPACING_M), TRAIL_STEPS)
+	if schritte <= 0:
+		return
+	_trail_anker += _trail_dir * (float(schritte) * TRAIL_SPACING_M)
+	_trail_paritaet = (_trail_paritaet + schritte) % 2
+	_trail_dir = dir
 
 
 ## Nächsten laufenden Auftrag verfolgen. Absichtlich auch bei offenem Overlay erlaubt: Man
@@ -1840,7 +1927,7 @@ func _scatter_decor() -> void:
 		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
 		pos.z = clampf(pos.z, -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT), -20.0)
 		# Weder in der Stadt noch auf Piste/Trasse — die Wege sollen frei und lesbar bleiben.
-		if _in_town(pos) or WorldManager.on_rail(WorldManager.scene_to_world(pos)):
+		if _in_town(pos) or _auf_trasse(pos):
 			rock.queue_free()
 			continue
 		rock.position = pos
@@ -1886,7 +1973,7 @@ func _scatter_props() -> void:
 		var pos: Vector3 = origin + Vector3(cos(ang) * dist, 0.0, sin(ang) * dist)
 		pos.x = clampf(pos.x, 20.0, WorldManager.WORLD_METERS - 20.0)
 		pos.z = clampf(pos.z, -(float(WorldManager.SMOG_LINE_Y) * WorldManager.METERS_PER_UNIT), -20.0)
-		if _in_town(pos) or WorldManager.on_rail(WorldManager.scene_to_world(pos)):
+		if _in_town(pos) or _auf_trasse(pos):
 			node.queue_free()
 			continue
 		pos.y = WorldManager.height_at(pos.x, pos.z)   # Senken mitnehmen, sonst schwebt es
@@ -2405,6 +2492,44 @@ func _close_world_map() -> void:
 	_set_hud_hidden(false)
 
 
+## Der Lebensbalken ist ein STRICH, kein Balken.
+##
+## Vorher war es ein Quader von 1,40 × 0,12 × 0,12 m über jedem Kopf — bei einer 1,8-m-Figur ein
+## fingerdickes Brett, das breiter war als der Gegner und aus jeder Richtung Volumen zeigte.
+## Ein Zustandsanzeiger soll man lesen, nicht ansehen. Jetzt: 4,5 cm hoch, immer zur Kamera
+## gedreht (also nie schräg oder von der Kante), auf einem dunklen Untergrund, damit der Rest-
+## anteil auch vor hellem Sand ablesbar bleibt.
+const HP_BAR_W: float = 1.0
+const HP_BAR_H: float = 0.045
+const HP_BAR_RAND: float = 0.018
+
+
+## Ein Streifen der Lebensleiste. `versatz` schiebt ihn minimal nach vorn, damit die Füllung
+## nicht mit ihrem eigenen Untergrund um Bildpunkte streitet.
+##
+## Mittig verankert, nicht linksbündig: Die Leiste ist auf die Kamera gedreht, ihr Ursprung
+## bleibt aber im Raum des Gegners. Ein Anker am linken Ende säße damit auf einem Punkt, der
+## mitschwenkt, sobald sich der Gegner dreht — die Leiste würde beim Umdrehen seitlich
+## weglaufen. Der Restanteil schrumpft deshalb symmetrisch.
+func _hp_streifen(breite: float, hoehe: float, farbe: Color, versatz: float) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(breite, hoehe)
+	q.center_offset = Vector3(0.0, 0.0, versatz)
+	mi.mesh = q
+	var m := StandardMaterial3D.new()
+	m.albedo_color = farbe
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if farbe.a < 1.0 \
+		else BaseMaterial3D.TRANSPARENCY_DISABLED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.billboard_keep_scale = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
 ## Baut einen Gegner-Node (Modell oder Primitive + Lebensleiste), fügt ihn NICHT in die Szene
 ## ein (Aufrufer setzt zuerst die Position) und trägt ihn NICHT in `_enemies` ein.
 func _make_enemy(type_id: String) -> Dictionary:
@@ -2432,15 +2557,17 @@ func _make_enemy(type_id: String) -> Dictionary:
 			body.material_override = _mat(Color(0.97, 0.44, 0.44))
 			body.position = Vector3(0.0, 0.8, 0.0)
 		node.add_child(body)
-	var bar := MeshInstance3D.new()                  # simple Lebensleiste
-	var bar_mesh := BoxMesh.new()
-	bar_mesh.size = Vector3(1.4, 0.12, 0.12)
-	bar.mesh = bar_mesh
-	bar.material_override = _mat(Color(0.52, 0.80, 0.09), true)
 	# Leiste über den Kopf des jeweiligen Gegners — bei einem 4-m-Goliath steckte eine feste
 	# Höhe sonst mitten im Modell.
-	bar.position = Vector3(0.0, AssetRegistry.height_of(asset) + 0.35, 0.0)
-	node.add_child(bar)
+	var traeger := Node3D.new()
+	traeger.position = Vector3(0.0, AssetRegistry.height_of(asset) + 0.32, 0.0)
+	node.add_child(traeger)
+	# Der Untergrund ist der VERLORENE Teil, nicht bloss ein Rand: Ein Strich, der nur kuerzer
+	# wird, sagt „wenig"; einer, hinter dem dunkles Rot steht, sagt „so viel ist schon weg".
+	traeger.add_child(_hp_streifen(HP_BAR_W + HP_BAR_RAND * 2.0, HP_BAR_H + HP_BAR_RAND * 2.0,
+		Color(0.24, 0.05, 0.04, 0.88), 0.0))
+	var bar: MeshInstance3D = _hp_streifen(HP_BAR_W, HP_BAR_H, Color(0.52, 0.80, 0.09), 0.004)
+	traeger.add_child(bar)
 	# Bringt das Modell eine Lauf-Animation mit? Wenn nicht, übernimmt `_scurry` die Bewegung —
 	# sonst gleitet die Figur reglos über den Sand, was bei einem Rudel besonders auffällt.
 	var animated: bool = model != null \
@@ -2552,7 +2679,7 @@ func _spawn_chest_at(raw: Vector3) -> void:
 		node.add_child(body)
 	node.position = pos
 	add_child(node)
-	var label: Label3D = _label(pos + Vector3(0.0, 1.3, 0.0), "📦 Truhe", Color(1.0, 0.85, 0.4), 90, 120.0)
+	var label: Label3D = _label(pos + Vector3(0.0, 1.3, 0.0), "📦 Truhe", Color(1.0, 0.85, 0.4), LBL_TRUHE, 120.0)
 	_chests.append({ "node": node, "label": label, "pos": pos, "looted": false, "cd": 0.0 })
 
 
@@ -2663,7 +2790,7 @@ func _drop(at: Vector3, kind: String, data: Dictionary) -> void:
 	node.material_override = _mat(col)
 	node.position = pos + Vector3(0.0, 0.08, 0.0)
 	add_child(node)
-	var label: Label3D = _label(pos + Vector3(0.0, 0.75, 0.0), text, col, 70, 60.0)
+	var label: Label3D = _label(pos + Vector3(0.0, 0.75, 0.0), text, col, LBL_BEUTE, 60.0)
 	_ground.append({ "node": node, "label": label, "kind": kind, "data": data, "pos": pos })
 
 

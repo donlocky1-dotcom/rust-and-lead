@@ -1377,6 +1377,47 @@ func _test_quest_wayfinding() -> void:
 	GameState.tracked_quest = "gibt_es_nicht"
 	_check("Ein unbekannter Eintrag ebenso wenig",
 		QuestManager.tracked_quest() == "q_bounty")
+	# ── Die Fussspur: Richtung und Standfestigkeit ────────────────────────────
+	# Zwei Beschwerden aus dem Spiel, beide hier festgenagelt: Die Abdruecke zeigten in die
+	# FALSCHE Richtung (Zehen nach hinten), und sie glitten mit dem Spieler ueber den Sand,
+	# statt liegenzubleiben. Beides ist messbar, also wird es gemessen.
+	_reset_state()
+	var ow4 := OverworldView.new()
+	_scratch.append(ow4)
+	ow4._player = Node3D.new()
+	_scratch.append(ow4._player)
+	ow4._build_trail()
+	QuestManager.accept_quest("q_rats")
+	var los: Vector3 = WorldManager.poi_scene_position("rustwater")
+	ow4._player.position = los
+	ow4._process_trail(0.016)
+	var zeigt: Vector3 = ow4._trail_goal()
+	var soll := Vector3(zeigt.x - los.x, 0.0, zeigt.z - los.z).normalized()
+	# Der Abdruck liegt flach; seine Zehen sind die +Y-Achse des Vierecks. Wohin die nach dem
+	# Kippen und Drehen zeigt, IST die Richtung, in die der Spieler laufen soll.
+	var zehe: Vector3 = (ow4._trail[3] as MeshInstance3D).transform.basis * Vector3(0.0, 1.0, 0.0)
+	_check("Die Zehen zeigen zum Ziel (%.2f)" % zehe.dot(soll), zehe.dot(soll) > 0.98,
+		"zeigen nach %s statt %s" % [zehe, soll])
+	# Die Spur STEHT. Ein halber Schritt darf keinen Abdruck verschieben.
+	var vorher: Array = []
+	for t3 in ow4._trail:
+		vorher.append((t3 as MeshInstance3D).position)
+	ow4._player.position = los + soll * (OverworldView.TRAIL_SPACING_M * 0.4)
+	ow4._process_trail(0.016)
+	var gewandert: float = 0.0
+	for i4 in ow4._trail.size():
+		gewandert = maxf(gewandert,
+			(ow4._trail[i4] as MeshInstance3D).position.distance_to(vorher[i4]))
+	_check("Ein halber Schritt verschiebt keinen Abdruck (%.3f m)" % gewandert, gewandert < 0.01,
+		"%.3f m gewandert" % gewandert)
+	# Ein GANZER Schritt rueckt den Ausschnitt um genau einen Abdruck vor: Was auf Platz 1 lag,
+	# liegt jetzt auf Platz 0 — am selben Fleck. Die Abdruecke bleiben liegen, der Spieler laeuft.
+	ow4._player.position = los + soll * OverworldView.TRAIL_SPACING_M
+	ow4._process_trail(0.016)
+	var versatz: float = (ow4._trail[0] as MeshInstance3D).position.distance_to(vorher[1])
+	_check("Ein ganzer Schritt rueckt um genau einen Abdruck vor (%.2f m)" % versatz,
+		versatz < 0.25, "Abweichung %.2f m" % versatz)
+
 	# ── Der Umweg um den Sumpf ────────────────────────────────────────────────
 	# Ein Leitsystem, das einen umbringt, ist schlimmer als gar keines.
 	_reset_state()

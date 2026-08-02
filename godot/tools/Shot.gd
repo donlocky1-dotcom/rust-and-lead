@@ -86,6 +86,7 @@ func _ready() -> void:
 	var buehne: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(0.0, 0.0, 60.0)
 	_views.append(["gegner_neu", null, "gegner"])
 	_views.append(["blickrichtung", null, "blick"])
+	_views.append(["gegner_leiste", null, "leiste"])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -102,11 +103,13 @@ func _ready() -> void:
 	# Ein einzelnes Bild statt aller: `godot … res://tools/Shot.tscn -- stadt`
 	var filter: PackedStringArray = OS.get_cmdline_user_args()
 	if filter.size() > 0:
-		var muster: String = filter[0]
+		var muster: PackedStringArray = filter[0].split(",", false)
 		var gewaehlt: Array = []
 		for v in _views:
-			if String(v[0]).begins_with(muster):
-				gewaehlt.append(v)
+			for m in muster:
+				if String(v[0]).begins_with(m):
+					gewaehlt.append(v)
+					break
 		if not gewaehlt.is_empty():
 			_views = gewaehlt
 
@@ -130,12 +133,20 @@ func _setup_ui(art: String) -> void:
 	elif art == "quest":
 		# Auftrag annehmen, damit Marke und Fussspur ueberhaupt etwas zu zeigen haben, und die
 		# Kamera hinter die Figur setzen — die Spur laeuft NACH VORN, von hinten sieht man sie.
-		ow._toggle_character(CharacterScreen.Tab.AUSRUESTUNG)
+		# Zumachen statt umschalten: Mit dem Filterargument kann diese Ansicht die ERSTE sein,
+		# und dann oeffnete ein Umschalter den Charakterschirm, statt ihn zu schliessen.
+		ow._close_character()
 		QuestManager.accept_quest("q_rats")
 		var wo: Vector3 = WorldManager.poi_scene_position("rustwater") + Vector3(0.0, 0.0, 26.0)
 		ow._player.position = Vector3(wo.x, WorldManager.height_at(wo.x, wo.z), wo.z)
-		var ziel: Vector3 = WorldManager.poi_scene_position("schrott_minen")
-		var dir: Vector3 = (ziel - ow._player.position).normalized()
+		# Auf das WIRKLICHE Ziel ausrichten, nicht auf ein hier notiertes: Welcher Auftrag
+		# verfolgt wird, entscheidet der QuestManager — und mit jedem neuen Auftrag im Kapitel
+		# zeigte die Kamera sonst woandershin als die Spur.
+		var ziel: Vector3 = ow._trail_goal()
+		if ziel == Vector3.INF:
+			ziel = WorldManager.poi_scene_position("schrott_minen")
+		var dir: Vector3 = Vector3(ziel.x - ow._player.position.x, 0.0,
+			ziel.z - ow._player.position.z).normalized()
 		_cam.position = ow._player.position - dir * 12.0 + Vector3(0.0, 9.0, 0.0)
 		_cam.look_at(ow._player.position + dir * 20.0, Vector3.UP)
 		_cam.current = true
@@ -198,6 +209,24 @@ func _setup_ui(art: String) -> void:
 		_cam.position = _buehne + Vector3(0.0, 1.5, 4.2)
 		_cam.look_at(_buehne + Vector3(0.0, 0.9, 0.0), Vector3.UP)
 		_cam.current = true
+	elif art == "leiste":
+		# Echte Gegner aus `_make_enemy`, nicht nur Modelle: Nur so ist die Lebensleiste dabei.
+		# Zwei Zustaende nebeneinander — unverletzt und halb tot —, damit man sieht, ob der
+		# Restanteil ueberhaupt schrumpft.
+		ow._end_cine()
+		ow._close_character()
+		var i3: int = 0
+		for anteil in [1.0, 0.45]:
+			var e: Dictionary = ow._make_enemy("outlaw" if i3 == 0 else "revolver")
+			var n2: Node3D = e["node"]
+			ow.add_child(n2)
+			n2.position = _buehne + Vector3(float(i3) * 1.8 - 0.9, 0.0, 0.0)
+			n2.rotation.y = PI
+			(e["bar"] as MeshInstance3D).scale.x = anteil
+			i3 += 1
+		_cam.position = _buehne + Vector3(0.0, 1.9, 3.4)
+		_cam.look_at(_buehne + Vector3(0.0, 1.5, 0.0), Vector3.UP)
+		_cam.current = true
 	elif art == "umweg":
 		# Der Fall, der ohne Wegweisung toedlich endet: Die gerade Linie zum Zugdepot fuehrt
 		# mitten durch den Strahlensumpf. Die Spur MUSS hier oestlich daran vorbeizeigen.
@@ -244,6 +273,7 @@ func _process(_dt: float) -> void:
 			for t in ow2._trail:
 				if (t as MeshInstance3D).visible:
 					n += 1
+			print("    Fussspur: %d von %d sichtbar" % [n, ow2._trail.size()])
 		get_viewport().get_texture().get_image().save_png("%s_%s.png" % [OUT, String(_views[_i][0])])
 	_i += 1
 	if _i >= _views.size():

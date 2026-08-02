@@ -95,6 +95,15 @@ def _alpha_is_meaningful(img: Image.Image, threshold: int = 250, share: float = 
     return total > 0 and sum(hist[:threshold]) / total > share
 
 
+## JPEG-Qualitaet fuer eingebettete Texturen — 96 OHNE Chroma-Unterabtastung, nicht 90 mit.
+##
+## Seit es Nahaufnahmen gibt, fuellt ein Gesicht den Bildschirm. Gegen die gelieferte PNG-Vorlage
+## gemessen liegt q=90 mit 4:2:0 bei 39–41 dB; die Farbaufloesung ist dabei halbiert, was man an
+## Augen, Schnallen und Aufschriften als Farbsaum sieht. q=96 mit 4:4:4 liegt bei 44–46 dB
+## (groesste Abweichung 19 statt 54 von 255) und kostet rund 0,8 MB je Textur.
+JPEG_QUALITAET = 96
+
+
 def shrink_image(raw: bytes, max_px: int, keep_png: bool) -> tuple[bytes, str, str]:
     """Gibt (Daten, mimeType, Beschreibung) zurueck."""
     img = Image.open(io.BytesIO(raw))
@@ -109,7 +118,8 @@ def shrink_image(raw: bytes, max_px: int, keep_png: bool) -> tuple[bytes, str, s
         img.save(out, format="PNG", optimize=True)
         mime = "image/png"
     else:
-        img.convert("RGB").save(out, format="JPEG", quality=90, optimize=True)
+        img.convert("RGB").save(out, format="JPEG", quality=JPEG_QUALITAET, subsampling=0,
+                                optimize=True)
         mime = "image/jpeg"
     note = f"{before} -> {img.width}x{img.height} {mime.split('/')[1]}"
     return out.getvalue(), mime, note

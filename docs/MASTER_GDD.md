@@ -180,11 +180,17 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   es „12 Gegner erlegen" und keinerlei Hinweis, wohin; bei 5 km Kantenlänge ist das kein
   Spielraum, sondern eine Sackgasse. Drei Anzeigen aus einer Quelle (`QuestManager.quest_target`):
   eine **Raute auf der Karte** (außerhalb des Ausschnitts als Pfeil an den Rand geklemmt), eine
-  **leuchtende Fußspur am Boden**, die dem Spieler 30 m vorausläuft, und Ort plus Entfernung im
+  **Fußspur am Boden**, die dem Spieler 33 m vorausläuft, und Ort plus Entfernung im
   HUD. Der Wegweiser **dreht sich mit dem Fortschritt**: erst zum Ort der Arbeit, nach Erfüllung
   zum Auftraggeber. `[Q]` wechselt zwischen laufenden Aufträgen; der verfolgte steht im
   Spielstand. Führt die gerade Linie durch den Strahlensumpf, leitet `swamp_detour` um ihn herum
   — ein Leitsystem, das einen umbringt, ist schlimmer als gar keines.
+  Die Abdrücke **liegen in der Welt**, sie hängen nicht am Spieler: Sie sind an einen Anker
+  gebunden, der erst vorrückt, wenn ein ganzer Schrittabstand gegangen ist. Zwischen zwei
+  Schritten bewegt sich keiner — vorn kommt einer dazu, hinten verlischt einer unter den Füßen.
+  Und sie sind **dunkel**, eingedrückte Erde mit einem warmen Puls darin; als gelbes Leuchten
+  waren sie auf Rustwaters hellem Lehmboden unsichtbar und draußen sahen sie aus wie schwebende
+  Lichter.
 * **Gespräche** (Vorlage: Diablo Immortal) — **Sprechtafel unten über die ganze Breite**:
   Bildnis links, Name in gesperrten Versalien, Text daneben, blinkender Winkel unten rechts als
   einziges Bedienelement. Sie hat kein Zeitlimit; eine Systemmeldung verschwindet nach zwei
@@ -202,9 +208,14 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   die besuchten Zellen, nicht das Raster.
 * **Eisenbahn** — die Iron Rail verbindet die fünf Knoten (Rustwater, Zugdepot, Rogue's
   Landing, Fort Freedom, Sektor 01). Ihre Trasse liegt **auf den Routen** (zweite Geografie
-  ausgeschlossen) und ist damit die einzige gezeichnete Verbindung zwischen den Orten. Gereist wird **nur vom Bahnsteig aus**: Schnellreise ist ein Ort in der
+  ausgeschlossen). Gereist wird **nur vom Bahnsteig aus**: Schnellreise ist ein Ort in der
   Welt, kein Menüpunkt. Der Fußmarsch bleibt jederzeit möglich — die Bahn ersetzt ihn später
   nur, wenn man ihn nicht mehr braucht.
+  **Die Gleise sind vorerst ausgeschaltet** (`OverworldView.ZEIGE_GLEISE`). Eine Trasse quer
+  durch die Welt legt fest, welche Orte Nachbarn sind und wovon die Landschaft durchschnitten
+  wird — das entscheidet man, wenn die Orte stehen, nicht davor. Der Bahnsteig bleibt, weil die
+  Schnellreise an ihm hängt; mit den Gleisen fällt auch die Sperre weg, die Streuwerk von der
+  Trasse fernhält (sonst bliebe ein 15 m breiter, auffällig leerer Streifen durch die Wüste).
 * **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und
   Truhen erscheinen nie in einer Hauswand und nie hinter einem geschlossenen Sektor-Tor.
 * **Jeder Ort hängt an mindestens einer Route**, und das Schienennetz ist zusammenhängend —

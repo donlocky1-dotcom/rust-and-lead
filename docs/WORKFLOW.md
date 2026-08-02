@@ -41,6 +41,20 @@ ohne dass jemand programmieren muss.
 * Überlappen zwei Gebäude oder ihre Kollisionsflächen?
 * Bleibt zwischen den Häusern genug Gasse, dass man mit Spielerradius durchkommt?
 * Sind die NPCs noch erreichbar, oder steht jetzt ein Haus vor Mabel?
+* **Kommt man durch jedes Tor** — davor, drin, dahinter?
+* **Ist irgendeine Fläche abgeschnitten?** Der Test rastert die Stadt mit 50 cm ab und läuft
+  vom Ortsrand los; was er nicht erreicht, erreichst du auch nicht.
+
+### Eine Falle, die dich im Editor sicher erwischt
+
+Wer ein Bauteil dupliziert, während das erste ausgewählt ist, bekommt das neue als **Kind** des
+ersten. Im Ansichtsfenster sieht man davon nichts — im Szenenbaum schon. Deine Palisade steht
+vier Generationen tief verschachtelt.
+
+Das ist inzwischen egal: Die Kollision durchläuft den Baum vollständig und misst jedes Modell
+einzeln. Vorher wurde ein eingehängter Knoten samt allem darunter als EIN Kasten vermessen, und
+genau daran war Rustwater dicht. Wenn du magst, kannst du die Verschachtelung im Szenenbaum per
+Ziehen auflösen — nötig ist es nicht mehr.
 
 Diese vier Fragen beantwortet die Testsuite automatisch — ein Haus im Weg fällt beim nächsten
 Testlauf auf, nicht erst beim Spielen.
