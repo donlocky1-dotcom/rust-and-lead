@@ -27,6 +27,26 @@ Gatling schießt zwölfmal so schnell und hat 60 Schuss im Gurt.
 Laufen sichtbar am Körper — eine Gatling muss von hinten als Trommel lesbar sein, ein
 Säurewerfer als Tank mit Schlauch. 3 000–6 000 Dreiecke, 1k-Textur.
 
+## Neu eingetroffen (2026-08-02)
+
+| Datei | Rolle | Mass | Wo eingebaut |
+|---|---|---|---|
+| `props/locomotive.glb` | Gestrandete Werkslok | 13 m lang | **Schrottgrube** — das eine grosse Stueck, das der Halde einen Massstab gibt |
+| `props/shelf.glb` | Industrieregal | 2,2 m | Schrottgrube |
+| `props/desk.glb` | Rostiger Schreibtisch | 1,8 m | Schrottgrube |
+| `props/office_chair.glb` | Lederdrehstuhl | 1,05 m | Schrottgrube |
+| `props/oil_barrel.glb` | Oelfass | 0,95 m | Schrottgrube |
+| `props/barbed_wire.glb` | Stacheldraht | 2,4 m | Schrottgrube |
+| `props/medallion.glb` | Rostmedaillon | 1,4 m | Schrottgrube |
+| `environment/monolith.glb` | Betonbrocken | 3,0 m | Schrottgrube |
+| `environment/copper_plate_a/b.glb` | Kupfer-Bodenplatte | 2,6 m Kante | **Rustwaters Boden** (MultiMesh, rund 900 Stueck) |
+| `assets/video/intro_muellkippe.mp4` | Intro-Film | 11 MB | noch nicht — Godot spielt kein MP4, siehe `assets/video/README.md` |
+| `unsortiert/figur_ohne_namen.glb` | Schreitende Messingmaschine | 1,8 m | **offen** — Rolle nicht vergeben |
+| `unsortiert/figur_mit_animationen.glb` | Klauentraeger mit Hut, 5 Animationen | 1,8 m | **offen** — Rolle nicht vergeben |
+
+`deadtree.glb` und `deadtree_b.glb` kamen erneut, sind aber dieselben Modelle, die schon im
+Repo liegen (545 406 bzw. 430 360 Dreiecke roh, gleiche Masse) — nichts zu tun.
+
 ## Priorität 2 — Gegner (2 fehlen von 6, plus der Hund)
 
 Ohne Modell zeichnet die Szene eine farbige Kapsel. Man kämpft also gegen Kapseln.

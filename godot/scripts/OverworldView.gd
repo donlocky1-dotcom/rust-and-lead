@@ -1332,20 +1332,130 @@ func _build_township() -> void:
 		Color(0.95, 0.82, 0.55), LBL_ORT, 350.0)
 
 
-## Fester, heller Platz unter der ganzen Stadt — ein plattgetretener Lehmboden, der bis knapp
-## hinter die Palisade reicht. Ohne ihn steht Rustwater auf derselben Wuestenduene wie das
-## Umland, und die Stadt wirkt wie hingewuerfelt statt gebaut.
+## Der Boden von Rustwater: **verlegte Kupferplatten**, kein Lehm.
 ##
-## Die Scheibe liegt 4 cm ueber dem Weltboden. Das reicht gegen Z-Fighting und ist aus
-## Spielerhoehe nicht zu sehen.
+## Vorher lag hier eine 59-m-Scheibe aus hellem Lehm. Sie hat ihren Zweck erfuellt (die Stadt
+## stand nicht mehr auf derselben Wuestenduene wie das Umland), aber zwei Dinge falsch gemacht:
+## Sie reichte weit ueber die Palisade hinaus — im Bild von oben eine helle Schuerze um den Ort,
+## fuer die es keinen Grund gibt — und sie war eine Flaeche ohne Geschichte. Eine Stadt, die vom
+## Schrott lebt, pflastert mit dem, was sie hat.
+##
+## Verlegt wird als MultiMesh: rund 900 Platten in ZWEI Zeichenaufrufen. Einzelne Knoten waeren
+## 900 Objekte, die die Kamera jedes Bild einzeln durchsortiert.
+##
+## Der Rand loest sich auf, statt zu enden. Ein exakter Kreis aus Kupfer in der Wueste sieht aus
+## wie ausgestanzt; im Auslaufband faellt mit wachsendem Abstand jede zweite, dritte, zehnte
+## Platte weg, und der Sand nimmt sich den Platz zurueck. Aussen bleibt Wueste — sie ist ja eine.
+const PLATE_M: float = 2.6            # Kantenlaenge einer Platte
+## Die Platte wird groesser gemacht als ihr Rasterplatz, weil sie kein volles Quadrat ist:
+## Die Kanten sind angeschraegt und die Ecken gerundet, ihr SICHTBARER Umriss ist also deutlich
+## kleiner als ihre Huellbox — auf die aber skaliert `instantiate`. Mit 1,03 lag zwischen den
+## Platten ueberall ein Streifen Sand, und der Boden las sich als Fliesenraster statt als Belag.
+const PLATE_OVERLAP: float = 1.20
+const PLATE_JITTER_M: float = 0.05    # von Hand verlegt, nicht gefraest
+const TOWN_FLOOR_R: float = 38.0      # geschlossen gepflastert
+const TOWN_FLOOR_FADE: float = 11.0   # darin loest sich die Pflasterung auf
 ## Oberkante des Stadtbodens ueber dem Gelaende. Steht als Konstante da, weil etwas DARAUF
-## liegen muss — und wer die Scheibe dicker macht, ohne das mitzuziehen, versenkt es.
+## liegen muss — und wer den Belag dicker macht, ohne das mitzuziehen, versenkt es. Die Platten
+## werden so eingesenkt, dass ihre OBERSEITE genau hier liegt; alles, was auf dem Stadtboden
+## liegt (Fussspur, Marken), rechnet weiter mit dieser einen Zahl.
 const TOWN_GROUND_TOP: float = 0.08
 func _build_town_ground(c: Vector3) -> void:
+	# Je Sorte einmal das Modell laden, vermessen und wieder wegwerfen — gebraucht werden nur
+	# Netz und Masse, nicht der Knoten.
+	var netze: Array = []
+	var deckel: Array = []      # Oberkante der Platte in ihrem eigenen Raum (schon skaliert)
+	var innen: Array = []       # Netz → Modellwurzel: die Kette, die `instantiate` aufbaut
+	for name in ["copper_plate_a", "copper_plate_b"]:
+		var probe: Node3D = AssetRegistry.instantiate(name, PLATE_M * PLATE_OVERLAP)
+		if probe == null:
+			continue
+		var mi: MeshInstance3D = null
+		for kandidat in AssetRegistry.mesh_instances(probe):
+			mi = kandidat as MeshInstance3D
+			break
+		if mi == null or mi.mesh == null:
+			probe.queue_free()
+			continue
+		# Ein MultiMesh kennt nur NETZE, keine Knoten — die Kette vom Netz bis zur Wurzel muss
+		# deshalb ausgerechnet und in jede Instanz-Transform hineingerechnet werden. Genau das
+		# hat beim ersten Versuch gefehlt: `instantiate` legt Skalierung, Drehung und das
+		# Absetzen auf den Boden auf ZWISCHENknoten, nicht auf das Netz. Ohne diese Kette lagen
+		# neunhundert Platten in Originalgroesse und falscher Lage im Sand — im Bild nichts.
+		var kette := Transform3D.IDENTITY
+		var lauf: Node = mi
+		while lauf != null and lauf != probe:
+			if lauf is Node3D:
+				kette = (lauf as Node3D).transform * kette
+			lauf = lauf.get_parent()
+		var b: AABB = AssetRegistry.local_bounds(probe)
+		netze.append(mi.mesh)
+		innen.append(kette)
+		deckel.append(b.position.y + b.size.y)
+		probe.queue_free()
+	if netze.is_empty():
+		_build_town_ground_lehm(c)
+		return
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260802
+	var lagen: Array = []
+	for _v in netze.size():
+		lagen.append([])
+	var n: int = int(ceil((TOWN_FLOOR_R + TOWN_FLOOR_FADE) / PLATE_M))
+	for iz in range(-n, n + 1):
+		for ix in range(-n, n + 1):
+			var raster := Vector2(float(ix) * PLATE_M, float(iz) * PLATE_M)
+			var r: float = raster.length()
+			if r > TOWN_FLOOR_R + TOWN_FLOOR_FADE:
+				continue
+			if r > TOWN_FLOOR_R \
+					and rng.randf() < (r - TOWN_FLOOR_R) / TOWN_FLOOR_FADE:
+				continue
+			var v: int = rng.randi_range(0, netze.size() - 1)
+			# Vierteldrehungen plus ein Hauch Schiefe: Eine Platte kann in jeder Lage liegen,
+			# aber nicht in jedem Winkel — sie stossen ja aneinander.
+			var yaw: float = float(rng.randi_range(0, 3)) * (PI * 0.5) \
+				+ rng.randf_range(-0.025, 0.025)
+			var x: float = c.x + raster.x + rng.randf_range(-PLATE_JITTER_M, PLATE_JITTER_M)
+			var z: float = c.z + raster.y + rng.randf_range(-PLATE_JITTER_M, PLATE_JITTER_M)
+			var y: float = WorldManager.height_at(x, z) + TOWN_GROUND_TOP - float(deckel[v])
+			var platz := Transform3D(Basis(Vector3.UP, yaw), Vector3(x, y, z))
+			(lagen[v] as Array).append(platz * (innen[v] as Transform3D))
+
+	var gelegt: int = 0
+	for v in netze.size():
+		var liste: Array = lagen[v]
+		if liste.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = netze[v]
+		mm.instance_count = liste.size()
+		for i in liste.size():
+			mm.set_instance_transform(i, liste[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.name = "stadtboden_%d" % v
+		# Ein Bodenbelag wirft keinen Schatten, der irgendwo hinfaellt — aber er EMPFAENGT
+		# welche. Das Ausschalten spart 900 Instanzen im Schattendurchgang.
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mmi)
+		gelegt += liste.size()
+	_town_plates = gelegt
+
+
+## Wie viele Platten liegen (0 = die Modelle fehlen, es liegt Lehm).
+var _town_plates: int = 0
+
+
+## Rueckfall ohne Plattenmodelle: die alte Lehmscheibe. Bleibt, damit das Projekt auch mit
+## fehlenden Assets startet — dieselbe Regel wie ueberall sonst.
+func _build_town_ground_lehm(c: Vector3) -> void:
 	var disc := MeshInstance3D.new()
 	var mesh := CylinderMesh.new()
-	mesh.top_radius = TOWN_GROUND_R
-	mesh.bottom_radius = TOWN_GROUND_R
+	mesh.top_radius = TOWN_FLOOR_R + TOWN_FLOOR_FADE
+	mesh.bottom_radius = TOWN_FLOOR_R + TOWN_FLOOR_FADE
 	mesh.height = TOWN_GROUND_TOP
 	mesh.radial_segments = 64
 	mesh.rings = 1
@@ -1697,7 +1807,6 @@ const TRAIL_DUNKEL: Color = Color(0.22, 0.14, 0.06)
 const TRAIL_HELL: Color = Color(0.98, 0.78, 0.34)
 var _trail: Array = []             # MeshInstance3D je Abdruck
 var _trail_mats: Array = []        # je Abdruck ein eigenes Material (für die Laufwelle)
-var _trail_t: float = 0.0
 var _trail_anker: Vector3 = Vector3.INF   # Weltpunkt, an dem der erste Abdruck liegt
 var _trail_dir: Vector3 = Vector3.FORWARD # Richtung der Spur, wird beim Vorrücken erneuert
 var _trail_paritaet: int = 0              # linker oder rechter Fuß zuerst
@@ -1772,15 +1881,14 @@ const DECAL_LIFT_M: float = 0.06
 func _decal_height(x: float, z: float) -> float:
 	var boden: float = WorldManager.height_at(x, z)
 	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
-	if Vector2(x - stadt.x, z - stadt.z).length() <= TOWN_GROUND_R:
-		boden = maxf(boden, TOWN_GROUND_TOP)
+	if Vector2(x - stadt.x, z - stadt.z).length() <= TOWN_FLOOR_R + TOWN_FLOOR_FADE:
+		boden += TOWN_GROUND_TOP
 	return boden + DECAL_LIFT_M
 
 
-func _process_trail(delta: float) -> void:
+func _process_trail(_delta: float) -> void:
 	if _trail.is_empty() or _player == null:
 		return
-	_trail_t += delta
 	var ziel: Vector3 = _trail_goal()
 	var sichtbar: bool = ziel != Vector3.INF and not _overlay_open()
 	if sichtbar:
@@ -1807,13 +1915,14 @@ func _process_trail(delta: float) -> void:
 				var nah: float = smoothstep(0.0, TRAIL_FADE_NEAR_M, d)
 				var fern: float = 1.0 - smoothstep(0.55, 1.0,
 					d / (float(TRAIL_STEPS) * TRAIL_SPACING_M))
-				# Laufwelle: Die Helligkeit wandert vom Spieler weg. Statische Punkte lesen sich
-				# als Markierung, wandernde als Richtung — es ist derselbe Unterschied wie
-				# zwischen einem Pfeil und einem Blinker.
-				var phase: float = fposmod(_trail_t * 1.6 - d / TRAIL_SPACING_M * 0.16, 1.0)
-				var hell: float = 0.10 + 0.75 * (1.0 - phase)
+				# KEINE Laufwelle. Der erste Entwurf liess die Helligkeit vom Spieler weg
+				# wandern — als Richtungsanzeige gedacht, im Bild ein Blinken. Ein Abdruck im
+				# Boden blinkt nicht; die Richtung tragen die Zehen, dafuer zeigen sie hin.
+				# Die Helligkeit haengt jetzt nur noch an der ENTFERNUNG: nah warm, fern
+				# verlaufend. Das ist ueber die Zeit konstant und wandert mit dem Laeufer.
+				var hell: float = 1.0 - smoothstep(0.0, 0.7, d / (float(TRAIL_STEPS) * TRAIL_SPACING_M))
 				var m: StandardMaterial3D = _trail_mats[i]
-				m.albedo_color = Color(TRAIL_DUNKEL.lerp(TRAIL_HELL, hell), nah * fern * 0.9)
+				m.albedo_color = Color(TRAIL_DUNKEL.lerp(TRAIL_HELL, hell * 0.55), nah * fern * 0.9)
 	for mi2 in _trail:
 		(mi2 as MeshInstance3D).visible = sichtbar
 
@@ -2034,10 +2143,41 @@ func _fill_craters() -> void:
 		# aufhören. Eine sichtbare Fuge zwischen Haufen und Wand wäre das Verräterischste.
 		var reichweite: float = radius * float(f.get("floor", 0.8)) + 1.0
 		_add_puddle(c, f)
+		_place_wreck(c, reichweite, rng)
 		for lage in CRATER_LAYERS:
 			for i in int(lage["n"]):
 				_drop_scrap(c, reichweite, pool, lage, rng)
 		_dress_rim(c, f, rng)
+
+
+## Das eine grosse Stueck: eine gestrandete Werkslok, halb im Schutt.
+##
+## Eine Halde aus lauter gleich grossen Teilen hat keinen Massstab — man sieht einen Teppich
+## und weiss nicht, ob er knietief oder haushoch ist. Ein Wrack von dreizehn Metern beantwortet
+## das in dem Augenblick, in dem man ueber den Kraterrand schaut, und gibt der Grube ausserdem
+## eine Mitte, auf die man zulaeuft.
+##
+## Am RAND des Grundes, nicht in der Mitte: Die Mitte gehoert der Lache, in der der Held
+## erwacht. Ein Wrack quer darueber waere die Kulisse fuer eine andere Geschichte.
+const WRECK_SINK: float = 0.22        # Anteil der Hoehe, der im Schutt steckt
+func _place_wreck(c: Vector3, reichweite: float, rng: RandomNumberGenerator) -> void:
+	if not AssetRegistry.has_model("locomotive"):
+		return
+	var lok: Node3D = AssetRegistry.instantiate("locomotive")
+	if lok == null:
+		return
+	var ang: float = rng.randf() * TAU
+	var dist: float = reichweite * 0.55
+	var pos := Vector3(c.x + cos(ang) * dist, 0.0, c.z + sin(ang) * dist)
+	pos.y = WorldManager.height_at(pos.x, pos.z)
+	pos.y -= maxf(AssetRegistry.local_bounds(lok).size.y * lok.scale.y, 0.1) * WRECK_SINK
+	lok.position = pos
+	# Quer zur Blickrichtung aus der Grubenmitte: So sieht man ihre ganze Laenge, nicht die
+	# Stirnseite. Leicht gekippt, weil sie liegt und nicht parkt.
+	lok.rotation.y = ang + PI * 0.5 + rng.randf_range(-0.35, 0.35)
+	lok.rotation.z = deg_to_rad(rng.randf_range(6.0, 14.0))
+	lok.rotation.x = deg_to_rad(rng.randf_range(-5.0, 5.0))
+	add_child(lok)
 
 
 ## Ein Stück Schrott an eine zufällige Stelle des Grundes.
@@ -2087,6 +2227,15 @@ func _scrap_pool() -> Array:
 	# mehr Faesser als Haufen in der Grube; im Gewirr faellt das nicht auf.
 	# `bones` ist raus: kein sparsamer Zwilling, und ein Tierskelett gehoert in die Wueste,
 	# nicht in eine Grube voller Maschinenteile.
+	# Dazu der Sperrmüll: Regal, Schreibtisch, Bürostuhl, Ölfass, Stacheldraht, Rostmedaillon,
+	# Betonplatte. Sie haben keinen sparsamen Zwilling, sind aber von vornherein knapp gebaut
+	# (2.500–9.000 Dreiecke) und liegen einzeln statt zu Dutzenden — der Gewichtungswert 1 hält
+	# ihre Zahl klein. Ihr Beitrag ist nicht Masse, sondern UNGLEICHHEIT: Bis hierher lagen in
+	# der Grube fünf Sorten in hundert Kopien, und aus zehn Metern Höhe war das ein Muster.
+	for zusatz in ["shelf", "desk", "office_chair", "oil_barrel", "barbed_wire",
+			"medallion", "monolith"]:
+		if AssetRegistry.has_model(zusatz):
+			pool.append(zusatz)
 	for eintrag in [["scrap_heap", 2], ["scrap_heap_b", 3], ["barrels", 4], ["barrels_b", 4],
 			["barrels_c", 4]]:
 		var name: String = String(eintrag[0])

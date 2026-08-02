@@ -88,6 +88,8 @@ func _ready() -> void:
 	_views.append(["blickrichtung", null, "blick"])
 	_views.append(["gegner_leiste", null, "leiste"])
 	_views.append(["gegner_kampf", null, "kampf"])
+	_views.append(["neuzugang", null, "neuzugang"])
+	_views.append(["figuren", null, "figuren"])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -227,6 +229,41 @@ func _setup_ui(art: String) -> void:
 			i3 += 1
 		_cam.position = _buehne + Vector3(0.0, 1.9, 3.4)
 		_cam.look_at(_buehne + Vector3(0.0, 1.5, 0.0), Vector3.UP)
+		_cam.current = true
+	elif art == "neuzugang" or art == "figuren":
+		# Alle frisch gelieferten Modelle nebeneinander, in Einbaugroesse, auf einer Reihe.
+		# Ein Modell, das man nur als Datei kennt, kauft man blind ein — das hier ist die
+		# Abnahme: Groesse, Lage, Farbe, und ob es ueberhaupt so herum steht wie gedacht.
+		ow._end_cine()
+		ow._close_character()
+		var reihe: Array = ["locomotive", "shelf", "desk", "office_chair", "oil_barrel",
+			"barbed_wire", "medallion", "monolith", "copper_plate_a", "copper_plate_b",
+			"figur_ohne_namen", "figur_mit_animationen"]
+		if art == "figuren":
+			reihe = ["figur_ohne_namen", "figur_mit_animationen"]
+		var x: float = 0.0
+		for kind2 in reihe:
+			var name2: String = String(kind2)
+			if not AssetRegistry.has_model(name2):
+				continue
+			var n4: Node3D = AssetRegistry.instantiate(name2)
+			if n4 == null:
+				continue
+			ow.add_child(n4)
+			var b4: AABB = AssetRegistry.local_bounds(n4)
+			var breite: float = maxf(b4.size.x * n4.scale.x, 0.5)
+			x += breite * 0.5 + 1.2
+			n4.position = _buehne + Vector3(x, WorldManager.height_at(_buehne.x, _buehne.z), 0.0)
+			x += breite * 0.5
+			ow._label(n4.position + Vector3(0.0, 4.6, 0.0), name2,
+				Color(1.0, 0.92, 0.7), OverworldView.LBL_HAUS, 300.0)
+		_cam.position = _buehne + Vector3(x * 0.5, x * 0.28, x * 0.62)
+		_cam.look_at(_buehne + Vector3(x * 0.5, 1.4, 0.0), Vector3.UP)
+		if art == "figuren":
+			# Naeher heran und auf Brusthoehe: Wer die Figuren erkennen soll, braucht Gesicht
+			# und Kleidung, nicht die Silhouette am Horizont.
+			_cam.position = _buehne + Vector3(x * 0.5, 1.5, 4.2)
+			_cam.look_at(_buehne + Vector3(x * 0.5, 1.0, 0.0), Vector3.UP)
 		_cam.current = true
 	elif art == "kampf":
 		# Ein Nahkaempfer im Schlag und ein Schuetze auf Schussdistanz — beide in dem Bild, in

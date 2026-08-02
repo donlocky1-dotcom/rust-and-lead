@@ -82,6 +82,27 @@ const PATHS: Dictionary = {
 	"barrels_rust_lod":      ["res://assets/models/props/barrels_rust_lod.glb"],
 	"barrels_b_rust_lod":    ["res://assets/models/props/barrels_b_rust_lod.glb"],
 	"barrels_c_rust_lod":    ["res://assets/models/props/barrels_c_rust_lod.glb"],
+	# ── Der Muell der Schrottgrube (GDD §1.5) ──
+	# Bis hierher lag dort dreierlei: zwei Schrotthaufen und drei Fass-Stapel. Aus zehn Metern
+	# Hoehe war das ein Muster, keine Halde. Was eine Kippe ausmacht, ist die UNGLEICHHEIT der
+	# Teile — ein Schreibtisch neben einem Fass neben einem Stacheldrahtknaeuel.
+	"locomotive":      ["res://assets/models/props/locomotive.glb"],
+	"shelf":           ["res://assets/models/props/shelf.glb"],
+	"oil_barrel":      ["res://assets/models/props/oil_barrel.glb"],
+	"medallion":       ["res://assets/models/props/medallion.glb"],
+	"desk":            ["res://assets/models/props/desk.glb"],
+	"office_chair":    ["res://assets/models/props/office_chair.glb"],
+	"barbed_wire":     ["res://assets/models/props/barbed_wire.glb"],
+	"monolith":        ["res://assets/models/environment/monolith.glb"],
+	# ── Kupferplatten: der Boden von Rustwater ──
+	"copper_plate_a":  ["res://assets/models/environment/copper_plate_a.glb"],
+	"copper_plate_b":  ["res://assets/models/environment/copper_plate_b.glb"],
+	# ── Noch nicht zugeordnet ──
+	# Zwei Figuren ohne Rolle: eine ohne Animationen, eine mit fuenf (darunter ein Angriff
+	# „Male_Head_Down_Charge"). Sie liegen registriert da, damit man sie im Bild sehen kann,
+	# ohne sie schon irgendwo einzubauen. Wer sie ist, entscheidet der Auftraggeber.
+	"figur_ohne_namen":     ["res://assets/models/unsortiert/figur_ohne_namen.glb"],
+	"figur_mit_animationen":["res://assets/models/unsortiert/figur_mit_animationen.glb"],
 	"bones":           ["res://assets/models/props/bones.glb"],
 	"bones_b":         ["res://assets/models/props/bones_b.glb"],
 	# ── Props / Items ──
@@ -132,6 +153,10 @@ const TARGET_HEIGHT: Dictionary = {
 	"cactus": 2.6,               # Saeulenkaktus — ueberragt den Spieler deutlich
 	"deadtree": 5.5,             # Toter Moorbaum: dreimal Spielerhoehe, traegt die Silhouette
 	"rad_barrel": 1.1,           # Aufgeplatztes Strahlenfass
+	"oil_barrel": 0.95,          # Oelfass, Normmass — das Grossenmass der ganzen Grube
+	"office_chair": 1.05,
+	"figur_ohne_namen": 1.8,
+	"figur_mit_animationen": 1.8,
 }
 const TARGET_HEIGHT_DEFAULT: float = 1.6
 
@@ -144,6 +169,19 @@ const TARGET_HEIGHT_DEFAULT: float = 1.6
 const TARGET_LENGTH: Dictionary = {
 	"weapon_karabiner": 1.0,
 	"deadtree_b": 4.0,       # umgestuerzt — liegt, also ueber die LAENGE gemessen
+	# Schrott liegt, also misst er sich ueber die Laenge. Die Lokomotive ist das MASS der
+	# Grube: Steht sie richtig, stimmen die anderen Stuecke von selbst.
+	"locomotive": 13.0,      # kleine Werkslok, keine Fernzugmaschine
+	"shelf": 2.2,
+	"desk": 1.8,
+	"medallion": 1.4,        # flache Rostscheibe — ueber die Hoehe waere sie ein Turm
+	"barbed_wire": 2.4,
+	"monolith": 3.0,         # liegende Betonplatte
+	# Die Bodenplatten misst der Pflasterer selbst (`OverworldView.PLATE_M`); der Eintrag hier
+	# sorgt nur dafuer, dass ein einzeln eingesetztes Stueck nicht ueber seine Dicke skaliert
+	# wird — 13 cm Hoehe auf 1,6 m gebracht waeren 23 m Kantenlaenge.
+	"copper_plate_a": 2.6,
+	"copper_plate_b": 2.6,
 	"rock_small": 1.6,       # Geröllfeld, kein Findling
 	"rock_boulder": 2.4,
 	"cliff": 4.5,            # Felsnase am Wegrand. Bei 9 m wurde daraus ein 18-m-Klotz, den

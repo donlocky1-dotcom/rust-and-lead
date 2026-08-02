@@ -185,6 +185,10 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   zum Auftraggeber. `[Q]` wechselt zwischen laufenden Aufträgen; der verfolgte steht im
   Spielstand. Führt die gerade Linie durch den Strahlensumpf, leitet `swamp_detour` um ihn herum
   — ein Leitsystem, das einen umbringt, ist schlimmer als gar keines.
+  Die Abdrücke **blinken nicht** — der erste Entwurf ließ eine Helligkeitswelle vom Spieler
+  weglaufen, als Richtungsanzeige gedacht, im Bild aber ein Blinker. Ein Abdruck im Boden
+  blinkt nicht; die Richtung tragen die Zehen, dafür zeigen sie hin. Die Helligkeit hängt jetzt
+  allein an der Entfernung und ist über die Zeit konstant.
   Die Abdrücke **liegen in der Welt**, sie hängen nicht am Spieler: Sie sind an einen Anker
   gebunden, der erst vorrückt, wenn ein ganzer Schrittabstand gegangen ist. Zwischen zwei
   Schritten bewegt sich keiner — vorn kommt einer dazu, hinten verlischt einer unter den Füßen.
@@ -216,6 +220,20 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   wird — das entscheidet man, wenn die Orte stehen, nicht davor. Der Bahnsteig bleibt, weil die
   Schnellreise an ihm hängt; mit den Gleisen fällt auch die Sperre weg, die Streuwerk von der
   Trasse fernhält (sonst bliebe ein 15 m breiter, auffällig leerer Streifen durch die Wüste).
+* **Rustwaters Boden sind verlegte Kupferplatten**, kein Lehm. Rund 900 Stück in zwei
+  MultiMeshes (2,6 m Kantenlänge, zwei Sorten, Vierteldrehungen und ein Hauch Schiefe, damit
+  es verlegt aussieht und nicht gefräst). Der Rand endet nicht, sondern **löst sich auf**: Im
+  Auslaufband fällt mit wachsendem Abstand immer häufiger eine Platte weg, und der Sand nimmt
+  sich den Platz zurück — ein exakter Kreis aus Kupfer in der Wüste sähe ausgestanzt aus.
+  Draußen bleibt Wüste. Die Platten werden so eingesenkt, dass ihre Oberseite genau auf
+  `TOWN_GROUND_TOP` liegt; alles, was auf dem Stadtboden liegt, rechnet weiter mit dieser
+  einen Zahl.
+* **Die Schrottgrube ist eine Halde, kein Muster.** Zu den fünf gestapelten Sorten kommen
+  Einzelstücke, die mit nichts anderem verwechselbar sind (Regal, Schreibtisch, Bürostuhl,
+  Ölfass, Stacheldraht, Rostmedaillon, Betonbrocken), und **eine gestrandete Werkslok** von
+  13 m am Rand des Grundes. Sie ist der Maßstab: Eine Halde aus lauter gleich großen Teilen
+  lässt offen, ob sie knietief oder haushoch ist. Die Mitte bleibt der Lache vorbehalten — dort
+  erwacht der Held.
 * **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und
   Truhen erscheinen nie in einer Hauswand und nie hinter einem geschlossenen Sektor-Tor.
 * **Jeder Ort hängt an mindestens einer Route**, und das Schienennetz ist zusammenhängend —
