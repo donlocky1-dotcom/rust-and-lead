@@ -1410,11 +1410,12 @@ func _outline_at(umriss: PackedFloat32Array, winkel: float) -> float:
 ## wie ausgestanzt; im Auslaufband faellt mit wachsendem Abstand jede zweite, dritte, zehnte
 ## Platte weg, und der Sand nimmt sich den Platz zurueck. Aussen bleibt Wueste — sie ist ja eine.
 const PLATE_M: float = 2.6            # Kantenlaenge einer Platte
-## Die Platte wird groesser gemacht als ihr Rasterplatz, weil sie kein volles Quadrat ist:
-## Die Kanten sind angeschraegt und die Ecken gerundet, ihr SICHTBARER Umriss ist also deutlich
-## kleiner als ihre Huellbox — auf die aber skaliert `instantiate`. Mit 1,03 lag zwischen den
-## Platten ueberall ein Streifen Sand, und der Boden las sich als Fliesenraster statt als Belag.
-const PLATE_OVERLAP: float = 1.20
+## Kleiner Zuschlag gegen Fugen. Die grünspanige Platte davor war kein volles Quadrat — schräge
+## Kanten, runde Ecken —, und ihr sichtbarer Umriss war so viel kleiner als die Hüllbox, auf die
+## `instantiate` skaliert, dass sie 20 % Übermaß brauchte, um zu schließen. Die jetzige Platte
+## füllt ihren Grundriss zu 100 % aus (gemessen: alle Rasterzellen belegt), also reichen 5 % für
+## den Versatz beim Verlegen.
+const PLATE_OVERLAP: float = 1.05
 const PLATE_JITTER_M: float = 0.05    # von Hand verlegt, nicht gefraest
 ## Nur ohne Stadt-Szene gebraucht: Steht die Palisade, endet der Boden an IHR (`_wall_outline`).
 const TOWN_FLOOR_R: float = 38.0      # geschlossen gepflastert
