@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/office_chair.glb" id="1_gl1fb"]
+
+[node name="office_chair" type="Node3D"]
+metadata/asset = "office_chair"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_gl1fb")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.955036, 0)

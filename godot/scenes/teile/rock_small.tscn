@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/environment/sand_rocks_small_01_1k/sand_rocks_small_01_1k.gltf" id="1_rkyhw"]
+
+[node name="rock_small" type="Node3D"]
+metadata/asset = "rock_small"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_rkyhw")]
+transform = Transform3D(0.345827, 0, 0, 0, 0.345827, 0, 0, 0, 0.345827, 0, 0.0361006, 0)

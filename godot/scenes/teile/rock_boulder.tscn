@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/environment/namaqualand_boulder_03_1k/namaqualand_boulder_03_1k.gltf" id="1_jekwo"]
+
+[node name="rock_boulder" type="Node3D"]
+metadata/asset = "rock_boulder"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_jekwo")]
+transform = Transform3D(0.782931, 0, 0, 0, 0.782931, 0, 0, 0, 0.782931, 0, 0.0115118, 0)

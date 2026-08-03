@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/shelf.glb" id="1_tyhhh"]
+
+[node name="shelf" type="Node3D"]
+metadata/asset = "shelf"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_tyhhh")]
+transform = Transform3D(1.16274, 0, 0, 0, 1.16274, 0, 0, 0, 1.16274, 0, 0.617525, 0)

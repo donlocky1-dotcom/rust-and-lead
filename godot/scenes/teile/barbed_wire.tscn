@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/barbed_wire.glb" id="1_lf08v"]
+
+[node name="barbed_wire" type="Node3D"]
+metadata/asset = "barbed_wire"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_lf08v")]
+transform = Transform3D(1.27091, 0, 0, 0, 1.27091, 0, 0, 0, 1.27091, 0, 0.071846, 0)

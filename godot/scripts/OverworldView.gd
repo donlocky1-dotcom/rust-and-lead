@@ -2268,6 +2268,12 @@ const CRATER_LAYERS: Array = [
 ## der Held erwacht, weil man dort als Einziges liegen kann.
 const PUDDLE_R_M: float = 2.1
 func _fill_craters() -> void:
+	# Zuerst die von Hand gefuellten Gruben: Liegt eine Szene vor, wird sie GELADEN statt
+	# gestreut — dieselbe Regel wie bei Rustwater.
+	for f2 in WorldManager.TERRAIN:
+		var id2: String = String(f2.get("id", ""))
+		if _hand_gefuellt(id2):
+			_load_pit(id2)
 	var pool: Array = _scrap_pool()
 	if pool.is_empty():
 		return
@@ -2278,17 +2284,64 @@ func _fill_craters() -> void:
 			continue   # in ein Duenenfeld gehoert kein Schrott
 		if not bool(f.get("scrap", true)):
 			continue   # und in die Sumpfloecher auch nicht — dort liegt Wasser
-		var c: Vector3 = WorldManager.feature_center(f)
-		var radius: float = float(f["radius"])
-		# Bis an den Wandfuß plus ein Meter: Der Schrott soll die Wand berühren, nicht davor
-		# aufhören. Eine sichtbare Fuge zwischen Haufen und Wand wäre das Verräterischste.
-		var reichweite: float = radius * float(f.get("floor", 0.8)) + 1.0
-		_add_puddle(c, f)
-		_place_wreck(c, reichweite, rng)
-		for lage in CRATER_LAYERS:
-			for i in int(lage["n"]):
-				_drop_scrap(c, reichweite, pool, lage, rng)
-		_dress_rim(c, f, rng)
+		if _hand_gefuellt(String(f.get("id", ""))):
+			continue   # von Hand gefuellt — die Szene ist die Wahrheit (wie bei Rustwater)
+		_fill_crater(f, pool, rng)
+
+
+## Eine einzelne Grube fuellen. Steht getrennt, weil zwei Aufrufer sie brauchen: der Weltaufbau
+## und das Backwerkzeug, das aus derselben Streuung eine editierbare Szene macht.
+func _fill_crater(f: Dictionary, pool: Array, rng: RandomNumberGenerator) -> void:
+	var c: Vector3 = WorldManager.feature_center(f)
+	var radius: float = float(f["radius"])
+	# Bis an den Wandfuß plus ein Meter: Der Schrott soll die Wand berühren, nicht davor
+	# aufhören. Eine sichtbare Fuge zwischen Haufen und Wand wäre das Verräterischste.
+	var reichweite: float = radius * float(f.get("floor", 0.8)) + 1.0
+	_add_puddle(c, f)
+	_place_wreck(c, reichweite, rng)
+	for lage in CRATER_LAYERS:
+		for i in int(lage["n"]):
+			_drop_scrap(c, reichweite, pool, lage, rng)
+	_dress_rim(c, f, rng)
+
+
+## Eine von Hand gefuellte Grube laden.
+##
+## Die Teile stehen in WELTkoordinaten (siehe `PitFloor`), die Wurzel bleibt also bei null.
+##
+## Kollision bekommt nur, was HOCH ist. Eine Schrotthalde, in der jedes Fass sperrt, ist keine
+## Halde, sondern ein Labyrinth — man soll darueber steigen koennen. Ein dreizehn Meter langes
+## Lokomotivenwrack dagegen laeuft man nicht durch. Die Grenze steht als Zahl da, damit man sie
+## verschieben kann, ohne die Regel zu suchen.
+const PIT_BLOCK_H_M: float = 1.5
+func _load_pit(id: String) -> void:
+	var packed: PackedScene = load(pit_scene_path(id)) as PackedScene
+	if packed == null:
+		return
+	var grube: Node3D = packed.instantiate() as Node3D
+	if grube == null:
+		return
+	add_child(grube)
+	# Die Lache bleibt Sache des Codes, nicht der Bearbeitungsszene: Sie haengt an der Form des
+	# Kraters (tiefster Punkt, Radius) und nicht am Geschmack dessen, der die Halde fuellt.
+	for f in WorldManager.TERRAIN:
+		if String(f.get("id", "")) == id:
+			_add_puddle(WorldManager.feature_center(f), f)
+			break
+	for r in TownCollision.rects(grube, grube.transform):
+		# `deckel` ist die Oberkante ueber Grund; darunter liegt Kleinkram, ueber den man geht.
+		if float(r["deckel"]) - WorldManager.height_at(r["c"].x, r["c"].y) < PIT_BLOCK_H_M:
+			continue
+		_solid_rect_rot(Vector3(r["c"].x, 0.0, r["c"].y), r["h"], float(r["yaw"]))
+
+
+## Szenendatei einer von Hand gefuellten Grube ("" = es gibt keine).
+static func pit_scene_path(id: String) -> String:
+	return "res://scenes/gruben/%s.tscn" % id
+
+
+func _hand_gefuellt(id: String) -> bool:
+	return id != "" and ResourceLoader.exists(pit_scene_path(id))
 
 
 ## Das eine grosse Stueck: eine gestrandete Werkslok, halb im Schutt.

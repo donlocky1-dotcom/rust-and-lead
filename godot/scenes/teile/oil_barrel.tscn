@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/oil_barrel.glb" id="1_pdttl"]
+
+[node name="oil_barrel" type="Node3D"]
+metadata/asset = "oil_barrel"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_pdttl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.951038, 0)

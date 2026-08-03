@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap.glb" id="1_6e6ar"]
+
+[node name="scrap_heap" type="Node3D"]
+metadata/asset = "scrap_heap"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_6e6ar")]
+transform = Transform3D(1.68844, 0, 0, 0, 1.68844, 0, 0, 0, 1.68844, 0, 0.5555, 0)

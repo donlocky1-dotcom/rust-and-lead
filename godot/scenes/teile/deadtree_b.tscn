@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/deadtree_b.glb" id="1_6x1bu"]
+
+[node name="deadtree_b" type="Node3D"]
+metadata/asset = "deadtree_b"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_6x1bu")]
+transform = Transform3D(2.10717, 0, 0, 0, 2.10717, 0, 0, 0, 2.10717, 0, 0.629065, 0)

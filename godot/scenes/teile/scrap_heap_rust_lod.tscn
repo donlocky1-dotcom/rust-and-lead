@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_rust_lod.glb" id="1_far4g"]
+
+[node name="scrap_heap_rust_lod" type="Node3D"]
+metadata/asset = "scrap_heap_rust_lod"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_far4g")]
+transform = Transform3D(1.81201, 0, 0, 0, 1.81201, 0, 0, 0, 1.81201, 0, 0.592141, 0)

@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/desk.glb" id="1_uxgik"]
+
+[node name="desk" type="Node3D"]
+metadata/asset = "desk"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_uxgik")]
+transform = Transform3D(0.949001, 0, 0, 0, 0.949001, 0, 0, 0, 0.949001, 0, 0.450821, 0)

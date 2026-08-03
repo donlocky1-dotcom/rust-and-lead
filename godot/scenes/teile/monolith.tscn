@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/environment/monolith.glb" id="1_suagc"]
+
+[node name="monolith" type="Node3D"]
+metadata/asset = "monolith"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_suagc")]
+transform = Transform3D(1.58635, 0, 0, 0, 1.58635, 0, 0, 0, 1.58635, 0, 0.611813, 0)

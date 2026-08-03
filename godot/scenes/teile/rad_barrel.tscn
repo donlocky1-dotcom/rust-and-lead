@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/rad_barrel.glb" id="1_nwfqx"]
+
+[node name="rad_barrel" type="Node3D"]
+metadata/asset = "rad_barrel"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_nwfqx")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.450747, 0)

@@ -19,6 +19,62 @@ Eigentümer lässt sich einer laufenden Sitzung nicht zuschalten:
 **Eine frühere Fassung dieses Dokuments riet „committe und pushe die Szene". Das war falsch** und
 konnte gar nicht funktionieren.
 
+## Die Schrotthalde von Hand füllen
+
+Godots **„Objekt auf Boden fallen lassen"** (Taste `Bild ab` im 3D-Fenster) wirft einen Strahl
+nach unten und braucht dafür einen **Körper**. Unser Gelände ist aber eine Formel
+(`WorldManager.height_at`) und entsteht erst beim Spielstart — im Editor liegt dort nichts.
+Genau deshalb kam „kein Boden definiert".
+
+Jetzt gibt es einen.
+
+### So geht es
+
+1. **`godot/scenes/gruben/schrotthalde.tscn` öffnen.** Darin steht die Grube so, wie sie im
+   Spiel liegt: 148 Teile plus die Lokomotive. Nichts ist verloren, du fängst nicht bei null an.
+2. Ganz oben im Baum hängt **`BODEN_NUR_EDITOR`**. Das ist der Kraterboden als Netz mit
+   Kollision — aus derselben Formel, mit denselben Höhen wie im Spiel. Er ist halbdurchsichtig;
+   im Inspektor lässt er sich über `sichtbar` ausblenden, wenn er beim Zielen stört.
+3. **Teil aussuchen, hinschieben, `Bild ab` drücken.** Es fällt und liegt.
+4. **Neues Zeug** ziehst du aus `godot/scenes/teile/` hinein — dort liegt für jedes Modell eine
+   fertige Bauteil-Szene in **Einbaugröße**. Ein `.glb` direkt aus `assets/models/` zu ziehen
+   geht auch, kommt aber in Modellgröße (bei Meshy immer 1,9 Einheiten, egal ob Fass oder
+   Lokomotive) und muss von Hand skaliert werden.
+5. **Kippen und drehen** darfst du frei — die Lok auf die Seite zu legen ist genau das, wofür
+   das gedacht ist.
+6. Fertig? **Datei in den Chat ziehen.**
+
+### Was du wissen solltest
+
+* **Die Teile liegen in WELTkoordinaten**, nicht relativ zum Krater. Der Boden wird aus
+  derselben Formel gebaut, die das Spiel benutzt; jede Verschiebung dazwischen wäre eine zweite
+  Wahrheit über die Lage der Grube. Die Zahlen im Inspektor sehen deshalb groß aus (rund
+  x = 370, z = −1130) — das ist richtig so.
+* **Der Boden verschwindet im Spiel von selbst.** Dort baut `OverworldView` das Gelände ohnehin,
+  und zwei Böden übereinander streiten um jedes Pixel. Er ist ein *Geschwister* der Teile und
+  nicht ihr Elternknoten — sonst nähme er sie beim Verschwinden mit. **Häng also nichts unter
+  ihn.**
+* **Liegt die Szene vor, streut das Spiel diese Grube nicht mehr selbst.** Was in der Szene
+  steht, ist die Wahrheit — dieselbe Regel wie bei `Rustwater.tscn`.
+* **Sperren bekommt nur, was hoch ist** (ab 1,5 m). Eine Halde, in der jedes Fass blockt, ist
+  keine Halde, sondern ein Labyrinth; man soll darübersteigen können. Ein 13-m-Wrack läuft man
+  dagegen nicht durch.
+* **Die Lache in der Mitte** bleibt Sache des Codes. Sie hängt an der Form des Kraters
+  (tiefster Punkt, Radius) und nicht am Geschmack dessen, der die Halde füllt — und sie ist der
+  Fleck, an dem der Held erwacht.
+
+### Neu backen
+
+Wenn du von vorn anfangen willst, oder für eine andere Grube:
+
+```
+godot --headless --path godot res://tools/BakePit.tscn -- schrotthalde
+godot --headless --path godot res://tools/BakePit.tscn -- teile      # Bauteil-Szenen erneuern
+```
+
+Achtung: Das erste überschreibt deine Bearbeitung.
+
+
 ## Wenn du in Godot Gebäude umstellst — der Weg, der heute geht
 
 Derselbe wie bei den 3D-Modellen: **Datei in den Chat ziehen.**

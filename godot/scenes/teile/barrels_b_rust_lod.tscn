@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/props/barrels_b_rust_lod.glb" id="1_4ce5u"]
+
+[node name="barrels_b_rust_lod" type="Node3D"]
+metadata/asset = "barrels_b_rust_lod"
+
+[node name="modell" type="Node3D" parent="." instance=ExtResource("1_4ce5u")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.528314, 0)
