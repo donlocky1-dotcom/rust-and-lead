@@ -228,8 +228,13 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   Die von Hand gebaute Mauer ist im Osten weit ausgebeult und im Süden dicht am Ort. Die Grenze
   liegt auf der Mauerlinie, eine halbe Platte läuft also darunter — ein Streifen Sand zwischen
   Belag und Mauer wäre zu sehen, das Kupfer unter der Mauer nicht. Draußen bleibt Wüste.
-  Die Platten werden so eingesenkt, dass ihre Oberseite genau auf `TOWN_GROUND_TOP` liegt;
-  alles, was auf dem Stadtboden liegt, rechnet weiter mit dieser einen Zahl.
+  Eingesenkt werden sie an ihrer **begehbaren Fläche**, nicht an der Oberkante ihrer Hüllbox:
+  Die Platte hat einen erhabenen Rand mit Bolzen und eine 7,8 cm tiefere Mitte. Mit der Hüllbox
+  ausgerichtet lag diese Mitte 2 mm über dem Wüstenboden — praktisch in derselben Ebene, und
+  der Sand gewann das Pixelduell. Jede Platte hatte dann einen sandfarbenen Fleck, der im Bild
+  wie ein Loch aussah. `_plate_top()` misst die Fläche, auf der man steht (höchster Punkt im
+  Ring zwischen 10 % und 40 % der halben Kante) und legt DIE auf `TOWN_GROUND_TOP`; alles, was
+  auf dem Stadtboden liegt, rechnet weiter mit dieser einen Zahl.
 * **Die Schrottgrube ist eine Halde, kein Muster.** Zu den fünf gestapelten Sorten kommen
   Einzelstücke, die mit nichts anderem verwechselbar sind (Regal, Schreibtisch, Bürostuhl,
   Ölfass, Stacheldraht, Rostmedaillon, Betonbrocken), und **eine gestrandete Werkslok** von

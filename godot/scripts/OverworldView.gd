@@ -1428,7 +1428,7 @@ func _build_town_ground(c: Vector3, umriss := PackedFloat32Array()) -> void:
 	# Je Sorte einmal das Modell laden, vermessen und wieder wegwerfen — gebraucht werden nur
 	# Netz und Masse, nicht der Knoten.
 	var netze: Array = []
-	var deckel: Array = []      # Oberkante der Platte in ihrem eigenen Raum (schon skaliert)
+	var deckel: Array = []      # Hoehe der begehbaren Plattenflaeche in ihrem eigenen Raum
 	var innen: Array = []       # Netz → Modellwurzel: die Kette, die `instantiate` aufbaut
 	# EINE Sorte, nicht zwei. Der Wechsel zwischen zwei Platten sollte die Flaeche beleben; im
 	# Bild wurde daraus ein Schachbrett aus zwei Brauntoenen, und der Boden las sich als Muster
@@ -1456,10 +1456,9 @@ func _build_town_ground(c: Vector3, umriss := PackedFloat32Array()) -> void:
 			if lauf is Node3D:
 				kette = (lauf as Node3D).transform * kette
 			lauf = lauf.get_parent()
-		var b: AABB = AssetRegistry.local_bounds(probe)
 		netze.append(mi.mesh)
 		innen.append(kette)
-		deckel.append(b.position.y + b.size.y)
+		deckel.append(_plate_top(mi.mesh, kette))
 		probe.queue_free()
 	if netze.is_empty():
 		_build_town_ground_lehm(c)
@@ -1528,6 +1527,51 @@ func _build_town_ground(c: Vector3, umriss := PackedFloat32Array()) -> void:
 		gelegt += liste.size()
 	_town_plates = gelegt
 	_town_floor_reach = reichweite
+
+
+## Hoehe der BEGEHBAREN Flaeche einer Platte — nicht die Oberkante ihrer Huellbox.
+##
+## Die Platte hat einen erhabenen Rand mit Bolzen und eine vertiefte Mitte; zwischen beidem
+## liegen 7,8 cm. Der erste Entwurf hat die HUELLBOX auf den Stadtboden gelegt, damit sass die
+## Mitte 7,8 cm tiefer — bei 8 cm Stadtboden also 2 mm ueber dem Wuestenboden, praktisch in
+## derselben Ebene. Der Sand hat das Pixelduell gewonnen, und jede Platte bekam einen
+## sandfarbenen Fleck in der Mitte. Im Bild sah es aus wie ein Loch; es war eine Hoehe.
+##
+## Gemessen wird deshalb die Flaeche, auf der man STEHT: der hoechste nach oben zeigende Punkt
+## im Ring zwischen 10 % und 40 % der halben Kantenlaenge. Der innerste Zehntel bleibt aussen
+## vor (dort sitzt bei manchen Platten ein Bolzen), der Rand ebenso.
+##
+## Gemessen statt eingetragen, weil eine andere Platte andere Masse hat und niemand daran denken
+## wird, hier eine Zahl nachzuziehen.
+func _plate_top(mesh: Mesh, innen: Transform3D) -> float:
+	var arr: Array = mesh.surface_get_arrays(0)
+	var ecken: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var kanten: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+	if ecken.is_empty() or kanten.size() < 3:
+		return (innen * Vector3.ZERO).y
+	var mi: Vector3 = ecken[0]
+	var ma: Vector3 = ecken[0]
+	for p in ecken:
+		mi = Vector3(minf(mi.x, p.x), minf(mi.y, p.y), minf(mi.z, p.z))
+		ma = Vector3(maxf(ma.x, p.x), maxf(ma.y, p.y), maxf(ma.z, p.z))
+	var mitte_x: float = (mi.x + ma.x) * 0.5
+	var mitte_z: float = (mi.z + ma.z) * 0.5
+	var halb: float = maxf(ma.x - mi.x, ma.z - mi.z) * 0.5
+	# Kein Normalen-Test: In diesem Ring liegen nur Ober- und Unterseite, und das Maximum ist
+	# damit die Oberseite. Das ist unempfindlich gegen die Frage, wie herum das Netz gewickelt
+	# ist — eine Falle, die in diesem Projekt schon einmal einen halben Tag gekostet hat.
+	var hoechste: float = -INF
+	var i: int = 0
+	while i + 2 < kanten.size():
+		var s: Vector3 = (ecken[kanten[i]] + ecken[kanten[i + 1]] + ecken[kanten[i + 2]]) / 3.0
+		i += 3
+		var d: float = maxf(absf(s.x - mitte_x), absf(s.z - mitte_z))
+		if d < halb * 0.10 or d > halb * 0.40:
+			continue
+		hoechste = maxf(hoechste, s.y)
+	if hoechste == -INF:
+		hoechste = ma.y
+	return (innen * Vector3(0.0, hoechste, 0.0)).y
 
 
 ## Wie viele Platten liegen (0 = die Modelle fehlen, es liegt Lehm).
