@@ -109,12 +109,20 @@ const WINDUP_SHOT_SEC: float = 0.28
 ## dieselbe wie vorher; es aendert sich nur, dass man sie sieht und ihr ausweichen kann.
 const MELEE_INTERVAL_SEC: float = 1.1
 
+## `nocturnal` = kommt nur im DUNKELN heraus (Nacht und Daemmerung, siehe `DayCycle.is_dark`).
+##
+## Das ist kein Schmuck, sondern der Grund, warum eine Uhr im Spiel etwas aendert: Wer bei Tag
+## durch das Rattengestruepp laeuft, sieht Sand; wer es nach Sonnenuntergang tut, laeuft in ein
+## Rudel. Damit wird die Tageszeit zu einer Entscheidung — und Quests koennen sie verlangen.
+##
+## Ratte und Klaeffer sind die beiden Schwaerme; genau bei ihnen faellt am meisten auf, ob eine
+## Gegend leer oder voll ist.
 const ENEMY_TYPES: Dictionary = {
 	"outlaw":    { "name": "Grenzgänger", "class": BIOLOGICAL, "sub": "outlaw", "hp": 55, "speed": 82, "armor": 0, "contact": 12, "gold_min": 1, "gold_max": 3 },
-	"fauna":     { "name": "Ölfresser-Ratte", "class": BIOLOGICAL, "sub": "fauna", "hp": 32, "speed": 122, "armor": 0, "contact": 9, "gold_min": 1, "gold_max": 2, "swarm": true },
+	"fauna":     { "name": "Ölfresser-Ratte", "class": BIOLOGICAL, "sub": "fauna", "hp": 32, "speed": 122, "armor": 0, "contact": 9, "gold_min": 1, "gold_max": 2, "swarm": true, "nocturnal": true },
 	"revolver":  { "name": "Revolverheld", "class": BIOLOGICAL, "sub": "outlaw", "hp": 48, "speed": 72, "armor": 0, "contact": 10, "gold_min": 2, "gold_max": 3, "ranged": { "min": 150, "max": 360, "dmg": 9, "rate": 1500 } },
 	"konstrukt": { "name": "Konzern-Konstrukt", "class": MECHANICAL, "sub": "konstrukt", "hp": 95, "speed": 54, "armor": 15, "contact": 13, "gold_min": 2, "gold_max": 4, "ranged": { "min": 130, "max": 340, "dmg": 8, "rate": 1300 } },
-	"klaeffer":  { "name": "Kessel-Kläffer", "class": MECHANICAL, "sub": "klaeffer", "hp": 40, "speed": 138, "armor": 5, "contact": 10, "gold_min": 1, "gold_max": 3, "swarm": true },
+	"klaeffer":  { "name": "Kessel-Kläffer", "class": MECHANICAL, "sub": "klaeffer", "hp": 40, "speed": 138, "armor": 5, "contact": 10, "gold_min": 1, "gold_max": 3, "swarm": true, "nocturnal": true },
 	"goliath":   { "name": "Schwerer Ernter", "class": MECHANICAL, "sub": "goliath", "hp": 900, "speed": 40, "armor": 30, "contact": 28, "gold_min": 24, "gold_max": 24, "front_immune": true, "boss": true },
 }
 

@@ -241,6 +241,17 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   13 m am Rand des Grundes. Sie ist der Maßstab: Eine Halde aus lauter gleich großen Teilen
   lässt offen, ob sie knietief oder haushoch ist. Die Mitte bleibt der Lache vorbehalten — dort
   erwacht der Held.
+* **Tageszeit** (`DayCycle`) — ein Spieltag dauert **zwölf Minuten** Echtzeit, die Uhr steht im
+  Spielstand. Vier Phasen: Nacht · Dämmerung · Tag · Abendrot. Bewusst nicht nur „hell/dunkel":
+  Die interessanten Bilder liegen dazwischen, wenn die Sonne tief steht und die Schatten lang
+  sind. Ein Fußmarsch quer durch den Krater dauert achtzehn Minuten — eine lange Reise führt
+  also durch mehr als eine Tageszeit, und das ist Absicht.
+  Sonne, Himmel, Umgebungslicht und Nebel folgen einer **Kurve, keiner Treppe** (per Test auf
+  Sprungfreiheit geprüft); nachts bleibt ein Zehntel gerichtetes Mondlicht stehen, denn ohne
+  Schatten steht nichts mehr auf dem Boden. **Gameplay:** Gegner mit `nocturnal` (Ölfresser-Ratte,
+  Kessel-Kläffer) erscheinen nur bei Dunkelheit — bei Tag fällt der Wurf ersatzlos aus, denn eine
+  leere Wüste in der Mittagshitze ist die richtige Antwort. Damit wird die Uhrzeit zu einer
+  Entscheidung, und Quests können sie verlangen.
 * **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und
   Truhen erscheinen nie in einer Hauswand und nie hinter einem geschlossenen Sektor-Tor.
 * **Jeder Ort hängt an mindestens einer Route**, und das Schienennetz ist zusammenhängend —

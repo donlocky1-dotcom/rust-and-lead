@@ -1,4 +1,6 @@
 extends Node
+
+const DayCycle = preload("res://scripts/DayCycle.gd")
 ## GameState — globaler Laufzeit-Zustand ("Single Source of Truth") für "Rust & Lead".
 ##
 ## Als Autoload registrieren: Project Settings ▸ Autoload ▸ Name = "GameState".
@@ -102,6 +104,10 @@ var weapon_id: String = ""
 
 ## Prolog abgeschlossen? Steuert, wo eine Runde ANFAENGT: erst die Grube, danach Rustwater.
 var prolog_done: bool = false
+
+## Tageszeit in Stunden (0–24). Laeuft in Echtzeit weiter und steht im Spielstand — wer abends
+## aufhoert, faengt abends wieder an.
+var hour: float = DayCycle.START_HOUR
 
 # ── Roter Faden: Erinnerungs-Walzen & Familien-Bogen (Master-GDD §7.5.12a/b, §8.3) ──
 var memories_found: int = 0        ## 0..MemoryManager.chain_length(); geordnete Erinnerungskette

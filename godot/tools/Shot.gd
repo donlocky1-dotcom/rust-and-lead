@@ -91,6 +91,9 @@ func _ready() -> void:
 	_views.append(["neuzugang", null, "neuzugang"])
 	_views.append(["figuren", null, "figuren"])
 	_views.append(["waffe", null, "waffe"])
+	for uz in [["tageszeit_nacht", "uhr_1.5"], ["tageszeit_daemmerung", "uhr_5.9"],
+			["tageszeit_tag", "uhr_12.5"], ["tageszeit_abend", "uhr_19.6"]]:
+		_views.append([String(uz[0]), null, String(uz[1])])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -267,6 +270,21 @@ func _setup_ui(art: String) -> void:
 			# und Kleidung, nicht die Silhouette am Horizont.
 			_cam.position = _buehne + Vector3(x * 0.5, 1.5, 4.2)
 			_cam.look_at(_buehne + Vector3(x * 0.5, 1.0, 0.0), Vector3.UP)
+		_cam.current = true
+	elif art.begins_with("uhr_"):
+		# Dieselbe Einstellung zu vier Tageszeiten. Nur so sieht man, ob die Beleuchtung eine
+		# Kurve ist oder eine Treppe — und ob die Nacht dunkel genug ist, dass ein
+		# Muendungsfeuer ueberhaupt etwas beleuchtet.
+		ow._end_cine()
+		ow._close_character()
+		GameState.hour = float(art.get_slice("_", 1).to_float())
+		ow._apply_daytime()
+		var rw2: Vector3 = WorldManager.poi_scene_position("rustwater")
+		ow._player.position = Vector3(rw2.x + 4.0, WorldManager.height_at(rw2.x + 4.0, rw2.z + 6.0),
+			rw2.z + 6.0)
+		ow._muzzle_flash(30.0)
+		_cam.position = rw2 + Vector3(9.0, 5.4, 15.0)
+		_cam.look_at(rw2 + Vector3(0.0, 1.2, -2.0), Vector3.UP)
 		_cam.current = true
 	elif art == "waffe":
 		# Die Figur mit Waffe, gross im Bild — und mitten im Schuss. Zwei Fragen in einem Bild:

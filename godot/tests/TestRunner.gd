@@ -3,6 +3,7 @@ extends Node
 const DialogBox = preload("res://scripts/DialogBox.gd")
 const PaperDoll = preload("res://scripts/PaperDoll.gd")
 const TownCollision = preload("res://scripts/TownCollision.gd")
+const DayCycle = preload("res://scripts/DayCycle.gd")
 ## TestRunner — abhängigkeitsfreie headless Test-Suite für das gesamte Backend.
 ##
 ## Ausführen (kein GUT-Addon nötig):  godot --headless --path godot
@@ -55,6 +56,7 @@ func _ready() -> void:
 	_test_poi_walkable()
 	_test_town_walkable()
 	_test_enemy_attacks()
+	_test_daycycle()
 	_test_dialog()
 	_test_memory_manager()
 	_test_encounter_manager()
@@ -1479,6 +1481,77 @@ func _test_quest_wayfinding() -> void:
 		ow2._decal_height(WorldManager.poi_scene_position("schrott_minen").x,
 			WorldManager.poi_scene_position("schrott_minen").z) < 0.0)
 	_reset_state()
+
+
+## Die Uhr der Welt.
+##
+## Geprueft wird, was daran schiefgehen KANN: dass die Phasen den Tag luecken- und
+## ueberschneidungsfrei abdecken (der Uebergang ueber Mitternacht ist der einzige, der hinten
+## herum geht), dass die Beleuchtung nirgends SPRINGT — eine Sonne, die an einer Phasengrenze
+## einen Satz macht, liest sich als Fehler — und dass ein Tag wirklich zwoelf Minuten dauert.
+func _test_daycycle() -> void:
+	print("· Tageszeit")
+	# 1. Jede Stunde hat genau eine Phase, und alle vier kommen vor.
+	var gesehen: Dictionary = {}
+	var ohne: float = -1.0
+	for i in 240:
+		var h: float = float(i) * 0.1
+		var p: String = DayCycle.phase_at(h)
+		if p == "":
+			ohne = h
+		gesehen[p] = true
+	_check("Jede Stunde hat eine Phase", ohne < 0.0, "bei %.1f keine" % ohne)
+	_check("Alle vier Phasen kommen vor (%d)" % gesehen.size(), gesehen.size() == 4)
+	_check("Mitternacht ist Nacht", DayCycle.phase_at(0.0) == DayCycle.NACHT)
+	_check("Mittag ist Tag", DayCycle.phase_at(12.0) == DayCycle.TAG)
+	# 2. Dunkel ist Nacht UND Daemmerung — ein lichtscheues Tier wartet nicht auf Mitternacht.
+	_check("Nachts ist es dunkel", DayCycle.is_dark(2.0))
+	_check("In der Daemmerung auch", DayCycle.is_dark(6.0))
+	_check("Mittags nicht", not DayCycle.is_dark(12.0))
+	# 3. Die Helligkeit ist eine Kurve, keine Treppe. Der groesste Sprung zwischen zwei Minuten
+	#    darf klein sein; sonst zuckt die Beleuchtung.
+	var sprung: float = 0.0
+	var wo: float = 0.0
+	var vorher: float = DayCycle.daylight(0.0)
+	for j in range(1, 1440):
+		var h2: float = float(j) / 60.0
+		var jetzt: float = DayCycle.daylight(h2)
+		if absf(jetzt - vorher) > sprung:
+			sprung = absf(jetzt - vorher)
+			wo = h2
+		vorher = jetzt
+	_check("Die Helligkeit springt nirgends (max %.4f bei %.2f h)" % [sprung, wo], sprung < 0.01)
+	_check("Mittags ist es am hellsten", DayCycle.daylight(12.75) > 0.95)
+	_check("Nachts ist es finster", DayCycle.daylight(1.0) < 0.001)
+	# 4. Auch nachts gibt es gerichtetes Licht — ohne Schatten steht nichts mehr auf dem Boden.
+	_check("Der Mond wirft Schatten (%.2f)" % DayCycle.sun_energy(1.0),
+		DayCycle.sun_energy(1.0) > 0.05 and DayCycle.sun_energy(1.0) < 0.4)
+	_check("Die Mittagssonne ist deutlich staerker",
+		DayCycle.sun_energy(12.75) > DayCycle.sun_energy(1.0) * 6.0)
+	# 5. Die Sonne wandert von Ost nach West und geht nicht rueckwaerts.
+	var az: float = DayCycle.sun_azimuth_deg(DayCycle.H_DAEMMERUNG + 0.1)
+	var rueck: bool = false
+	for k in range(1, 100):
+		var h3: float = lerpf(DayCycle.H_DAEMMERUNG, DayCycle.H_NACHT, float(k) / 100.0)
+		var neu2: float = DayCycle.sun_azimuth_deg(h3)
+		if neu2 < az - 0.001:
+			rueck = true
+		az = neu2
+	_check("Die Sonne wandert nur in eine Richtung", not rueck)
+	# 6. Ein Tag dauert, was er dauern soll.
+	var h4: float = 0.0
+	for _s in int(DayCycle.DAY_SEC):
+		h4 = DayCycle.advance(h4, 1.0)
+	_check("Ein Tag sind %.0f Sekunden (Rest %.3f h)" % [DayCycle.DAY_SEC, h4],
+		absf(fposmod(h4 + 12.0, 24.0) - 12.0) < 0.05)
+	# 7. Nachttiere sind als solche eingetragen, und nicht alle.
+	var nacht: int = 0
+	for id in CombatData.ENEMY_TYPES.keys():
+		if bool(CombatData.ENEMY_TYPES[id].get("nocturnal", false)):
+			nacht += 1
+	_check("Es gibt Nachttiere (%d)" % nacht, nacht > 0)
+	_check("Aber nicht alle", nacht < CombatData.ENEMY_TYPES.size())
+	_check("Die Uhr steht im Spielstand", DayCycle.clock_text(7.5) == "07:30")
 
 
 ## Gegner greifen an — mit Ausholen, Treffer und Pause.

@@ -95,6 +95,8 @@ const UiAssets = preload("res://scripts/UiAssets.gd")
 
 const DialogBox = preload("res://scripts/DialogBox.gd")
 
+const DayCycle = preload("res://scripts/DayCycle.gd")
+
 const TownCollision = preload("res://scripts/TownCollision.gd")
 
 # ── NPCs & Quests: der QuestManager ist seit Phase 2 fertig, hier zum ersten Mal
@@ -582,6 +584,8 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	add_child(mi)
 
 
+var _sun: DirectionalLight3D = null
+var _env: Environment = null
 func _build_environment() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52.0, 35.0, 0.0)
@@ -623,6 +627,44 @@ func _build_environment() -> void:
 	env.fog_sky_affect = 0.0
 	we.environment = env
 	add_child(we)
+	_sun = sun
+	_env = env
+	_apply_daytime()
+
+
+# ── Tageszeit ────────────────────────────────────────────────────────────────
+## Die Uhr laeuft, das Licht folgt ihr.
+##
+## Warum ueberhaupt: Nachts wirft ein Muendungsfeuer zum ersten Mal Licht, das man SIEHT — bei
+## Mittagssonne verpufft es. Dazu Gegner, die nur im Dunkeln aus ihrer Hoehle kommen, und
+## Quests, die eine Uhrzeit verlangen. Die Rechnung dazu steht in `DayCycle`; hier wird sie nur
+## angewendet.
+##
+## Nicht jeden Frame: Ein Spieltag dauert zwoelf Minuten, in einer Zehntelsekunde bewegt sich
+## die Sonne um zwei Bogenminuten. Viermal je Sekunde reicht und ist unsichtbar.
+const DAYTIME_INTERVAL: float = 0.25
+var _daytime_cd: float = 0.0
+func _process_daytime(delta: float) -> void:
+	GameState.hour = DayCycle.advance(GameState.hour, delta)
+	_daytime_cd -= delta
+	if _daytime_cd > 0.0:
+		return
+	_daytime_cd = DAYTIME_INTERVAL
+	_apply_daytime()
+
+
+func _apply_daytime() -> void:
+	var h: float = GameState.hour
+	if _sun != null:
+		_sun.rotation_degrees = Vector3(-DayCycle.sun_altitude_deg(h),
+			DayCycle.sun_azimuth_deg(h), 0.0)
+		_sun.light_color = DayCycle.sun_color(h)
+		_sun.light_energy = DayCycle.sun_energy(h)
+	if _env != null:
+		_env.background_color = DayCycle.sky_color(h)
+		_env.ambient_light_color = DayCycle.ambient_color(h)
+		_env.ambient_light_energy = DayCycle.ambient_energy(h)
+		_env.fog_light_color = DayCycle.fog_color(h)
 
 
 ## Deckkraft der Biom-Tönung. 0,30 statt 1,0 (siehe unten): Die Salzpfanne soll den Sand
@@ -3160,6 +3202,13 @@ func _process_spawns(delta: float) -> void:
 		return   # befriedete Aktionszone (Hub / eigene Fraktionsbasis)
 	var biome_id: String = WorldManager.biome_at(rel)
 	var type_id: String = WorldManager.pick_enemy_type(biome_id, GameState.is_revealed)
+	# NACHTTIERE kommen nur im Dunkeln heraus. Das ist der Grund, warum die Uhr etwas aendert:
+	# Wer bei Tag durch das Rattengestrueppp laeuft, sieht Sand; wer es nach Sonnenuntergang
+	# tut, laeuft in ein Rudel. Wird bei Tag gewuerfelt, faellt der Wurf einfach aus — kein
+	# Ersatzgegner, denn eine leere Wueste bei Mittagshitze ist die richtige Antwort.
+	if bool(CombatData.ENEMY_TYPES[type_id].get("nocturnal", false)) \
+			and not DayCycle.is_dark(GameState.hour):
+		return
 	# Schwarm-Typen (CombatData: Ratten, Kläffer) treten NIE einzeln auf — einzeln sind sie
 	# weder gefährlich noch schön, im Rudel sind sie beides. Die Kappe gilt weiterhin.
 	if bool(CombatData.ENEMY_TYPES[type_id].get("swarm", false)):
@@ -3990,6 +4039,7 @@ func _process(delta: float) -> void:
 	_process_ground(delta)
 	_process_zone_title(delta)
 	_process_fog(delta)
+	_process_daytime(delta)
 	_process_interactions(delta)
 	_process_trail(delta)
 	_process_mount(delta)
@@ -4648,10 +4698,16 @@ func _update_hud() -> void:
 	var poi_id: String = WorldManager.nearest_poi(rel)
 	var poi_d: int = roundi(_player.position.distance_to(WorldManager.poi_scene_position(poi_id)))
 	var worn_n: int = EquipManager.worn().size()
-	_hud.text = "❤ %d/%d   💰 %d   ⭐ Lv %d   🎽 %d/%d   %s %s\n➡ %s (%d m)   Sektor %d · %s   [Tab] Waffe" % [
+	# Waffe kann LEER sein — der Held erwacht ohne alles. Ein Zugriff auf `WEAPON_ICON[""]`
+	# waere hier der Absturz gleich im ersten Bild des Spiels.
+	var waffe: String = "✋ ohne Waffe"
+	if _weapon_id != "":
+		waffe = "%s %s" % [String(WEAPON_ICON.get(_weapon_id, "🔫")),
+			String(CombatData.WEAPONS[_weapon_id]["name"])]
+	_hud.text = "❤ %d/%d   💰 %d   ⭐ Lv %d   🎽 %d/%d   %s   %s\n➡ %s (%d m)   Sektor %d · %s   [Tab] Inventar" % [
 		maxi(0, roundi(_hp)), PlayerStats.max_hp(), GameState.gold, GameState.level,
-		worn_n, EquipManager.GEAR_SLOTS.size(),
-		WEAPON_ICON[_weapon_id], String(CombatData.WEAPONS[_weapon_id]["name"]),
+		worn_n, EquipManager.GEAR_SLOTS.size(), waffe,
+		DayCycle.phase_label(GameState.hour),
 		String(WorldManager.POIS[poi_id]["name"]), poi_d,
 		WorldManager.sector_of_pos(rel), String(biome["name"])]
 	# Weltstruktur ablesbar machen (GDD §1.4a): am Bahnsteig fährt man, in der Aktionszone
