@@ -254,6 +254,13 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   Kessel-Kläffer) erscheinen nur bei Dunkelheit — bei Tag fällt der Wurf ersatzlos aus, denn eine
   leere Wüste in der Mittagshitze ist die richtige Antwort. Damit wird die Uhrzeit zu einer
   Entscheidung, und Quests können sie verlangen.
+* **Nachtbeleuchtung.** Zwei Orte brennen die Nacht durch: der **Gatling-Saloon** — der hat
+  **immer offen**, bei Mabel ist immer jemand wach — und der **Bahnsteig**, denn eine Station
+  ohne Licht findet nachts niemand, und reisen soll man auch im Dunkeln. Die Lichter reichen
+  ausdrücklich über das Gebäude hinaus auf den **Platz davor**: Ein Fenster, das leuchtet, ohne
+  etwas anzuleuchten, ist ein Aufkleber. Sie gehen mit der Dämmerung weich an und aus, nicht auf
+  die Sekunde. Kommen später Öffnungszeiten für die anderen Häuser, ist der Saloon die
+  Ausnahme — er ist der Ort, an dem man nachts noch jemanden findet.
 * **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und
   Truhen erscheinen nie in einer Hauswand und nie hinter einem geschlossenen Sektor-Tor.
 * **Jeder Ort hängt an mindestens einer Route**, und das Schienennetz ist zusammenhängend —

@@ -283,8 +283,10 @@ func _setup_ui(art: String) -> void:
 		ow._player.position = Vector3(rw2.x + 4.0, WorldManager.height_at(rw2.x + 4.0, rw2.z + 6.0),
 			rw2.z + 6.0)
 		ow._muzzle_flash(30.0)
-		_cam.position = rw2 + Vector3(9.0, 5.4, 15.0)
-		_cam.look_at(rw2 + Vector3(0.0, 1.2, -2.0), Vector3.UP)
+		# Auf den Saloon: Er hat immer offen und soll den Platz davor beleuchten. Vom
+		# Stadtplatz aus schraeg darauf, damit Fassade UND Vorplatz im Bild sind.
+		_cam.position = rw2 + Vector3(6.0, 5.0, 17.0)
+		_cam.look_at(rw2 + Vector3(-11.0, 2.0, 0.0), Vector3.UP)
 		_cam.current = true
 	elif art == "waffe":
 		# Die Figur mit Waffe, gross im Bild — und mitten im Schuss. Zwei Fragen in einem Bild:

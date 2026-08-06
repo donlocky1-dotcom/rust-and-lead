@@ -654,6 +654,51 @@ func _process_daytime(delta: float) -> void:
 	_apply_daytime()
 
 
+# ── Nachtbeleuchtung ─────────────────────────────────────────────────────────
+## Lichter, die mit der Dunkelheit angehen.
+##
+## Zwei Orte brennen die Nacht durch: der **Saloon** (der hat immer offen — bei Mabel ist immer
+## jemand wach) und der **Bahnsteig** (eine Station ohne Licht findet nachts niemand, und man
+## soll auch im Dunkeln reisen koennen).
+##
+## Warum das mehr ist als Stimmung: Eine Nacht, in der alles gleich dunkel ist, hat keine
+## Orientierung. Ein warmer Fleck am Horizont sagt „dort ist die Stadt" — das ist dieselbe
+## Aufgabe, die tagsueber der Wasserturm erfuellt.
+##
+## Die Lichter reichen ueber das Gebaeude hinaus auf den PLATZ davor: Ein Fenster, das leuchtet,
+## ohne etwas anzuleuchten, ist ein Aufkleber.
+const NIGHT_LIGHT_COLOR: Color = Color(1.0, 0.72, 0.38)   # Petroleum, warm
+var _night_lights: Array = []
+func _add_night_light(pos: Vector3, reichweite: float, energie: float) -> void:
+	var l := OmniLight3D.new()
+	l.light_color = NIGHT_LIGHT_COLOR
+	l.omni_range = reichweite
+	l.light_energy = 0.0
+	# Kein Schatten: Ein Punktlicht mit Schatten kostet sechs Schattenkarten, und der Gewinn ist
+	# bei einer Laterne ueber einem leeren Platz gering.
+	l.shadow_enabled = false
+	l.position = pos
+	add_child(l)
+	_night_lights.append({ "node": l, "max": energie })
+	# Die Quelle selbst, damit man sie sieht und nicht nur ihren Schein.
+	var glas := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.55, 0.55)
+	glas.mesh = q
+	var m := StandardMaterial3D.new()
+	m.albedo_color = NIGHT_LIGHT_COLOR
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.billboard_keep_scale = true
+	glas.material_override = m
+	glas.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	glas.position = pos
+	add_child(glas)
+	_night_lights[-1]["glas"] = glas
+
+
 ## Die Mondscheibe am Himmel.
 ##
 ## Kein Schmuck: Eine helle Nacht ohne sichtbare Quelle wirkt wie ein vergessener Regler — man
@@ -688,6 +733,16 @@ func _build_moon() -> void:
 
 func _apply_daytime() -> void:
 	var h: float = GameState.hour
+	# Weich hoch und runter mit der Daemmerung — eine Laterne, die auf die Sekunde umspringt,
+	# liest sich als Schalter, nicht als Abend.
+	var dunkel: float = 1.0 - smoothstep(0.0, 0.35, DayCycle.daylight(h))
+	for l in _night_lights:
+		(l["node"] as OmniLight3D).light_energy = float(l["max"]) * dunkel
+		var glas: MeshInstance3D = l.get("glas")
+		if glas != null:
+			glas.visible = dunkel > 0.02
+			(glas.material_override as StandardMaterial3D).albedo_color = \
+				Color(NIGHT_LIGHT_COLOR, dunkel)
 	if _moon != null:
 		var sicht: float = DayCycle.moon_visibility(h)
 		_moon.visible = sicht > 0.01
@@ -1314,6 +1369,8 @@ func _build_station(poi_id: String) -> void:
 	_label(label_at, "🚂 Bahnhof " + String(WorldManager.poi(poi_id)["name"]),
 		Color(0.92, 0.86, 0.70), LBL_HAUS, 200.0)
 	_stations.append({ "id": poi_id, "pos": platform })
+	# Eine Station ohne Licht findet nachts niemand — und reisen soll man auch im Dunkeln.
+	_add_night_light(platform + Vector3(0.0, 4.2, 0.0), 20.0, 3.0)
 
 
 ## Bahnsteighalle aus dem Modell — `false`, wenn keins vorhanden ist.
@@ -1829,8 +1886,25 @@ func _register_town(town: Node3D) -> void:
 ## sie ohnehin ein zweites Mal (fuer den Umriss der Palisade) und soll sie nicht zweimal
 ## ausrechnen.
 func _register_town_rects(sperren: Array) -> void:
+	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
 	for r in sperren:
 		_solid_rect_rot(Vector3(r["c"].x, 0.0, r["c"].y), r["h"], float(r["yaw"]))
+		if String(r["asset"]) == "saloon":
+			# Vor die Tuer, nicht ins Haus: Das Licht soll den PLATZ beleuchten. Wohin „vor"
+			# zeigt, sagt die Stadtmitte — der Saloon steht an der Strasse, und die fuehrt
+			# dorthin. Zwei Lichter: eines an der Fassade, eines weiter draussen auf dem Platz.
+			var mitte := Vector2(r["c"])
+			var zur_strasse: Vector2 = (Vector2(stadt.x, stadt.z) - mitte)
+			if zur_strasse.length() < 0.5:
+				zur_strasse = Vector2(0.0, 1.0)
+			zur_strasse = zur_strasse.normalized()
+			var vor: Vector2 = mitte + zur_strasse * (maxf(r["h"].x, r["h"].y) + 1.2)
+			_add_night_light(Vector3(vor.x, WorldManager.height_at(vor.x, vor.y) + 3.1, vor.y),
+				17.0, 3.4)
+			var platz: Vector2 = mitte + zur_strasse * (maxf(r["h"].x, r["h"].y) + 8.0)
+			_add_night_light(
+				Vector3(platz.x, WorldManager.height_at(platz.x, platz.y) + 3.6, platz.y),
+				14.0, 2.0)
 		var text: String = String(r["label"])
 		if text != "":
 			_label(Vector3(r["c"].x, float(r["deckel"]) + 2.2, r["c"].y), text,
