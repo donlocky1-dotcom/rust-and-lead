@@ -1524,10 +1524,17 @@ func _test_daycycle() -> void:
 	_check("Mittags ist es am hellsten", DayCycle.daylight(12.75) > 0.95)
 	_check("Nachts ist es finster", DayCycle.daylight(1.0) < 0.001)
 	# 4. Auch nachts gibt es gerichtetes Licht — ohne Schatten steht nichts mehr auf dem Boden.
-	_check("Der Mond wirft Schatten (%.2f)" % DayCycle.sun_energy(1.0),
-		DayCycle.sun_energy(1.0) > 0.05 and DayCycle.sun_energy(1.0) < 0.4)
-	_check("Die Mittagssonne ist deutlich staerker",
-		DayCycle.sun_energy(12.75) > DayCycle.sun_energy(1.0) * 6.0)
+	_check("Der Vollmond beleuchtet die Szenerie (%.2f)" % DayCycle.sun_energy(1.0),
+		DayCycle.sun_energy(1.0) > 0.25 and DayCycle.sun_energy(1.0) < 0.6)
+	_check("Die Mittagssonne ist trotzdem deutlich staerker",
+		DayCycle.sun_energy(12.75) > DayCycle.sun_energy(1.0) * 3.0)
+	# Die Mondscheibe steht der Sonne gegenueber und nur nachts am Himmel.
+	_check("Der Mond steht nachts hoch (%.0f°)" % DayCycle.moon_altitude_deg(1.0),
+		DayCycle.moon_altitude_deg(1.0) > 30.0)
+	_check("Mittags ist er unter dem Horizont",
+		DayCycle.moon_altitude_deg(12.75) < 0.0)
+	_check("Und mittags unsichtbar", DayCycle.moon_visibility(12.75) < 0.01)
+	_check("Nachts voll da", DayCycle.moon_visibility(1.0) > 0.99)
 	# 5. Die Sonne wandert von Ost nach West und geht nicht rueckwaerts.
 	var az: float = DayCycle.sun_azimuth_deg(DayCycle.H_DAEMMERUNG + 0.1)
 	var rueck: bool = false

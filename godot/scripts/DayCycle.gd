@@ -85,18 +85,20 @@ static func sun_azimuth_deg(stunde: float) -> float:
 static func sun_color(stunde: float) -> Color:
 	var t: float = daylight(stunde)
 	if t <= 0.0:
-		return Color(0.55, 0.62, 0.85)          # Mond
+		return Color(0.62, 0.70, 0.95)          # Vollmond: kühl, aber hell
 	# Unter einem Viertel Helligkeit steht sie tief: Auf- und Untergangsrot.
 	var tief := Color(1.0, 0.55, 0.30)
 	var hoch := Color(1.0, 0.95, 0.84)
 	return tief.lerp(hoch, smoothstep(0.0, 0.55, t))
 
 
-## Stärke des Sonnen-/Mondlichts.
+## Stärke des gerichteten Lichts. Nachts scheint der **Vollmond** — nicht als Restlicht,
+## sondern als Lichtquelle: Er wirft eigene, harte Schatten und zeichnet die Landschaft in
+## Blaugrau. Ein Viertel der Mittagssonne ist die Größenordnung, in der man eine Wüstennacht
+## bei klarem Himmel tatsächlich erlebt; darunter sieht man nichts, darüber wird es Tag.
+const MOND_ENERGIE: float = 0.42
 static func sun_energy(stunde: float) -> float:
-	# Der Mond ist nicht null: Eine Nacht ohne jedes gerichtete Licht hat keine Schatten, und
-	# ohne Schatten steht nichts mehr auf dem Boden. Ein Zehntel reicht für die Silhouette.
-	return lerpf(0.14, 1.7, daylight(stunde))
+	return lerpf(MOND_ENERGIE, 1.7, daylight(stunde))
 
 
 ## Himmelsfarbe. Der Bronzehimmel der Story-Bibel bei Tag, tiefes Blaugrau bei Nacht.
@@ -119,7 +121,25 @@ static func ambient_color(stunde: float) -> Color:
 static func ambient_energy(stunde: float) -> float:
 	# Nachts DEUTLICH weniger, sonst ist die Nacht nur ein blauer Anstrich. Der Unterschied
 	# zwischen Licht- und Schattenseite muss auch nachts bestehen bleiben, sonst wird alles flach.
-	return lerpf(0.07, 0.32, daylight(stunde))
+	return lerpf(0.15, 0.32, daylight(stunde))
+
+
+## Wo steht der Mond? Gegenüber der Sonne — er geht auf, wenn sie untergeht.
+##
+## Gebraucht für die Mondscheibe am Himmel. Sie ist kein Schmuck: Eine helle Nacht ohne
+## sichtbare Quelle wirkt wie ein vergessener Regler. Man muss sehen, WOHER das Licht kommt.
+static func moon_altitude_deg(stunde: float) -> float:
+	return lerpf(52.0, -12.0, daylight(stunde))
+
+
+static func moon_azimuth_deg(stunde: float) -> float:
+	return sun_azimuth_deg(stunde) + 180.0
+
+
+## Sichtbarkeit der Mondscheibe (0–1). Sie verblasst, sobald es hell wird — am Taghimmel steht
+## sie nicht.
+static func moon_visibility(stunde: float) -> float:
+	return 1.0 - smoothstep(0.0, 0.30, daylight(stunde))
 
 
 ## Nebelfarbe — nachts kalt, tagsüber staubig.

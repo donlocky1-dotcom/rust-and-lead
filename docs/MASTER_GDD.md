@@ -247,8 +247,10 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   sind. Ein Fußmarsch quer durch den Krater dauert achtzehn Minuten — eine lange Reise führt
   also durch mehr als eine Tageszeit, und das ist Absicht.
   Sonne, Himmel, Umgebungslicht und Nebel folgen einer **Kurve, keiner Treppe** (per Test auf
-  Sprungfreiheit geprüft); nachts bleibt ein Zehntel gerichtetes Mondlicht stehen, denn ohne
-  Schatten steht nichts mehr auf dem Boden. **Gameplay:** Gegner mit `nocturnal` (Ölfresser-Ratte,
+  Sprungfreiheit geprüft). Nachts scheint der **Vollmond** — nicht als Restlicht, sondern als
+  Lichtquelle mit eigenen harten Schatten, bei rund einem Viertel der Mittagssonne. Dazu steht
+  seine Scheibe am Himmel: Eine helle Nacht ohne sichtbare Quelle wirkt wie ein vergessener
+  Regler, man muss sehen, woher das Licht kommt. **Gameplay:** Gegner mit `nocturnal` (Ölfresser-Ratte,
   Kessel-Kläffer) erscheinen nur bei Dunkelheit — bei Tag fällt der Wurf ersatzlos aus, denn eine
   leere Wüste in der Mittagshitze ist die richtige Antwort. Damit wird die Uhrzeit zu einer
   Entscheidung, und Quests können sie verlangen.

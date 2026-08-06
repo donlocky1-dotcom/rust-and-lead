@@ -357,6 +357,7 @@ func _ready() -> void:
 	_build_npcs()
 	_build_trail()
 	_build_horse()
+	_build_moon()
 	_spawn_pack()
 	_build_chests()
 	_hp = float(PlayerStats.max_hp())
@@ -653,8 +654,53 @@ func _process_daytime(delta: float) -> void:
 	_apply_daytime()
 
 
+## Die Mondscheibe am Himmel.
+##
+## Kein Schmuck: Eine helle Nacht ohne sichtbare Quelle wirkt wie ein vergessener Regler — man
+## muss SEHEN, woher das Licht kommt. Ein leuchtendes Viereck, weit weg und immer zur Kamera
+## gedreht; der Himmel ist eine Farbfläche ohne Sternen-Shader, mehr braucht es dafür nicht.
+##
+## Sie hängt am SPIELER und wandert mit: Bei 400 m Abstand bewegt sie sich beim Laufen nicht
+## merklich, aber sie gerät auch nie hinter den Kraterrand.
+const MOON_DIST_M: float = 400.0
+const MOON_SIZE_M: float = 26.0
+var _moon: MeshInstance3D = null
+func _build_moon() -> void:
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(MOON_SIZE_M, MOON_SIZE_M)
+	mi.mesh = q
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.94, 0.96, 1.0)
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.billboard_keep_scale = true
+	m.disable_receive_shadows = true
+	# Hinter allem: Der Mond steht am Himmel, nicht zwischen den Häusern.
+	m.no_depth_test = false
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.name = "mond"
+	add_child(mi)
+	_moon = mi
+
+
 func _apply_daytime() -> void:
 	var h: float = GameState.hour
+	if _moon != null:
+		var sicht: float = DayCycle.moon_visibility(h)
+		_moon.visible = sicht > 0.01
+		if _moon.visible:
+			var hoehe: float = deg_to_rad(DayCycle.moon_altitude_deg(h))
+			var az: float = deg_to_rad(DayCycle.moon_azimuth_deg(h))
+			var richtung := Vector3(sin(az) * cos(hoehe), sin(hoehe), cos(az) * cos(hoehe))
+			var wo: Vector3 = richtung * MOON_DIST_M
+			if _player != null:
+				wo += Vector3(_player.position.x, 0.0, _player.position.z)
+			_moon.position = wo
+			(_moon.material_override as StandardMaterial3D).albedo_color = \
+				Color(0.94, 0.96, 1.0, sicht)
 	if _sun != null:
 		_sun.rotation_degrees = Vector3(-DayCycle.sun_altitude_deg(h),
 			DayCycle.sun_azimuth_deg(h), 0.0)
@@ -2780,9 +2826,11 @@ func _equip_weapon_model() -> void:
 	# `fitted` traegt die Skalierung auf Ziellaenge aus `instantiate()` und muss erhalten
 	# bleiben — ein direktes Ueberschreiben von `transform` verwirft sie.
 	var fitted: Transform3D = weapon.transform
-	# Das Modell liegt entlang +X; +90° um Y legt diese Achse auf Godots Vorne (−Z). Die Neigung
-	# kommt DANACH und im Spielerraum, sonst kippt sie um die Laufachse und man sieht nichts.
-	var b: Basis = Basis(Vector3.RIGHT, deg_to_rad(SHOULDER_TILT_DEG)) * Basis(Vector3.UP, PI * 0.5)
+	# Das Modell liegt entlang X — und zwar mit dem KOLBEN bei +X und der Muendung bei −X.
+	# Mit +90° um Y zeigte deshalb der Kolben nach vorn und der Lauf steckte in der Schulter.
+	# −90° legt −X (die Muendung) auf Godots Vorne (−Z). Die Neigung kommt DANACH und im
+	# Spielerraum, sonst kippt sie um die Laufachse und man sieht nichts davon.
+	var b: Basis = Basis(Vector3.RIGHT, deg_to_rad(SHOULDER_TILT_DEG)) * Basis(Vector3.UP, -PI * 0.5)
 	weapon.transform = Transform3D(b,
 		SHOULDER_POS + Vector3(0.0, 0.0, -SHOULDER_FORWARD_M)) * fitted
 	_weapon_model = weapon
@@ -4270,11 +4318,22 @@ func _muzzle_spitze() -> Vector3:
 	if _weapon_model == null:
 		return Vector3.ZERO
 	var wb: AABB = AssetRegistry.local_bounds(_weapon_model)
+	var mitte: Vector3 = wb.position + wb.size * 0.5
+	# Welche Achse ist die lange? Ihre beiden Enden sind die Kandidaten.
+	var achse := Vector3(1.0, 0.0, 0.0)
+	var halb: float = wb.size.x * 0.5
 	if wb.size.z > wb.size.x:
-		return Vector3(wb.position.x + wb.size.x * 0.5, wb.position.y + wb.size.y * 0.5,
-			wb.position.z + wb.size.z)
-	return Vector3(wb.position.x + wb.size.x, wb.position.y + wb.size.y * 0.5,
-		wb.position.z + wb.size.z * 0.5)
+		achse = Vector3(0.0, 0.0, 1.0)
+		halb = wb.size.z * 0.5
+	var a: Vector3 = mitte + achse * halb
+	var b2: Vector3 = mitte - achse * halb
+	# Genommen wird das Ende, das nach dem Anbauen am weitesten VORN liegt (Godots Vorne ist −Z
+	# im Spielerraum). Damit ist es egal, wie herum ein Modell gebaut ist und wie es gedreht
+	# eingehaengt wird — die Muendung ist per Definition das vordere Ende. Vorher stand hier
+	# schlicht „+X", und als sich herausstellte, dass dort der Kolben sitzt, sass der Blitz an
+	# der Schulter.
+	var t: Transform3D = _weapon_model.transform
+	return a if (t * a).z <= (t * b2).z else b2
 
 
 # ── Muendungsfeuer ───────────────────────────────────────────────────────────
