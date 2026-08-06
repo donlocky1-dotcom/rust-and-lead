@@ -163,8 +163,9 @@ const STICK_DEADZONE: float = 10.0   # darunter passiert nichts (Zittern/Klick)
 const MOUSE_STICK_ID: int = 9001     # eigene „Finger"-Id für die Maus (kollidiert mit keiner echten)
 const TURN_RATE: float = 12.0        # wie schnell die Figur in die neue Richtung eindreht
 
-# ── Waffe in der Hand ─────────────────────────────────────────────────────────
-## Knochen des Spieler-Rigs, an dem die Waffe hängt.
+# ── Waffe am Körper ───────────────────────────────────────────────────────────
+## Knochen des Spieler-Rigs, an dem die Waffe haengen WIRD, sobald es eine Zweihand-Haltung
+## gibt. Bis dahin sitzt sie an der Schulter (siehe `_equip_weapon_model`).
 const WEAPON_BONE: String = "RightHand"
 ## Sitz im Griff — in Modell-Metern relativ zur Hand. Diese drei Zahlen kann man nicht
 ## ausrechnen, nur ansehen: sie sind der Stellknopf, wenn die Waffe schief in der Faust liegt.
@@ -2709,36 +2710,41 @@ func _build_player() -> void:
 ## Sitz und Griffwinkel lassen sich nicht ausrechnen: wo genau eine generierte Waffe in einer
 ## generierten Hand liegt, sieht man nur. `WEAPON_GRIP_*` sind deshalb bewusst drei Zahlen an
 ## einer Stelle, keine verstreute Magie.
+## Die Waffe sitzt an der SCHULTER, nicht in der Hand.
+##
+## Der Karabiner ist eine Zweihandwaffe. Am Handknochen befestigt haengt er an einer Faust, die
+## nichts festhaelt — im Bild lag er quer vor dem Bauch, und selbst richtig gedreht bleibt er
+## eine einhaendig geschulterte Flinte. Das laesst sich nicht durch Zahlen beheben, dafuer
+## braucht es eine Zweihand-Animation, und die gibt es noch nicht.
+##
+## Solange sie fehlt, ist die ehrliche Loesung: **Kolben an der Schulter, Lauf in Laufrichtung.**
+## Die Waffe haengt dafuer am SPIELERKNOTEN statt am Skelett — damit bleibt sie ruhig an ihrem
+## Platz, statt einem Arm zu folgen, der etwas anderes tut. Sie bewegt sich nicht mit der
+## Animation; das ist der Preis und er ist bewusst bezahlt.
+##
+## Sobald eine Zweihand-Haltung da ist, wandert sie zurueck an `WEAPON_BONE`.
+##
+## Die drei Zahlen unten kann man nicht ausrechnen, nur ansehen — sie stehen deshalb beieinander.
+const SHOULDER_POS: Vector3 = Vector3(0.19, 1.36, 0.0)     # rechte Schulter, Spielerraum
+const SHOULDER_FORWARD_M: float = 0.46                     # halbe Waffenlaenge nach vorn (−Z)
+const SHOULDER_TILT_DEG: float = -6.0                      # Lauf leicht gesenkt, kein Parademarsch
 func _equip_weapon_model() -> void:
-	if _player_model == null:
-		return
-	var skel: Skeleton3D = AssetRegistry.skeleton(_player_model)
-	if skel == null:
-		return
-	var idx: int = skel.find_bone(WEAPON_BONE)
-	if idx < 0:
+	if _player == null:
 		return
 	var weapon: Node3D = AssetRegistry.instantiate("weapon_karabiner", 0.0, false)
 	if weapon == null:
 		return
-	var att := BoneAttachment3D.new()
-	att.bone_name = WEAPON_BONE
-	skel.add_child(att)
-	att.add_child(weapon)
-	# Vom Mesh-Raum der Figur in den Knochenraum — dieselbe Brücke wie bei jedem Anbauteil,
-	# sonst stimmt der Maßstab nicht (das Rig steht in Zentimetern, das Modell in Metern).
-	# Die Waffe wird an die Hand GESETZT (Ursprung = Griff), nicht wie ein Mantel im Mesh-Raum
-	# der Figur platziert. Gebraucht wird deshalb nur der Maßstab: Ein Knochenraum, dessen Rig
-	# in Zentimetern steht, misst pro Einheit rund einen Zentimeter — ein Meter Waffe braucht
-	# dort also den Faktor 100. Das rechnet die Skelett-Skalierung exakt aus, ohne Raterei.
-	var unit: float = 1.0 / maxf(skel.global_transform.basis.get_scale().x, 0.0001)
-	# `fitted` trägt die Skalierung auf Zielgröße aus `instantiate()` und muss erhalten bleiben —
-	# ein direktes Überschreiben von `transform` verwirft sie.
+	_player.add_child(weapon)
+	# `fitted` traegt die Skalierung auf Ziellaenge aus `instantiate()` und muss erhalten
+	# bleiben — ein direktes Ueberschreiben von `transform` verwirft sie.
 	var fitted: Transform3D = weapon.transform
-	weapon.transform = Transform3D(
-		Basis.from_euler(WEAPON_GRIP_ROT).scaled(Vector3.ONE * unit),
-		WEAPON_GRIP_OFFSET * unit) * fitted
+	# Das Modell liegt entlang +X; +90° um Y legt diese Achse auf Godots Vorne (−Z). Die Neigung
+	# kommt DANACH und im Spielerraum, sonst kippt sie um die Laufachse und man sieht nichts.
+	var b: Basis = Basis(Vector3.RIGHT, deg_to_rad(SHOULDER_TILT_DEG)) * Basis(Vector3.UP, PI * 0.5)
+	weapon.transform = Transform3D(b,
+		SHOULDER_POS + Vector3(0.0, 0.0, -SHOULDER_FORWARD_M)) * fitted
 	_weapon_model = weapon
+	_weapon_ruhe = weapon.transform
 	# Die Muendung wird GEMESSEN, nicht eingetragen: das Ende der laengsten Achse des Modells.
 	# Beim Karabiner ist das X (1,90 von 1,90 x 0,40 x 0,24). Tauscht jemand das Modell, wandert
 	# der Punkt mit, und niemand muss eine Zahl nachziehen.
@@ -4283,31 +4289,29 @@ func _muzzle_flash(dauer: float = FLASH_SEC) -> void:
 	licht.shadow_enabled = false
 	wurzel.add_child(licht)
 	get_tree().create_timer(maxf(dauer, 0.01)).timeout.connect(wurzel.queue_free)
-	_recoil = RECOIL_M
+	_recoil = RECOIL_RAD
 
 
-## Rueckstoss: die Waffe faehrt zurueck und setzt sich wieder.
+## Rueckstoss: der Lauf hebt sich und faellt zurueck.
 ##
 ## Ohne ihn steht die Waffe beim Schuss reglos da, waehrend vorn ein Blitz aufgeht — und die
-## Bewegung ist es, die aus einem Effekt einen Schuss macht. Bewusst an der WAFFE und nicht an
+## BEWEGUNG ist es, die aus einem Effekt einen Schuss macht. Bewusst an der Waffe und nicht an
 ## der Figur: Fuer den Koerper fehlt dem Rig der Clip fuers Schiessen im Stand.
-const RECOIL_M: float = 0.075
-const RECOIL_SETTLE: float = 9.0
+##
+## Gerechnet wird auf der RUHELAGE (`_weapon_ruhe`), nicht auf dem aktuellen Stand. Der erste
+## Entwurf setzte `position` und `rotation` einzeln auf Nullwerte, die nie gefuellt wurden —
+## beim ersten Schuss sprang die Waffe damit auf den Ursprung der Figur und lag ihr in
+## Originalgroesse vor den Fuessen.
+const RECOIL_RAD: float = 0.26
+const RECOIL_SETTLE: float = 11.0
 var _recoil: float = 0.0
+var _weapon_ruhe := Transform3D.IDENTITY
 func _process_recoil(delta: float) -> void:
-	if _weapon_model == null:
+	if _weapon_model == null or _recoil <= 0.0001:
 		return
-	if _recoil <= 0.0001:
-		return
-	_recoil = maxf(0.0, _recoil - delta * RECOIL_SETTLE * maxf(_recoil, 0.02) / RECOIL_M)
-	# Zurueck entlang der Schussachse und ein wenig nach oben — der Lauf hebt sich.
-	_weapon_model.position = _weapon_grund - Vector3(_recoil, 0.0, 0.0) / maxf(
-		_weapon_model.scale.x, 0.001) * 0.0
-	_weapon_model.rotation.z = _weapon_grund_rot.z + _recoil * 3.4
-	_weapon_model.rotation.y = _weapon_grund_rot.y
-	_weapon_model.rotation.x = _weapon_grund_rot.x
-var _weapon_grund := Vector3.ZERO
-var _weapon_grund_rot := Vector3.ZERO
+	_recoil = maxf(0.0, _recoil - delta * RECOIL_SETTLE * RECOIL_RAD)
+	_weapon_model.transform = _weapon_ruhe * Transform3D(
+		Basis(Vector3(0.0, 0.0, 1.0), _recoil), Vector3.ZERO)
 
 
 ## Ein Schuss als Strich, 70 ms lang. Eine Funktion fuer beide Richtungen: Seit die Gegner

@@ -42,6 +42,26 @@ Steht ausführlich in `PROMPTS_UI.md`, in Kurzform:
 
 ---
 
+## −1. Animation: Karabiner mit ZWEI Händen — die wichtigste offene Sache
+
+Der Karabiner ist eine Zweihandwaffe. Am Handknochen befestigt hängt er an einer Faust, die
+nichts festhält. Solange keine Zweihand-Haltung existiert, sitzt er **mit dem Kolben an der
+Schulter**, Lauf in Laufrichtung — am Spielerknoten, nicht am Skelett, damit er ruhig bleibt
+statt einem Arm zu folgen, der etwas anderes tut. Er bewegt sich dadurch nicht mit der
+Animation; das ist der Preis dieser Zwischenlösung.
+
+Was das ablöst, in dieser Reihenfolge:
+
+| Priorität | Clip | wofür |
+|---|---|---|
+| **1** | **Gewehr angelegt, im Stand geschossen** (beide Hände, Rückstoß) | der Normalfall |
+| 2 | **Gewehr angelegt, Bereitschaft** (beide Hände, leichtes Atmen) | zwischen zwei Schüssen |
+| 3 | Gehen/Laufen mit angelegtem Gewehr | sonst springt die Haltung beim Loslaufen |
+| 4 | Nachladen im Stand | wir haben nur die Geh-Fassung |
+
+Als `Meshy_Merged_Animations`-Export auf **demselben Rig** — dann sind es nur neue Namen in
+`CLIP_OVERRIDES`, und die Waffe wandert zurück an `WEAPON_BONE`.
+
 ## 0. Mündungsfeuer (3) — schon eingebaut, wartet nur auf die Grafik
 
 Der Blitz wird zurzeit **gezeichnet** (zwei gekreuzte additive Vierecke). Das funktioniert; mit
