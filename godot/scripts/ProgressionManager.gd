@@ -133,6 +133,34 @@ const SLOT_GENUS: Dictionary = {
 	"plate": "f",   # die Panzerplatte
 }
 
+## „Schwer" gebeugt — „Schwere Karabiner" waere Plural, gemeint ist einer.
+static func _schwer(genus: String) -> String:
+	match genus:
+		"f":
+			return "Schwere"
+		"n":
+			return "Schweres"
+	return "Schwerer"
+
+
+## Waffen-GATTUNGEN. Dieselben ids wie in `CombatData.WEAPONS`, dazu Hauptwort und Geschlecht.
+##
+## Bis hierher war jede gefundene Waffe eine „Rostige Waffe" — eine Kategorie ohne Gattung. Nach
+## Diablo-Muster gehoert beides zusammen: Die GATTUNG bestimmt, wie geschossen wird (Feuerrate,
+## Magazin, Schadensart), die SELTENHEIT bestimmt, wie gut dieses Stueck ist. „Rostiger
+## Karabiner" und „Praezisions-Karabiner" schiessen gleich und treffen verschieden hart.
+##
+## In der 3D-Ansicht sieht das alles gleich aus — bewusst. Der Unterschied gehoert ins Inventar,
+## wo man ihn liest und vergleicht, nicht an die Figur, wo er aus zehn Metern verschwaende.
+const WEAPON_KINDS: Dictionary = {
+	"karabiner": { "noun": "Karabiner", "genus": "m" },
+	"gatling":   { "noun": "Gatling", "genus": "f" },
+	"voltgun":   { "noun": "Volt-Karabiner", "genus": "m" },
+	"saeure":    { "noun": "Säure-Sprüher", "genus": "m" },
+	"brenner":   { "noun": "Dampf-Brenner", "genus": "m" },
+}
+
+
 ## Setzt Adjektiv und Gegenstand zu einem Namen zusammen — grammatisch richtig.
 ##
 ## Die Adjektivliste steht in männlicher Form da („Rostiger", „Kupferner"), weil der Prototyp
@@ -144,13 +172,19 @@ const SLOT_GENUS: Dictionary = {
 ## Bindestrich („Präzisions-", „Iron-Rail-") werden nicht gebeugt, sondern direkt angehängt —
 ## „Präzisions- Helm" mit Leerzeichen ist kein Wort.
 static func _compose(word: String, slot: String) -> String:
-	var noun: String = String(GEAR_SLOTS[slot]["name"])
+	return _compose_noun(word, String(GEAR_SLOTS[slot]["name"]),
+		String(SLOT_GENUS.get(slot, "m")))
+
+
+## Wie `_compose`, aber mit ausdruecklichem Hauptwort. Gebraucht, seit eine Waffe nicht mehr
+## „Waffe" heisst, sondern „Karabiner" oder „Gatling" — und die haben eigene Geschlechter.
+static func _compose_noun(word: String, noun: String, genus: String) -> String:
 	if word.ends_with("-"):
 		return word + noun
 	if not word.ends_with("er"):
 		return word + " " + noun
 	var stem: String = word.substr(0, word.length() - 2)
-	match String(SLOT_GENUS.get(slot, "m")):
+	match genus:
 		"f":
 			return stem + "e " + noun
 		"n":
@@ -158,7 +192,8 @@ static func _compose(word: String, slot: String) -> String:
 	return word + " " + noun
 
 
-static func make_gear(slot: String, rarity: String, force_power: String = "", rng: RandomNumberGenerator = null) -> Dictionary:
+static func make_gear(slot: String, rarity: String, force_power: String = "",
+		rng: RandomNumberGenerator = null, kind: String = "") -> Dictionary:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
@@ -167,11 +202,22 @@ static func make_gear(slot: String, rarity: String, force_power: String = "", rn
 	var adj: Array = GEAR_ADJ[rarity]
 	var big: bool = false
 	var extra_mul: float = 1.0
-	var base_name: String = _compose(String(adj[rng.randi_range(0, adj.size() - 1)]), slot)
-	if slot == "weapon" and rng.randf() < 0.3:
-		big = true
-		extra_mul = 1.4
-		base_name = "Schwere " + base_name
+	var wort: String = String(adj[rng.randi_range(0, adj.size() - 1)])
+	var base_name: String = _compose(wort, slot)
+	if slot == "weapon":
+		# Ohne Vorgabe eine Gattung auswuerfeln. Die Waffe traegt sie mit, denn sie entscheidet
+		# im Kampf ueber Feuerrate, Magazin und Schadensart.
+		if kind == "" or not WEAPON_KINDS.has(kind):
+			var kinds: Array = WEAPON_KINDS.keys()
+			kind = String(kinds[rng.randi_range(0, kinds.size() - 1)])
+		var kd: Dictionary = WEAPON_KINDS[kind]
+		base_name = _compose_noun(wort, String(kd["noun"]), String(kd["genus"]))
+		if rng.randf() < 0.3:
+			big = true
+			extra_mul = 1.4
+			base_name = _schwer(String(kd["genus"])) + " " + base_name
+	else:
+		kind = ""
 	var stat_key: String = String(def["stat"])
 	var factor: float = (float(def["base"]) / float(SUB_BASE.get(stat_key, def["base"]))) * extra_mul
 	var primary: Dictionary = roll_affix(stat_key, float(r["mult"]), factor, rng.randf())
@@ -180,6 +226,8 @@ static func make_gear(slot: String, rarity: String, force_power: String = "", rn
 		"uid": _uid, "slot": slot, "rarity": rarity, "req": int(r["req"]), "big": big,
 		"name": base_name, "stat": primary, "affixes": [], "desc": String(GEAR_FLAVOR.get(slot, "")),
 	}
+	if kind != "":
+		g["kind"] = kind
 	var pool: Array = (AFFIX_POOL.get(slot, []) as Array).duplicate()
 	var n: int = int(AFFIX_COUNT.get(rarity, 0))
 	for i in n:

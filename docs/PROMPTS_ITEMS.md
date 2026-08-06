@@ -42,6 +42,21 @@ Steht ausführlich in `PROMPTS_UI.md`, in Kurzform:
 
 ---
 
+## 0. Mündungsfeuer (3) — schon eingebaut, wartet nur auf die Grafik
+
+Der Blitz wird zurzeit **gezeichnet** (zwei gekreuzte additive Vierecke). Das funktioniert; mit
+Sprites wird es besser. **Schwarzer Hintergrund, nicht transparent** — additiv gezeichnet ist
+Schwarz automatisch unsichtbar, und damit fällt Geminis Karo-Problem ganz weg.
+
+`muzzle.png` (und optional `muzzle_b.png`, `muzzle_c.png` mit anderer Zackenzahl):
+
+> Muzzle flash sprite for a game, 256×256, **pure black background**, star-shaped burst of
+> white-hot flame with yellow and orange edges, four irregular petals of different length, small
+> sparks flying outward, seen head-on, sharp and grainy — not soft or glowy, no smoke, no gun,
+> no text, no border, centred, fills the frame.
+
+Das Spiel sucht sie unter `muzzle`; liegt keine da, zeichnet es weiter selbst.
+
 ## 1. Waffen (5) — die dringendsten
 
 Dateiname → Motiv
@@ -90,6 +105,15 @@ Die Slots gibt es in vier Seltenheiten, aber die Farbe macht der Rahmen. Ein Mot
 | `item_gold.png` | Kleiner Haufen Münzen und ein paar Nuggets, kein Beutel. |
 
 ---
+
+### Varianten je Gattung — später, nicht jetzt
+
+Eine Gattung hat viele Stücke: „Rostiger Karabiner", „Reparierter Karabiner",
+„Präzisions-Karabiner". Die Namen erzeugt das Spiel bereits selbst aus Seltenheit + Gattung.
+
+**Ein Bild je Gattung reicht vorerst.** Wenn du später Varianten willst, ist die günstigste
+Staffelung eine je Seltenheit — also vier Bilder je Gattung statt einem: abgerissen / brauchbar
+/ gepflegt / einzigartig. Der Rahmen trägt die Farbe, das Bild trägt den Zustand.
 
 **Gesamt: 18 Bilder.** Priorität: **Abschnitt 1 zuerst** (die fünf Waffen), danach 3, dann 4,
 dann 2 und 5.

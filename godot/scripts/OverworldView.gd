@@ -168,8 +168,13 @@ const TURN_RATE: float = 12.0        # wie schnell die Figur in die neue Richtun
 const WEAPON_BONE: String = "RightHand"
 ## Sitz im Griff — in Modell-Metern relativ zur Hand. Diese drei Zahlen kann man nicht
 ## ausrechnen, nur ansehen: sie sind der Stellknopf, wenn die Waffe schief in der Faust liegt.
-const WEAPON_GRIP_OFFSET: Vector3 = Vector3(0.0, 0.02, 0.0)
-const WEAPON_GRIP_ROT: Vector3 = Vector3(0.0, 0.0, 0.0)   # Radiant (X, Y, Z)
+## Gemessen im Bild, nicht geraten: Ohne Drehung lag der Karabiner QUER vor dem Bauch und
+## zeigte nach rechts hinten — die Hand hielt ihn in der Mitte des Laufs, der Schaft ragte
+## rechts heraus. Das Modell liegt entlang seiner X-Achse; +90° um Y drehen heisst, diese Achse
+## auf Godots Vorne (−Z) zu legen. Der Versatz schiebt die Waffe dann so weit nach vorn, dass
+## nicht ihre Mitte, sondern ihr Griffstueck in der Faust liegt.
+const WEAPON_GRIP_OFFSET: Vector3 = Vector3(0.0, 0.02, -0.20)
+const WEAPON_GRIP_ROT: Vector3 = Vector3(0.0, PI * 0.5, 0.0)   # Radiant (X, Y, Z)
 
 # ── Bauliche Begrenzung (GDD §1.4a) ───────────────────────────────────────────
 ## Die Wüste ist offen, die Aktionszonen sind eng — und zwar durch ECHTE Bauten, nicht
@@ -329,6 +334,7 @@ var _rot_blockers: Array = []        # gedrehte Sperren:    { c: Vector2(x,z), h
 var _stations: Array = []            # { id, pos: Vector3 } — Bahnsteige der Iron Rail
 var _player_model: Node3D = null     # nur gesetzt, wenn ein echtes Modell geladen wurde
 var _weapon_model: Node3D = null     # Waffe in der Hand (optional)
+var _muzzle: Node3D = null           # Muendungspunkt, am Modell gemessen
 
 
 func _ready() -> void:
@@ -2675,11 +2681,8 @@ func _build_player() -> void:
 		body.position = Vector3(0.0, 0.9, 0.0)
 		_player.add_child(body)
 	_player.position = _start_spawn()
-	# Gefuehrte Waffe aus dem Spielstand — und wenn dort eine steht, die er gar nicht besitzt,
-	# gilt der Besitz, nicht der Eintrag.
-	_weapon_id = GameState.weapon_id if GameState.has_weapon(GameState.weapon_id) else ""
-	if _weapon_id == "" and not GameState.weapons.is_empty():
-		_weapon_id = String(GameState.weapons[0])
+	# Gefuehrt wird, was angelegt ist — nicht, was im Spielstand als Wunsch steht.
+	_weapon_id = _weapon_kind()
 	GameState.weapon_id = _weapon_id
 	add_child(_player)
 	_equip_weapon_model()
@@ -2736,6 +2739,13 @@ func _equip_weapon_model() -> void:
 		Basis.from_euler(WEAPON_GRIP_ROT).scaled(Vector3.ONE * unit),
 		WEAPON_GRIP_OFFSET * unit) * fitted
 	_weapon_model = weapon
+	# Die Muendung wird GEMESSEN, nicht eingetragen: das Ende der laengsten Achse des Modells.
+	# Beim Karabiner ist das X (1,90 von 1,90 x 0,40 x 0,24). Tauscht jemand das Modell, wandert
+	# der Punkt mit, und niemand muss eine Zahl nachziehen.
+	_muzzle = Node3D.new()
+	_muzzle.name = "muendung"
+	weapon.add_child(_muzzle)
+	_muzzle.position = _muzzle_spitze()
 
 
 var _hud_layer: CanvasLayer
@@ -3250,7 +3260,14 @@ func _open_chest(c: Dictionary) -> void:
 	# Kippe; ohne diesen Fund bliebe er es. Kein Zufall und keine Beutetabelle — der Anfang
 	# einer Geschichte darf nicht auswuerfeln, ob sie stattfindet.
 	if GameState.weapons.is_empty():
-		_gain_weapon(ERSTE_WAFFE)
+		var erste: Dictionary = ProgressionManager.make_gear("weapon", "common", "", null,
+			ERSTE_WAFFE)
+		# Direkt anlegen, nicht auf den Boden werfen: Es ist die einzige Waffe im Spiel, und ein
+		# Held, der neben seinem Gewehr steht und die Hand nicht hebt, ist kein Anfang.
+		EquipManager.equip_item(erste, "weapon")
+		GameState.add_weapon(ERSTE_WAFFE)
+		_sync_weapon()
+		_say("🔫 %s gefunden — angelegt." % String(erste["name"]), 3.2)
 	var gold: int = randi_range(18, 45)
 	_drop(at, "gold", { "amount": gold })
 	var pool: String = AmmoData.pool_for(_weapon_id if _weapon_id != "" else ERSTE_WAFFE)
@@ -3510,7 +3527,9 @@ func _input(event: InputEvent) -> void:
 		elif _overlay_open():
 			pass   # bei offenem Overlay schluckt es die restlichen Tasten
 		elif event.keycode == KEY_TAB:
-			_cycle_weapon()
+			# Frueher der Waffen-Umschalter. Waffen wechselt man jetzt dort, wo man sie auch
+			# vergleicht: an der Puppe.
+			_toggle_character(CharacterScreen.Tab.AUSRUESTUNG)
 		elif event.keycode == KEY_E:
 			# Dieselbe Rangfolge wie in der Aktionsleiste, damit Taste und Knopf nie etwas
 			# Verschiedenes tun.
@@ -3636,43 +3655,32 @@ func _fast_travel(idx: int) -> void:
 	_say("🚂 Iron Rail: %s → %s" % [String(WorldManager.poi(here)["name"]), String(p["name"])], 2.5)
 
 
-## Die gefuehrten Waffen in fester Reihenfolge — der Umschalter soll nicht springen, nur weil
-## eine neue dazugekommen ist.
-func _owned_weapons() -> Array:
-	var out: Array = []
-	for w in WEAPON_ORDER:
-		if GameState.has_weapon(String(w)):
-			out.append(String(w))
-	return out
-
-
-## Waffe aufnehmen: eintragen, sofort fuehren, melden.
-func _gain_weapon(id: String) -> bool:
-	if not GameState.add_weapon(id):
-		return false
-	_weapon_id = id
-	GameState.weapon_id = id
-	_refresh_weapon(true)
-	return true
-
-
-## Nur durch das, was er GEFUNDEN hat.
+## Womit wird geschossen? **Was im Waffen-Slot liegt** ("" = leere Haende).
 ##
-## Vorher lief der Umschalter durch alle fuenf Waffen — der Held trug von der ersten Sekunde an
-## das ganze Arsenal. Damit ist jede Beute wertlos, und die vier Schadensarten (GDD §6.1) haben
-## keinen Aufbau: Wer alles hat, lernt nichts dazu. Er faengt jetzt mit leeren Haenden in der
-## Schrottgrube an; der Blei-Karabiner liegt in der Truhe dort.
-func _cycle_weapon() -> void:
-	var meine: Array = _owned_weapons()
-	if meine.is_empty():
-		_say("🚫 Du hast nichts zum Schießen.", 2.0)
+## Vorher schaltete `[Tab]` durch eine feste Liste von fuenf Gattungen — eine zweite Wahrheit
+## neben dem Inventar, in dem man Ausruestung ohnehin anlegt. Jetzt gibt es nur noch eine:
+## Was an der Puppe haengt, wird gefuehrt. Der Umschalter ist damit ueberfluessig, und
+## `[Tab]` macht das, was man in dem Moment will — es oeffnet das Inventar.
+##
+## Die GATTUNG steht am Gegenstand (`kind`), nicht in seinem Namen: „Rostiger Karabiner" und
+## „Praezisions-Karabiner" schiessen beide als `karabiner`, treffen aber verschieden hart.
+func _weapon_kind() -> String:
+	var w: Variant = GameState.equip.get("weapon", null)
+	if not (w is Dictionary):
+		return ""
+	var k: String = String((w as Dictionary).get("kind", ""))
+	return k if CombatData.WEAPONS.has(k) else ""
+
+
+## Gefuehrte Waffe nachziehen, wenn im Inventar etwas angelegt oder abgelegt wurde.
+func _sync_weapon() -> void:
+	var k: String = _weapon_kind()
+	if k == _weapon_id:
 		return
-	if meine.size() == 1:
-		_say("Du führst nur eine Waffe.", 1.6)
-		return
-	var i: int = meine.find(_weapon_id)
-	_weapon_id = String(meine[(i + 1) % meine.size()])
-	GameState.weapon_id = _weapon_id
+	_weapon_id = k
+	GameState.weapon_id = k
+	if k != "" and GameState.add_weapon(k):
+		pass    # erste Waffe dieser Gattung — fuer Codex und Statistik vermerkt
 	_refresh_weapon(false)
 
 
@@ -3979,6 +3987,8 @@ func _process(delta: float) -> void:
 	_process_interactions(delta)
 	_process_trail(delta)
 	_process_mount(delta)
+	_sync_weapon()
+	_process_recoil(delta)
 	_process_autosave(delta)
 	_update_hud()
 
@@ -4186,8 +4196,118 @@ func _roll_material_drop(at: Vector3) -> void:
 
 
 func _spawn_tracer(to_pos: Vector3) -> void:
-	_tracer(_player.position + Vector3(0.0, 1.2, 0.0), Vector3(to_pos.x, 1.0, to_pos.z),
-		TRACER_COLOR[_weapon_id])
+	# Ab der MUENDUNG, nicht aus der Brust. Das ist erst aufgefallen, als daneben ein
+	# Muendungsfeuer sass: Blitz an der Waffe, Leuchtspur aus dem Brustkorb.
+	var von: Vector3 = _muzzle.global_position if _muzzle != null \
+		else _player.position + Vector3(0.0, 1.2, 0.0)
+	_tracer(von, Vector3(to_pos.x, 1.0, to_pos.z), TRACER_COLOR[_weapon_id])
+	_muzzle_flash()
+
+
+## Die Muendung, GEMESSEN am Modell: das vordere Ende seiner laengsten Achse.
+##
+## Beim Einbau gerechnet UND vor jedem Schuss nachgezogen. Der erste Entwurf hat nur einmal
+## gemessen — und lag um knapp dreissig Zentimeter zu weit hinten, weil die Huellbox eines
+## frisch eingehaengten Modells noch nicht die endgueltige ist. Im Bild sass der Blitz dann an
+## der Huefte statt am Lauf. Einmal je Schuss messen kostet nichts und stimmt immer.
+func _muzzle_spitze() -> Vector3:
+	if _weapon_model == null:
+		return Vector3.ZERO
+	var wb: AABB = AssetRegistry.local_bounds(_weapon_model)
+	if wb.size.z > wb.size.x:
+		return Vector3(wb.position.x + wb.size.x * 0.5, wb.position.y + wb.size.y * 0.5,
+			wb.position.z + wb.size.z)
+	return Vector3(wb.position.x + wb.size.x, wb.position.y + wb.size.y * 0.5,
+		wb.position.z + wb.size.z * 0.5)
+
+
+# ── Muendungsfeuer ───────────────────────────────────────────────────────────
+## Nicht der Blitz verkauft einen Schuss, sondern das LICHT.
+##
+## Ein Blitz allein liest sich als Aufkleber vor der Waffe: Er leuchtet, und die Welt daneben
+## bleibt, wie sie war. Erst wenn Hand, Boden und Fassade fuer ein Bild mit aufhellen, glaubt
+## das Auge, dass dort etwas explodiert ist. Deshalb hat jeder Schuss beides — und das Licht ist
+## der teurere, aber unverzichtbare Teil.
+##
+## Die FARBE kommt aus der Schadensart (GDD §6.1). Das ist nicht Dekoration, sondern
+## Kampf-Lesbarkeit (§8.4): Man sieht am eigenen Muendungsfeuer, womit man gerade schiesst,
+## ohne ins HUD zu schauen.
+##
+## Zwei gekreuzte Vierecke statt eines: Ein einzelnes waere aus der Achse der Kamera unsichtbar,
+## und ein Billboard drehte sich sichtbar mit, wenn man selbst laeuft.
+const FLASH_SEC: float = 0.055
+const FLASH_SIZE_M: float = 0.34
+const FLASH_LIGHT_M: float = 5.5
+const FLASH_LIGHT_ENERGY: float = 7.0
+func _muzzle_flash(dauer: float = FLASH_SEC) -> void:
+	if _muzzle == null or not is_inside_tree():
+		return
+	_muzzle.position = _muzzle_spitze()
+	var farbe: Color = TRACER_COLOR.get(_weapon_id, Color(1.0, 0.86, 0.45))
+	# Zum Weiss hin aufhellen: Ein Muendungsfeuer ist an der Wurzel glutweiss und faerbt sich
+	# erst nach aussen. Reine Waffenfarbe saehe aus wie eine getoente Lampe.
+	var kern: Color = farbe.lerp(Color(1.0, 1.0, 0.92), 0.55)
+	var wurzel := Node3D.new()
+	_muzzle.add_child(wurzel)
+	wurzel.rotation.z = randf() * TAU
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(kern, 0.9)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.disable_receive_shadows = true
+	var sohle: Texture2D = UiAssets.texture("muzzle")
+	if sohle != null:
+		mat.albedo_texture = sohle
+	var gr: float = FLASH_SIZE_M * randf_range(0.82, 1.25)
+	for i in 2:
+		var mi := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(gr, gr)
+		mi.mesh = q
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Um die SCHUSSACHSE gekreuzt, nicht quer dazu.
+		#
+		# Ein Viereck liegt in der XY-Ebene und schaut nach +Z; seine Ebene ENTHAELT damit schon
+		# die X-Achse, entlang der die Waffe zeigt. Genau so soll es sein: Die Flamme steht in
+		# Schussrichtung. Der erste Versuch hat es um Y gedreht — damit stand es quer VOR der
+		# Muendung und war von der Seite kantig, also unsichtbar. Im Bild war schlicht nichts.
+		mi.rotation = Vector3(float(i) * PI * 0.5, 0.0, 0.0)
+		wurzel.add_child(mi)
+	var licht := OmniLight3D.new()
+	licht.light_color = kern
+	licht.light_energy = FLASH_LIGHT_ENERGY
+	licht.omni_range = FLASH_LIGHT_M
+	licht.shadow_enabled = false
+	wurzel.add_child(licht)
+	get_tree().create_timer(maxf(dauer, 0.01)).timeout.connect(wurzel.queue_free)
+	_recoil = RECOIL_M
+
+
+## Rueckstoss: die Waffe faehrt zurueck und setzt sich wieder.
+##
+## Ohne ihn steht die Waffe beim Schuss reglos da, waehrend vorn ein Blitz aufgeht — und die
+## Bewegung ist es, die aus einem Effekt einen Schuss macht. Bewusst an der WAFFE und nicht an
+## der Figur: Fuer den Koerper fehlt dem Rig der Clip fuers Schiessen im Stand.
+const RECOIL_M: float = 0.075
+const RECOIL_SETTLE: float = 9.0
+var _recoil: float = 0.0
+func _process_recoil(delta: float) -> void:
+	if _weapon_model == null:
+		return
+	if _recoil <= 0.0001:
+		return
+	_recoil = maxf(0.0, _recoil - delta * RECOIL_SETTLE * maxf(_recoil, 0.02) / RECOIL_M)
+	# Zurueck entlang der Schussachse und ein wenig nach oben — der Lauf hebt sich.
+	_weapon_model.position = _weapon_grund - Vector3(_recoil, 0.0, 0.0) / maxf(
+		_weapon_model.scale.x, 0.001) * 0.0
+	_weapon_model.rotation.z = _weapon_grund_rot.z + _recoil * 3.4
+	_weapon_model.rotation.y = _weapon_grund_rot.y
+	_weapon_model.rotation.x = _weapon_grund_rot.x
+var _weapon_grund := Vector3.ZERO
+var _weapon_grund_rot := Vector3.ZERO
 
 
 ## Ein Schuss als Strich, 70 ms lang. Eine Funktion fuer beide Richtungen: Seit die Gegner

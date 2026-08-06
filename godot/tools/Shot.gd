@@ -90,6 +90,7 @@ func _ready() -> void:
 	_views.append(["gegner_kampf", null, "kampf"])
 	_views.append(["neuzugang", null, "neuzugang"])
 	_views.append(["figuren", null, "figuren"])
+	_views.append(["waffe", null, "waffe"])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -267,6 +268,23 @@ func _setup_ui(art: String) -> void:
 			_cam.position = _buehne + Vector3(x * 0.5, 1.5, 4.2)
 			_cam.look_at(_buehne + Vector3(x * 0.5, 1.0, 0.0), Vector3.UP)
 		_cam.current = true
+	elif art == "waffe":
+		# Die Figur mit Waffe, gross im Bild — und mitten im Schuss. Zwei Fragen in einem Bild:
+		# Liegt das Gewehr richtig in der Hand, und sitzt das Muendungsfeuer an der Muendung?
+		ow._end_cine()
+		ow._close_character()
+		ow._enemies.clear()
+		var mitte2: Vector3 = _buehne
+		ow._player.position = Vector3(mitte2.x, WorldManager.height_at(mitte2.x, mitte2.z), mitte2.z)
+		ow._player.rotation.y = 0.0
+		EquipManager.equip_item(ProgressionManager.make_gear("weapon", "rare", "", null,
+			"karabiner"), "weapon")
+		ow._sync_weapon()
+		# Von VORN: Die Figur schaut nach −Z, also steht die Kamera dort. Von hinten sah man
+		# nur den Schaft in der Faust — das Gewehr zeigt ja vom Betrachter weg.
+		_cam.position = ow._player.position + Vector3(1.15, 1.45, -2.4)
+		_cam.look_at(ow._player.position + Vector3(0.0, 1.15, -0.6), Vector3.UP)
+		_cam.current = true
 	elif art == "kampf":
 		# Ein Nahkaempfer im Schlag und ein Schuetze auf Schussdistanz — beide in dem Bild, in
 		# dem der Treffer faellt. Nur so sieht man, ob die Animation zum Schaden passt.
@@ -329,6 +347,14 @@ func _setup_ui(art: String) -> void:
 func _process(_dt: float) -> void:
 	if _wait > 0:
 		_wait -= 1
+		# Ein Muendungsfeuer lebt 55 ms. Ausgeloest werden muss es EIN Bild vor dem Knipsen:
+		# `get_image()` liefert das zuletzt GERENDERTE Bild, im selben Aufruf ausgeloest waere
+		# es also noch nicht drauf.
+		if _wait == 1 and _i >= 0 and String(_views[_i][0]) == "waffe":
+			# Im Bild lange genug: Der Blitz lebt im Spiel 55 ms, und headless rendert langsamer
+			# als das. Sonst ist er beim Knipsen schon wieder weg — genau so ist das erste
+			# Pruefbild entstanden, auf dem gar keiner zu sehen war.
+			(_welt as OverworldView)._muzzle_flash(30.0)
 		return
 	if _i >= 0:
 		if String(_views[_i][0]) == "quest_spur":
