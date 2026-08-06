@@ -271,7 +271,9 @@ var _cam: Camera3D
 var _hp: float = 100.0
 var _fire_cd: float = 0.0
 var _spawn_cd: float = SPAWN_INTERVAL_SEC * 0.5   # erster Nachschub etwas früher
-var _weapon_id: String = "karabiner"
+## Gefuehrte Waffe — "" heisst leere Haende. Das ist der Anfangszustand, nicht ein Fehler:
+## Der Held erwacht ohne alles auf der Kippe.
+var _weapon_id: String = ""
 var _enemies: Array = []             # { node, target: CombatTarget, bar: MeshInstance3D }
 var _chests: Array = []              # { node, label, pos: Vector3, looted: bool, cd: float }
 ## Beute am Boden: { node, label, kind, data, pos }. `kind` ist "gold" | "ammo" | "potion"
@@ -345,6 +347,7 @@ func _ready() -> void:
 	_build_hud()
 	_build_npcs()
 	_build_trail()
+	_build_horse()
 	_spawn_pack()
 	_build_chests()
 	_hp = float(PlayerStats.max_hp())
@@ -2634,6 +2637,27 @@ func _rustwater_spawn() -> Vector3:
 	return WorldManager.poi_scene_position("rustwater") + RUSTWATER_SPAWN_OFFSET
 
 
+## Wo eine Runde ANFAENGT.
+##
+## Nicht mehr in Rustwater, sondern **in der Schrottgrube, in der Lache**. Das ist der Anfang,
+## den die Geschichte erzaehlt (GDD Kap. 1): Der Held erwacht auf dem Muell, ohne Waffe, ohne
+## Erinnerung, und muss sich erst die Truhe suchen und dann den Weg in die Stadt.
+##
+## Die Lache ist der einzige freie Fleck im Grund — der einzige Ort, an dem man liegen kann.
+## Deshalb wird sie beim Fuellen ausgespart, und deshalb faengt es hier an.
+##
+## Nach dem Prolog (`prolog_done`) ist Rustwater der Startpunkt; ein Spielstand mitten im
+## zweiten Kapitel soll nicht wieder auf der Kippe aufwachen.
+func _start_spawn() -> Vector3:
+	if GameState.prolog_done:
+		return _rustwater_spawn()
+	for f in WorldManager.TERRAIN:
+		if String(f.get("id", "")) == "schrotthalde":
+			var c: Vector3 = WorldManager.feature_center(f)
+			return Vector3(c.x, WorldManager.height_at(c.x, c.z), c.z)
+	return _rustwater_spawn()
+
+
 func _build_player() -> void:
 	_player = Node3D.new()
 	# Modell, sobald eines unter assets/models/characters/player.glb liegt — sonst Kapsel.
@@ -2650,7 +2674,13 @@ func _build_player() -> void:
 		body.material_override = _mat(Color(0.23, 0.51, 0.96))
 		body.position = Vector3(0.0, 0.9, 0.0)
 		_player.add_child(body)
-	_player.position = _rustwater_spawn()
+	_player.position = _start_spawn()
+	# Gefuehrte Waffe aus dem Spielstand — und wenn dort eine steht, die er gar nicht besitzt,
+	# gilt der Besitz, nicht der Eintrag.
+	_weapon_id = GameState.weapon_id if GameState.has_weapon(GameState.weapon_id) else ""
+	if _weapon_id == "" and not GameState.weapons.is_empty():
+		_weapon_id = String(GameState.weapons[0])
+	GameState.weapon_id = _weapon_id
 	add_child(_player)
 	_equip_weapon_model()
 	_cam = Camera3D.new()
@@ -3206,6 +3236,8 @@ func _process_chests(delta: float) -> void:
 ## Truhe oeffnen: Der Inhalt FAELLT HERAUS, statt sich still in die Taschen zu buchen. Vorher
 ## wurde beim Vorbeilaufen automatisch geplündert und ein besseres Teil sofort angelegt — man
 ## sah nie, was man fand, und entschied nie etwas.
+## Die Waffe, mit der das Spiel anfaengt. Sie liegt in der ersten Truhe, nicht in der Hand.
+const ERSTE_WAFFE: String = "karabiner"
 func _open_chest(c: Dictionary) -> void:
 	if c.is_empty() or bool(c["looted"]):
 		return
@@ -3214,9 +3246,14 @@ func _open_chest(c: Dictionary) -> void:
 	(c["node"] as Node3D).visible = false
 	(c["label"] as Label3D).visible = false
 	var at: Vector3 = c["pos"]
+	# Die ERSTE Truhe des Spiels gibt die erste Waffe. Der Held erwacht ohne alles auf der
+	# Kippe; ohne diesen Fund bliebe er es. Kein Zufall und keine Beutetabelle — der Anfang
+	# einer Geschichte darf nicht auswuerfeln, ob sie stattfindet.
+	if GameState.weapons.is_empty():
+		_gain_weapon(ERSTE_WAFFE)
 	var gold: int = randi_range(18, 45)
 	_drop(at, "gold", { "amount": gold })
-	var pool: String = AmmoData.pool_for(_weapon_id)
+	var pool: String = AmmoData.pool_for(_weapon_id if _weapon_id != "" else ERSTE_WAFFE)
 	_drop(at, "ammo", { "pool": pool, "amount": AmmoData.roll_drop(pool) * 3 })
 	if randf() < 0.5:
 		_drop(at, "potion", { "amount": 1 })
@@ -3486,6 +3523,9 @@ func _input(event: InputEvent) -> void:
 				_pick_up_gear()
 			elif not npc.is_empty():
 				_talk_to(String(npc["giver"]))
+			elif _mounted or (_horse != null
+					and _player.position.distance_to(_horse.position) <= MOUNT_RANGE_M):
+				_toggle_mount()
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
 			_fast_travel(event.keycode - KEY_1)
 
@@ -3596,18 +3636,64 @@ func _fast_travel(idx: int) -> void:
 	_say("🚂 Iron Rail: %s → %s" % [String(WorldManager.poi(here)["name"]), String(p["name"])], 2.5)
 
 
+## Die gefuehrten Waffen in fester Reihenfolge — der Umschalter soll nicht springen, nur weil
+## eine neue dazugekommen ist.
+func _owned_weapons() -> Array:
+	var out: Array = []
+	for w in WEAPON_ORDER:
+		if GameState.has_weapon(String(w)):
+			out.append(String(w))
+	return out
+
+
+## Waffe aufnehmen: eintragen, sofort fuehren, melden.
+func _gain_weapon(id: String) -> bool:
+	if not GameState.add_weapon(id):
+		return false
+	_weapon_id = id
+	GameState.weapon_id = id
+	_refresh_weapon(true)
+	return true
+
+
+## Nur durch das, was er GEFUNDEN hat.
+##
+## Vorher lief der Umschalter durch alle fuenf Waffen — der Held trug von der ersten Sekunde an
+## das ganze Arsenal. Damit ist jede Beute wertlos, und die vier Schadensarten (GDD §6.1) haben
+## keinen Aufbau: Wer alles hat, lernt nichts dazu. Er faengt jetzt mit leeren Haenden in der
+## Schrottgrube an; der Blei-Karabiner liegt in der Truhe dort.
 func _cycle_weapon() -> void:
-	var i: int = WEAPON_ORDER.find(_weapon_id)
-	_weapon_id = WEAPON_ORDER[(i + 1) % WEAPON_ORDER.size()]
+	var meine: Array = _owned_weapons()
+	if meine.is_empty():
+		_say("🚫 Du hast nichts zum Schießen.", 2.0)
+		return
+	if meine.size() == 1:
+		_say("Du führst nur eine Waffe.", 1.6)
+		return
+	var i: int = meine.find(_weapon_id)
+	_weapon_id = String(meine[(i + 1) % meine.size()])
+	GameState.weapon_id = _weapon_id
+	_refresh_weapon(false)
+
+
+## Modell, Nachladen und Meldung an die gefuehrte Waffe anpassen.
+func _refresh_weapon(gefunden: bool) -> void:
 	# Der Wechsel bricht ein laufendes Nachladen ab. Sonst waere Umschalten ein kostenloser
 	# Weg, die Wartezeit zu ueberspringen — jede Waffe haelt ihr eigenes Magazin.
 	_reload_left = 0.0
 	# Bisher gibt es nur ein Waffenmodell. Statt den Karabiner in der Hand zu lassen, während
 	# der Säure-Sprüher feuert, verschwindet er — lieber leere Hand als falsche Waffe.
 	if _weapon_model != null:
-		_weapon_model.visible = AssetRegistry.has_model("weapon_" + _weapon_id)
+		_weapon_model.visible = _weapon_id != "" \
+			and AssetRegistry.has_model("weapon_" + _weapon_id)
+	if _weapon_id == "":
+		return
 	var dt: String = String(CombatData.WEAPONS[_weapon_id]["type"])
-	_say("%s %s (%s)" % [WEAPON_ICON[_weapon_id], String(CombatData.WEAPONS[_weapon_id]["name"]), dt], 2.0)
+	var name: String = String(CombatData.WEAPONS[_weapon_id]["name"])
+	if gefunden:
+		_say("%s %s gefunden!" % [String(WEAPON_ICON.get(_weapon_id, "🔫")), name], 3.0)
+	else:
+		_say("%s %s (%s)" % [String(WEAPON_ICON.get(_weapon_id, "🔫")), name, dt], 2.0)
 
 
 func _move_vector() -> Vector2:
@@ -3742,7 +3828,14 @@ func _set_cine_clean(an: bool) -> void:
 ## im Bild stand die Figur dann unten rechts, waehrend die Kamera auf leeren Sand zielte.
 ## Ueber die Netzgrenzen ist der Kopf da, wo der Kopf ist — bei jedem Modell, ohne Zahlen.
 func _cine_head() -> Vector3:
-	for c in _cine.get_children():
+	return _head_of(_cine)
+
+
+## Derselbe Kopfpunkt fuer eine beliebige Figur.
+func _head_of(wer: Node3D) -> Vector3:
+	if wer == null:
+		return Vector3.ZERO
+	for c in wer.get_children():
 		if not (c is Node3D):
 			continue
 		var b: AABB = AssetRegistry.local_bounds(c as Node3D)
@@ -3757,8 +3850,8 @@ func _cine_head() -> Vector3:
 		# deshalb um bis zu einem halben Meter neben der Figur — im Bild stand sie dann am Rand,
 		# waehrend die Kamera auf leeren Sand zielte. Der Knoten dagegen steht per Definition da,
 		# wo die Figur steht.
-		return Vector3(_cine.global_position.x, scheitel.y - 0.16, _cine.global_position.z)
-	return _cine.global_position + Vector3(0.0, CINE_EYE_M, 0.0)
+		return Vector3(wer.global_position.x, scheitel.y - 0.16, wer.global_position.z)
+	return wer.global_position + Vector3(0.0, CINE_EYE_M, 0.0)
 
 
 ## Wo steht die Kamera in diesem Augenblick der Aufnahme?
@@ -3767,23 +3860,45 @@ func _cine_head() -> Vector3:
 ## Richtung des Spielers — und zeigte Mabels Hinterkopf: Die NPCs schauen zur Strassenmitte,
 ## der Spieler steht daneben. Eine Nahaufnahme, die das Gesicht nicht zeigt, ist keine.
 ## Genau frontal waere allerdings ein Passfoto, deshalb der Versatz.
+## Ein GESPRAECH ist eine Zweier-Einstellung, kein Portrait.
+##
+## Vorher zielte die Kamera auf das Gesicht des Gegenuebers und stand vor ihm. Wo der Spieler
+## dabei stand, war Zufall — und stand er zwischen Kamera und NPC, verdeckte er genau den, mit
+## dem man spricht. Das haengt an der Laufrichtung, mit der man ankommt, und das ist nichts,
+## worauf eine Einstellung sich verlassen darf.
+##
+## Jetzt steht die Kamera **quer zur Verbindungslinie** der beiden. Damit stehen sie im Bild
+## nebeneinander statt hintereinander: Wer wen verdeckt, ist keine Frage mehr. Der Abstand
+## folgt aus ihrem Abstand zueinander — beide sind immer drin, egal wie weit man stehen bleibt.
+##
+## Die Seite ist die, auf der die Kamera ohnehin schon steht. Ein Gespraech, das mit einem
+## Sprung ueber die Achse beginnt, liest sich als Schnittfehler.
+const CINE_TWO_MARGIN: float = 1.5   # Zuschlag zum halben Abstand, damit nichts am Rand klebt
+const CINE_TWO_MIN_M: float = 2.6
+const CINE_TWO_MAX_M: float = 6.0
 func _cine_frame() -> Array:
 	var kopf: Vector3 = _cine_head()
-	# In Godot schaut ein Node3D entlang seiner NEGATIVEN Z-Achse. Vor ihm liegt also −z.
-	var von: Vector3 = -_cine.global_transform.basis.z
-	von.y = 0.0
-	if von.length() < 0.2:
-		von = _player.position - _cine.global_position
-		von.y = 0.0
-	if von.length() < 0.2:
-		von = Vector3(0.0, 0.0, 1.0)
-	von = von.normalized()
-	var quer := Vector3(-von.z, 0.0, von.x)
+	var spieler: Vector3 = _head_of(_player)
+	var achse := Vector3(spieler.x - kopf.x, 0.0, spieler.z - kopf.z)
+	var abstand: float = achse.length()
+	if abstand < 0.3:
+		# Zu dicht aufeinander fuer eine Achse — dann wie frueher aus der Blickrichtung.
+		achse = -_cine.global_transform.basis.z
+		achse.y = 0.0
+		abstand = 1.0
+	if achse.length() < 0.2:
+		achse = Vector3(0.0, 0.0, 1.0)
+	achse = achse.normalized()
+	var quer := Vector3(-achse.z, 0.0, achse.x)
+	var mitte: Vector3 = (kopf + spieler) * 0.5
+	if _cam != null and quer.dot(_cam.global_position - mitte) < 0.0:
+		quer = -quer
 	# Fortschritt 0 → 1 ueber `CINE_DOLLY_SEC`; die Kamera faehrt langsam heran.
 	var t: float = clampf((_cine_total - _cine_left) / CINE_DOLLY_SEC, 0.0, 1.0)
-	var dist: float = lerpf(CINE_DIST_FROM, CINE_DIST_TO, smoothstep(0.0, 1.0, t))
-	var pos: Vector3 = kopf + von * dist + quer * CINE_SIDE + Vector3(0.0, 0.22, 0.0)
-	return [pos, kopf]
+	var noetig: float = clampf(abstand * 0.5 + CINE_TWO_MARGIN, CINE_TWO_MIN_M, CINE_TWO_MAX_M)
+	var dist: float = lerpf(noetig + 1.1, noetig, smoothstep(0.0, 1.0, t))
+	var pos: Vector3 = mitte + quer * dist + Vector3(0.0, 0.30, 0.0)
+	return [pos, mitte]
 
 
 ## Spieler und Gegenueber drehen sich zueinander.
@@ -3863,6 +3978,7 @@ func _process(delta: float) -> void:
 	_process_fog(delta)
 	_process_interactions(delta)
 	_process_trail(delta)
+	_process_mount(delta)
 	_process_autosave(delta)
 	_update_hud()
 
@@ -3900,14 +4016,14 @@ func _process_movement(delta: float) -> void:
 	# fehlt dem Rig schlicht ein Clip fuers Schiessen aus dem Stand.
 	var clip: String = "idle"
 	if moving:
-		clip = "attack" if _fire_wanted() else _gait(WorldManager.PLAYER_SPEED_MS)
+		clip = "attack" if _fire_wanted() else _gait(_speed_ms())
 	AssetRegistry.play_clip(_player_model, clip)
 	if not moving:
 		return
 	# Eingabe ist bildschirmbezogen: um die Kamera-Gierung zurückdrehen, damit „nach oben
 	# ziehen" auch bei gedrehter Kamera nach oben läuft (sonst zieht es schräg).
 	var dir: Vector2 = mv.rotated(-deg_to_rad(CAM_YAW))
-	var step: Vector3 = Vector3(dir.x, 0.0, dir.y) * WorldManager.PLAYER_SPEED_MS * delta
+	var step: Vector3 = Vector3(dir.x, 0.0, dir.y) * _speed_ms() * delta
 	var next: Vector3 = _player.position + step
 	# Weltgrenzen (Kraterrand).
 	next.x = clampf(next.x, 2.0, WorldManager.WORLD_METERS - 2.0)
@@ -4000,6 +4116,14 @@ func _process_combat(delta: float) -> void:
 				_say("🔄 Nur %d Schuss geladen — der Vorrat geht zur Neige." % geladen, 2.0)
 	var e: Dictionary = _nearest_enemy(SHOOT_RANGE_M)
 	var wants: bool = _fire_wanted()
+	# Ohne Waffe wird nicht geschossen. Der Held erwacht mit leeren Haenden auf der Kippe —
+	# bis zur ersten Truhe ist Weglaufen die einzige Antwort, und genau das soll man merken.
+	if _weapon_id == "" or _mounted:
+		if _fire_btn != null:
+			_fire_btn.set_state(false, false)
+		if wants and _weapon_id == "":
+			_say("🚫 Leere Hände. Such dir etwas.", 1.6)
+		return
 	# Der Knopf zeigt beides an: dass gedrueckt ist UND ob ueberhaupt jemand in Reichweite ist.
 	# Ohne die zweite Anzeige waere „nichts passiert" nicht von „kaputt" zu unterscheiden.
 	if _fire_btn != null:
@@ -4265,6 +4389,99 @@ func _scurry(e: Dictionary, moving: bool) -> void:
 	else:
 		model.position.y = absf(sin(t)) * SCURRY_HOP * height
 		model.rotation.z = sin(t * 0.5) * SCURRY_ROLL_RAD
+
+
+# ── Das Pferd (GDD §8.1a) ────────────────────────────────────────────────────
+## Der Krater ist 5 x 5 km und die Laufgeschwindigkeit 4,7 m/s — eine Querung dauert achtzehn
+## Minuten. Die Iron Rail nimmt das zwischen den Bahnhoefen weg, aber alles daneben bleibt
+## Fussmarsch. Ein Pferd ist deshalb keine Kosmetik, sondern die Antwort auf die Weltgroesse.
+##
+## Es steht am Rand der Schrottgrube, also **dort, wo das Spiel anfaengt**: Der erste Weg von
+## der Kippe nach Rustwater ist gut einen Kilometer lang, und den soll man reiten koennen.
+##
+## Es gibt noch **kein Modell und keine Reit-Animation** — deshalb ein Platzhalter aus Kasten
+## und Beinen, und die Figur sitzt nicht auf, sondern laeuft schneller, waehrend das Pferd
+## neben ihr her bleibt. Das ist ehrlich: Es zeigt die Mechanik, ohne so zu tun, als waere die
+## Darstellung fertig.
+const MOUNT_SPEED_MUL: float = 3.0
+const MOUNT_RANGE_M: float = 4.0
+var _horse: Node3D = null
+var _mounted: bool = false
+
+
+## Tempo der Figur — zu Fuss oder im Sattel.
+func _speed_ms() -> float:
+	return WorldManager.PLAYER_SPEED_MS * (MOUNT_SPEED_MUL if _mounted else 1.0)
+
+
+## Das Pferd absetzen: am Kraterrand der Schrotthalde, auf der Seite von Rustwater.
+func _build_horse() -> void:
+	var mitte := Vector3.ZERO
+	var radius: float = 20.0
+	for f in WorldManager.TERRAIN:
+		if String(f.get("id", "")) == "schrotthalde":
+			mitte = WorldManager.feature_center(f)
+			radius = float(f.get("radius", 20.0)) * (1.0 + float(f.get("rim_width", 0.0)))
+			break
+	if mitte == Vector3.ZERO:
+		return
+	var nach_stadt: Vector3 = WorldManager.poi_scene_position("rustwater") - mitte
+	nach_stadt.y = 0.0
+	if nach_stadt.length() < 1.0:
+		nach_stadt = Vector3(0.0, 0.0, 1.0)
+	nach_stadt = nach_stadt.normalized()
+	var wo: Vector3 = mitte + nach_stadt * (radius + 5.0)
+	wo.y = WorldManager.height_at(wo.x, wo.z)
+	_horse = AssetRegistry.instantiate("horse", 1.6)
+	if _horse == null:
+		_horse = _horse_dummy()
+	_horse.position = wo
+	_horse.rotation.y = atan2(-nach_stadt.x, -nach_stadt.z)
+	add_child(_horse)
+	_label(wo + Vector3(0.0, 2.1, 0.0), "🐎 Pferd", Color(0.95, 0.88, 0.70), LBL_FIGUR, 90.0)
+
+
+## Platzhalter, solange kein Modell da ist: Rumpf, Hals, Kopf, vier Beine. Bewusst grob — wer
+## das sieht, weiss sofort, dass hier noch ein Modell fehlt, und haelt es nicht fuer den Stand.
+func _horse_dummy() -> Node3D:
+	var n := Node3D.new()
+	var fell := Color(0.35, 0.24, 0.16)
+	n.add_child(_box(Vector3(0.7, 0.8, 2.1), Vector3(0.0, 1.25, 0.0), fell))
+	n.add_child(_box(Vector3(0.45, 0.8, 0.5), Vector3(0.0, 1.75, -1.0), fell))
+	n.add_child(_box(Vector3(0.4, 0.4, 0.7), Vector3(0.0, 2.05, -1.3), fell))
+	for sx in [-0.25, 0.25]:
+		for sz in [-0.75, 0.75]:
+			n.add_child(_box(Vector3(0.2, 0.9, 0.2), Vector3(sx, 0.45, sz),
+				fell.darkened(0.25)))
+	return n
+
+
+## Auf- und absteigen. Im Sattel wird nicht geschossen (GDD §8.1a) — sonst waere das Pferd die
+## bessere Version von allem.
+func _toggle_mount() -> void:
+	if _horse == null:
+		return
+	if _mounted:
+		_mounted = false
+		_horse.position = _player.position + Vector3(1.2, 0.0, 0.6)
+		_horse.position.y = WorldManager.height_at(_horse.position.x, _horse.position.z)
+		_say("🐎 Abgestiegen.", 1.8)
+		return
+	if _player.position.distance_to(_horse.position) > MOUNT_RANGE_M:
+		return
+	_mounted = true
+	_say("🐎 Aufgesessen — dreifaches Tempo, aber kein Schuss aus dem Sattel.", 2.6)
+
+
+## Im Sattel laeuft das Pferd mit. Ohne Reit-Animation bleibt es NEBEN der Figur statt unter
+## ihr — untergeschoben saehe es aus, als steckte sie im Ruecken des Tieres.
+func _process_mount(delta: float) -> void:
+	if _horse == null or not _mounted or _player == null:
+		return
+	var ziel: Vector3 = _player.position + (_player.global_transform.basis.x * 1.15)
+	ziel.y = WorldManager.height_at(ziel.x, ziel.z)
+	_horse.position = _horse.position.lerp(ziel, clampf(delta * 9.0, 0.0, 1.0))
+	_horse.rotation.y = _player.rotation.y
 
 
 var _swamp_warned: float = 0.0

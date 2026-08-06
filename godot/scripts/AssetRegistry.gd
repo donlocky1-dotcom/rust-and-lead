@@ -103,6 +103,9 @@ const PATHS: Dictionary = {
 	# ohne sie schon irgendwo einzubauen. Wer sie ist, entscheidet der Auftraggeber.
 	"figur_ohne_namen":     ["res://assets/models/unsortiert/figur_ohne_namen.glb"],
 	"figur_mit_animationen":["res://assets/models/unsortiert/figur_mit_animationen.glb"],
+	# Reittier. Noch ohne Modell — `OverworldView._horse_dummy()` setzt so lange einen
+	# Platzhalter aus Kaesten. Sobald hier eine Datei liegt, greift sie von selbst.
+	"horse":           ["res://assets/models/characters/horse.glb"],
 	"bones":           ["res://assets/models/props/bones.glb"],
 	"bones_b":         ["res://assets/models/props/bones_b.glb"],
 	# ── Props / Items ──

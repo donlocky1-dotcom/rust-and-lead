@@ -77,6 +77,32 @@ var quest_base: Dictionary = {}   ## quest_id (String) -> Kill-Stand zum Annahme
 ## verlaesst, soll beim naechsten Start nicht wieder ohne Richtung dastehen.
 var tracked_quest: String = ""
 
+# ── Waffen: was der Held GEFUNDEN hat ────────────────────────────────────────
+## Bisher trug er alle fuenf Waffen von der ersten Sekunde an — mit dem Umschalter durch das
+## ganze Arsenal, ohne je eine gefunden zu haben. Damit ist die Beute wertlos und die
+## Schadensarten-Mechanik (§6.1) hat keinen Aufbau: Wer alles hat, lernt nichts dazu.
+##
+## Jetzt beginnt er mit **leeren Haenden** in der Schrottgrube. Der Blei-Karabiner liegt in der
+## Truhe dort — der erste Fund des Spiels, und der Grund, ueberhaupt hinzusehen.
+var weapons: Array = []
+
+## Hat er diese Waffe?
+func has_weapon(id: String) -> bool:
+	return weapons.has(id)
+
+## Aufsammeln. `true`, wenn sie neu war.
+func add_weapon(id: String) -> bool:
+	if id == "" or weapons.has(id):
+		return false
+	weapons.append(id)
+	return true
+
+## Die zurzeit gefuehrte Waffe ("" = keine).
+var weapon_id: String = ""
+
+## Prolog abgeschlossen? Steuert, wo eine Runde ANFAENGT: erst die Grube, danach Rustwater.
+var prolog_done: bool = false
+
 # ── Roter Faden: Erinnerungs-Walzen & Familien-Bogen (Master-GDD §7.5.12a/b, §8.3) ──
 var memories_found: int = 0        ## 0..MemoryManager.chain_length(); geordnete Erinnerungskette
 var memorials_seen: Array = []     ## ids besuchter Erinnerungspunkte in Providence Cut

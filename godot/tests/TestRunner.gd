@@ -1867,31 +1867,54 @@ func _test_closeup() -> void:
 	var ow := OverworldView.new()
 	_scratch.append(ow)
 	# Zwei Attrappen: eine „Person", die nach Sueden schaut, und der Spieler daneben.
+	# In den BAUM haengen, nicht nur erzeugen: `global_position` ist bei einem Knoten ausserhalb
+	# des Szenenbaums null, und die Einstellung rechnet mit globalen Punkten. Der alte Test hat
+	# das nicht gemerkt, weil er selbst mit denselben Nullen verglich.
 	var wer := Node3D.new()
 	_scratch.append(wer)
+	add_child(wer)
 	wer.position = Vector3(100.0, 0.0, -100.0)
 	ow._player = Node3D.new()
 	_scratch.append(ow._player)
+	add_child(ow._player)
 	ow._player.position = wer.position + Vector3(2.0, 0.0, 0.0)
 	ow._cam = Camera3D.new()
 	_scratch.append(ow._cam)
 	_check("Vor dem Ausloesen laeuft keine Aufnahme", not ow._in_cine())
 	ow._play_closeup(wer, 2.6)
 	_check("Nach dem Ausloesen laeuft eine", ow._in_cine())
-	# Die Kamera steht VOR der Person (in ihrer Blickrichtung), nicht irgendwo.
+	# Ein Gespraech ist eine ZWEIER-Einstellung: Beide muessen zu sehen sein, und keiner darf
+	# vor dem anderen stehen. Vorher galt nur „Kamera vor dem Gesicht des Gegenuebers" — wo der
+	# Spieler dabei stand, war Zufall, und stand er dazwischen, verdeckte er genau den, mit dem
+	# man spricht.
 	var f: Array = ow._cine_frame()
 	var pos: Vector3 = f[0]
 	var blick: Vector3 = f[1]
-	var vorn: Vector3 = -wer.global_transform.basis.z
-	var hin: Vector3 = (pos - wer.global_position)
-	hin.y = 0.0
-	_check("Die Kamera steht vor der Person, nicht hinter ihr (%.2f)"
-		% vorn.dot(hin.normalized()), vorn.dot(hin.normalized()) > 0.6)
+	var zu_npc: Vector3 = wer.global_position - pos
+	var zu_spieler: Vector3 = ow._player.position - pos
+	zu_npc.y = 0.0
+	zu_spieler.y = 0.0
+	# Beide VOR der Kamera (sie blickt auf die Mitte zwischen ihnen).
+	var richtung: Vector3 = blick - pos
+	richtung.y = 0.0
+	richtung = richtung.normalized()
+	_check("Das Gegenueber ist im Bild", richtung.dot(zu_npc.normalized()) > 0.3)
+	_check("Der Spieler ist im Bild", richtung.dot(zu_spieler.normalized()) > 0.3)
+	# Nebeneinander, nicht hintereinander: der Winkel zwischen beiden Blickstrahlen.
+	var winkel: float = rad_to_deg(zu_npc.angle_to(zu_spieler))
+	_check("Sie stehen nebeneinander, keiner verdeckt den anderen (%.0f°)" % winkel,
+		winkel > 25.0)
+	# Und beide etwa gleich weit weg — sonst ist einer eine Silhouette im Vordergrund.
+	var v: float = maxf(zu_npc.length(), zu_spieler.length()) \
+		/ maxf(minf(zu_npc.length(), zu_spieler.length()), 0.01)
+	_check("Beide sind etwa gleich weit weg (%.2f)" % v, v < 1.6)
 	_check("Sie schaut auf Kopfhoehe, nicht auf die Fuesse (%.2f m)" % blick.y,
 		blick.y > 1.0 and blick.y < 2.6)
-	_check("Sie steht in Portraitabstand (%.2f m)" % hin.length(),
-		hin.length() >= OverworldView.CINE_DIST_TO - 0.1
-			and hin.length() <= OverworldView.CINE_DIST_FROM + 1.0)
+	var hin: Vector3 = pos - blick
+	hin.y = 0.0
+	_check("Sie steht in Gespraechsabstand (%.2f m)" % hin.length(),
+		hin.length() >= OverworldView.CINE_TWO_MIN_M - 0.1
+			and hin.length() <= OverworldView.CINE_TWO_MAX_M + 1.2)
 	# Die Fahrt nach innen haengt an der Zeit, nicht an der Dauer der Einstellung — sonst
 	# faehrt eine kurze hektisch und eine lange in Zeitlupe.
 	var weit0: float = hin.length()
