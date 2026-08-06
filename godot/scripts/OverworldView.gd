@@ -1330,6 +1330,16 @@ func _build_township() -> void:
 		var sperren: Array = TownCollision.rects(town, town.transform)
 		_register_town_rects(sperren)
 		umriss = _wall_outline(sperren, c)
+		_wall_umriss = umriss
+		_wall_mitte = Vector2(c.x, c.z)
+		_gates.clear()
+		for r in sperren:
+			if String(r["asset"]).begins_with("gate"):
+				_gates.append(Vector2(r["c"]))
+		# Ein Tor besteht aus ZWEI Pfosten, also stehen zwei Eintraege dicht beieinander. Die
+		# Durchfahrt liegt zwischen ihnen — genau dorthin soll die Spur zeigen, nicht auf einen
+		# der Pfosten.
+		_gates = _paare_mitteln(_gates, 6.0)
 	else:
 		_build_township_from_code(c)
 	_build_town_ground(c, umriss)
@@ -1385,6 +1395,99 @@ func _wall_outline(sperren: Array, c: Vector3) -> PackedFloat32Array:
 		var b: float = eimer[(i + nach) % WALL_BUCKETS]
 		voll[i] = lerpf(a, b, float(vor) / float(vor + nach))
 	return voll
+
+
+## Palisade und Tore, gemerkt fuer die Wegweisung.
+var _wall_umriss := PackedFloat32Array()
+var _wall_mitte := Vector2.ZERO
+var _gates: Array = []
+
+
+## Punkte, die naeher als `abstand` beieinanderliegen, zu ihrem Mittelpunkt zusammenfassen.
+## Aus zwei Torpfosten wird so die Durchfahrt.
+func _paare_mitteln(punkte: Array, abstand: float) -> Array:
+	var rest: Array = punkte.duplicate()
+	var out: Array = []
+	while not rest.is_empty():
+		var a: Vector2 = rest.pop_back()
+		var summe: Vector2 = a
+		var n: int = 1
+		var i: int = rest.size() - 1
+		while i >= 0:
+			if a.distance_to(rest[i]) <= abstand:
+				summe += rest[i]
+				n += 1
+				rest.remove_at(i)
+			i -= 1
+		out.append(summe / float(n))
+	return out
+
+
+## Liegt dieser Punkt INNERHALB der Palisade?
+func _im_ort(p: Vector2) -> bool:
+	if _wall_umriss.is_empty():
+		return false
+	var d: Vector2 = p - _wall_mitte
+	return d.length() < _outline_at(_wall_umriss, atan2(d.y, d.x))
+
+
+## Zwischenziel, damit die Spur nicht durch die Mauer zeigt ("INF" = kein Umweg noetig).
+##
+## Eine Fussspur, die schnurgerade auf ein Ziel hinter der Palisade weist, fuehrt den Spieler
+## vor eine Wand und laesst ihn dort suchen. Sie muss durch das TOR gehen — und nur dort, wo
+## man wirklich durchkommt.
+##
+## Bewusst keine Wegfindung, sondern ein Zwischenziel, genau wie beim Sumpf (`swamp_detour`):
+## Zwischen Wueste und Ort gibt es kein Labyrinth, es gibt eine Mauer mit Toren. Wer im Ort
+## steht, geht zum naechsten Tor hinaus; wer draussen steht und hinein will, geht zum Tor, das
+## dem Ziel am naechsten liegt.
+const GATE_REACHED_M: float = 5.0
+func _gate_detour(von: Vector2, nach: Vector2) -> Vector2:
+	if _gates.is_empty() or _wall_umriss.is_empty():
+		return Vector2.INF
+	var drin_von: bool = _im_ort(von)
+	var drin_nach: bool = _im_ort(nach)
+	if drin_von == drin_nach:
+		# Beide drinnen oder beide draussen. Draussen kann die Gerade trotzdem den Ort
+		# durchschneiden — dann laeuft man aussen herum, nicht mittendurch.
+		if not drin_von and _schneidet_ort(von, nach):
+			return _um_den_ort(von, nach)
+		return Vector2.INF
+	# Ueber die Mauer hinweg: durch das Tor, das dem Ziel am naechsten liegt.
+	var bestes: Vector2 = Vector2.INF
+	var beste_laenge: float = INF
+	for g in _gates:
+		var tor: Vector2 = g
+		var laenge: float = von.distance_to(tor) + tor.distance_to(nach)
+		if laenge < beste_laenge:
+			beste_laenge = laenge
+			bestes = tor
+	if bestes == Vector2.INF or von.distance_to(bestes) < GATE_REACHED_M:
+		return Vector2.INF     # schon im Tor — ab hier zeigt die Spur wieder aufs Ziel
+	return bestes
+
+
+## Schneidet die Gerade den Ort? Grobprobe an zwoelf Punkten — genauer muss es nicht sein, es
+## geht um „mittendurch oder aussen herum".
+func _schneidet_ort(von: Vector2, nach: Vector2) -> bool:
+	for i in range(1, 12):
+		if _im_ort(von.lerp(nach, float(i) / 12.0)):
+			return true
+	return false
+
+
+## Ausweichpunkt neben dem Ort: seitlich versetzt, auf Hoehe der groessten Annaeherung.
+func _um_den_ort(von: Vector2, nach: Vector2) -> Vector2:
+	var richtung: Vector2 = (nach - von).normalized()
+	var quer := Vector2(-richtung.y, richtung.x)
+	var laengs: float = (_wall_mitte - von).dot(richtung)
+	var nah: Vector2 = von + richtung * laengs
+	var seite: float = signf((nah - _wall_mitte).dot(quer))
+	if is_zero_approx(seite):
+		seite = 1.0
+	var weite: float = _outline_at(_wall_umriss,
+		atan2(quer.y * seite, quer.x * seite)) + 8.0
+	return _wall_mitte + quer * seite * weite
 
 
 ## Umriss an einem Winkel ablesen, zwischen den Faechern geglaettet.
@@ -1928,15 +2031,21 @@ func _npc_line(giver: String, kind: String) -> String:
 ## hat, rückt der Anker um genau diesen Abstand vor und richtet sich neu aufs Ziel aus: Vorn
 ## kommt ein Abdruck dazu, hinten verschwindet einer unter den Füßen. Man LÄUFT die Spur ab,
 ## statt sie vor sich herzuschieben.
-const TRAIL_STEPS: int = 16        # Anzahl Abdrücke ≈ 33 m Vorlauf
-const TRAIL_SPACING_M: float = 2.1 # Abstand von Abdruck zu Abdruck
-const TRAIL_SIDE_M: float = 0.34   # links/rechts versetzt — sonst ist es eine Linie, kein Gang
+## Maße eines SCHRITTS, nicht eines Wegpunkts.
+##
+## Der erste Entwurf hat 2,1 m Abstand und 88 cm lange Abdrücke gesetzt — das ist die Spur eines
+## Riesen. Ein Mensch macht Schritte von rund 75 cm und hinterlässt Abdrücke von etwa 30 cm;
+## danach sind diese Zahlen jetzt gemessen. Bei 4,7 m/s Laufgeschwindigkeit heißt das gut sechs
+## Schritte je Sekunde — genau der Takt, in dem die Figur die Beine setzt.
+const TRAIL_STEPS: int = 30        # Anzahl Abdrücke ≈ 23 m Vorlauf
+const TRAIL_SPACING_M: float = 0.78
+const TRAIL_SIDE_M: float = 0.15   # halbe Spurbreite — links/rechts, wie beim Gehen
 ## Weicht man so weit seitlich vom Anker ab, wird neu angesetzt. Ohne das zeigt die Spur noch in
 ## die Richtung, in die man vor zwanzig Metern gelaufen ist.
 const TRAIL_DRIFT_M: float = 2.5
 ## Unter den Füßen blendet ein Abdruck aus, statt zu verschwinden. Ein Abdruck, der einen Meter
 ## vor der Figur wegploppt, ist auffälliger als einer, der nie da war.
-const TRAIL_FADE_NEAR_M: float = 2.6
+const TRAIL_FADE_NEAR_M: float = 1.1
 ## Näher als das ist man da; dann verschwindet die Spur. Ein Wegweiser, der noch zeigt, wenn man
 ## schon steht, sieht aus wie ein Fehler.
 const TRAIL_ARRIVED_M: float = 14.0
@@ -1959,7 +2068,7 @@ func _build_trail() -> void:
 	for i in TRAIL_STEPS:
 		var mi := MeshInstance3D.new()
 		var q := QuadMesh.new()
-		q.size = Vector2(0.46, 0.88)
+		q.size = Vector2(0.15, 0.32)
 		mi.mesh = q
 		var m := StandardMaterial3D.new()
 		m.albedo_color = Color(TRAIL_DUNKEL, 0.75)
@@ -1970,7 +2079,7 @@ func _build_trail() -> void:
 		if sohle != null:
 			m.albedo_texture = sohle
 			var s_gr: Vector2 = sohle.get_size()
-			q.size = Vector2(0.46 * (s_gr.x / maxf(s_gr.y, 1.0)), 0.88)
+			q.size = Vector2(0.32 * (s_gr.x / maxf(s_gr.y, 1.0)), 0.32)
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		# Nicht in den Tiefenpuffer schreiben: Der Abdruck liegt 6 cm über dem Sand und würde
@@ -2008,7 +2117,14 @@ func _trail_goal() -> Vector3:
 	var umweg: Vector2 = WorldManager.swamp_detour(hier, dort)
 	if umweg != Vector2.INF:
 		return WorldManager.world_to_scene(umweg)
-	return WorldManager.poi_scene_position(ziel)
+	# Die Mauer zuletzt: Sie ist das naechstliegende Hindernis, der Sumpf das weiter entfernte.
+	# Erst um die Todeszone herum, dann durchs Tor.
+	var szene_ziel: Vector3 = WorldManager.poi_scene_position(ziel)
+	var tor: Vector2 = _gate_detour(Vector2(_player.position.x, _player.position.z),
+		Vector2(szene_ziel.x, szene_ziel.z))
+	if tor != Vector2.INF:
+		return Vector3(tor.x, WorldManager.height_at(tor.x, tor.y), tor.y)
+	return szene_ziel
 
 
 ## Hoehe, auf der ein FLACHER Marker liegen muss, damit man ihn sieht.
@@ -2088,7 +2204,9 @@ func _advance_trail(dir: Vector3) -> void:
 		return
 	# Mehrere Schritte auf einmal kommen beim Schnellreisen vor; dann wird ohnehin neu angesetzt,
 	# sobald die Abweichung zu groß ist. Die Schleife ist deshalb gedeckelt.
-	var schritte: int = mini(int(vor / TRAIL_SPACING_M), TRAIL_STEPS)
+	# Mit einem winzigen Zuschlag, weil `vor` bei einem exakten Schritt als 0,99999… ankommt und
+	# `int()` daraus eine Null macht: Die Spur bliebe dann genau bei jedem vollen Schritt stehen.
+	var schritte: int = mini(int(vor / TRAIL_SPACING_M + 1e-4), TRAIL_STEPS)
 	if schritte <= 0:
 		return
 	_trail_anker += _trail_dir * (float(schritte) * TRAIL_SPACING_M)
@@ -2321,6 +2439,13 @@ func _load_pit(id: String) -> void:
 	var grube: Node3D = packed.instantiate() as Node3D
 	if grube == null:
 		return
+	# Die Szene arbeitet lokal um die Kratermitte (damit sie sich im Editor oeffnen laesst,
+	# ohne dass die Kamera im Nichts steht); hier bekommt sie ihren Platz in der Welt.
+	for f0 in WorldManager.TERRAIN:
+		if String(f0.get("id", "")) == id:
+			var m: Vector3 = WorldManager.feature_center(f0)
+			grube.position = Vector3(m.x, 0.0, m.z)
+			break
 	add_child(grube)
 	# Die Lache bleibt Sache des Codes, nicht der Bearbeitungsszene: Sie haengt an der Form des
 	# Kraters (tiefster Punkt, Radius) und nicht am Geschmack dessen, der die Halde fuellt.

@@ -1,477 +1,477 @@
 [gd_scene load_steps=22 format=3]
 
-[ext_resource type="Script" path="res://scripts/PitFloor.gd" id="1_kr551"]
-[ext_resource type="PackedScene" path="res://assets/models/props/locomotive.glb" id="2_a0rku"]
-[ext_resource type="PackedScene" path="res://assets/models/props/barrels_b_lod.glb" id="3_xpdh4"]
-[ext_resource type="PackedScene" path="res://assets/models/props/barrels_b_rust_lod.glb" id="4_301us"]
-[ext_resource type="PackedScene" path="res://assets/models/props/barrels_c_rust_lod.glb" id="5_xobam"]
-[ext_resource type="PackedScene" path="res://assets/models/props/office_chair.glb" id="6_dtuvs"]
-[ext_resource type="PackedScene" path="res://assets/models/props/barrels_c_lod.glb" id="7_4sr2r"]
-[ext_resource type="PackedScene" path="res://assets/models/props/shelf.glb" id="8_yfks5"]
-[ext_resource type="PackedScene" path="res://assets/models/props/barbed_wire.glb" id="9_hen4a"]
-[ext_resource type="PackedScene" path="res://assets/models/props/barrels_lod.glb" id="10_f0v81"]
-[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_rust_lod.glb" id="11_h7ff3"]
-[ext_resource type="PackedScene" path="res://assets/models/environment/monolith.glb" id="12_ovvux"]
-[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_b_rust_lod.glb" id="13_y5kyg"]
-[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_b_lod.glb" id="14_52dmp"]
-[ext_resource type="PackedScene" path="res://assets/models/props/barrels_rust_lod.glb" id="15_d36u4"]
-[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_lod.glb" id="16_gev34"]
-[ext_resource type="PackedScene" path="res://assets/models/props/desk.glb" id="17_bswqy"]
-[ext_resource type="PackedScene" path="res://assets/models/props/medallion.glb" id="18_43r6i"]
-[ext_resource type="PackedScene" path="res://assets/models/props/oil_barrel.glb" id="19_r3ymv"]
-[ext_resource type="PackedScene" path="res://assets/models/environment/namaqualand_boulder_03_1k/namaqualand_boulder_03_1k.gltf" id="20_wf345"]
-[ext_resource type="PackedScene" path="res://assets/models/environment/sand_rocks_small_01_1k/sand_rocks_small_01_1k.gltf" id="21_qly3d"]
+[ext_resource type="Script" path="res://scripts/PitFloor.gd" id="1_2eaf5"]
+[ext_resource type="PackedScene" path="res://assets/models/props/locomotive.glb" id="2_8pymt"]
+[ext_resource type="PackedScene" path="res://assets/models/props/barrels_b_lod.glb" id="3_cdp2l"]
+[ext_resource type="PackedScene" path="res://assets/models/props/barrels_b_rust_lod.glb" id="4_nspy7"]
+[ext_resource type="PackedScene" path="res://assets/models/props/barrels_c_rust_lod.glb" id="5_nv48k"]
+[ext_resource type="PackedScene" path="res://assets/models/props/office_chair.glb" id="6_qpjpn"]
+[ext_resource type="PackedScene" path="res://assets/models/props/barrels_c_lod.glb" id="7_nrka7"]
+[ext_resource type="PackedScene" path="res://assets/models/props/shelf.glb" id="8_voi0u"]
+[ext_resource type="PackedScene" path="res://assets/models/props/barbed_wire.glb" id="9_w7rq2"]
+[ext_resource type="PackedScene" path="res://assets/models/props/barrels_lod.glb" id="10_mmu3a"]
+[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_rust_lod.glb" id="11_l4fdh"]
+[ext_resource type="PackedScene" path="res://assets/models/environment/monolith.glb" id="12_s3vqi"]
+[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_b_rust_lod.glb" id="13_72juw"]
+[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_b_lod.glb" id="14_a7nju"]
+[ext_resource type="PackedScene" path="res://assets/models/props/barrels_rust_lod.glb" id="15_6ynpy"]
+[ext_resource type="PackedScene" path="res://assets/models/props/scrap_heap_lod.glb" id="16_6t2pc"]
+[ext_resource type="PackedScene" path="res://assets/models/props/desk.glb" id="17_fc1su"]
+[ext_resource type="PackedScene" path="res://assets/models/props/medallion.glb" id="18_20hw1"]
+[ext_resource type="PackedScene" path="res://assets/models/props/oil_barrel.glb" id="19_oefgd"]
+[ext_resource type="PackedScene" path="res://assets/models/environment/namaqualand_boulder_03_1k/namaqualand_boulder_03_1k.gltf" id="20_87o81"]
+[ext_resource type="PackedScene" path="res://assets/models/environment/sand_rocks_small_01_1k/sand_rocks_small_01_1k.gltf" id="21_dapnn"]
 
 [node name="schrotthalde" type="Node3D"]
 
 [node name="BODEN_NUR_EDITOR" type="StaticBody3D" parent="."]
-script = ExtResource("1_kr551")
+script = ExtResource("1_2eaf5")
 feature_id = "schrotthalde"
 rand_m = 10.0
 schrittweite_m = 0.5
 sichtbar = true
 neu_bauen = false
 
-[node name="000_locomotive" type="Node3D" parent="." instance=ExtResource("2_a0rku")]
-transform = Transform3D(2.51709, -0.154775, -6.36408, 1.63587, 6.62941, 0.485782, 6.15218, -1.69944, 2.47461, 368.403, -3.5381, -1128.15)
+[node name="000_locomotive" type="Node3D" parent="." instance=ExtResource("2_8pymt")]
+transform = Transform3D(2.51709, -0.154775, -6.36408, 1.63587, 6.62941, 0.485782, 6.15218, -1.69944, 2.47461, -6.59744, -3.5381, -3.15039)
 
-[node name="001_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(-0.819481, -0.0858672, -1.69456, -0.474115, 1.81848, 0.137133, 1.62915, 0.486022, -0.812476, 367.629, -4.30707, -1119)
+[node name="001_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(-0.819481, -0.0858672, -1.69456, -0.474115, 1.81848, 0.137133, 1.62915, 0.486022, -0.812476, -7.37079, -4.30707, 6.00342)
 
-[node name="002_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(-2.16579, 0.201201, -0.813991, -0.113616, 2.16337, 0.837039, 0.830756, 0.820403, -2.00761, 377.647, -1.98359, -1135.65)
+[node name="002_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(-2.16579, 0.201201, -0.813991, -0.113616, 2.16337, 0.837039, 0.830756, 0.820403, -2.00761, 2.64694, -1.98359, -10.6453)
 
-[node name="003_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(1.37023, -0.367098, 0.949744, -0.00621356, 1.58928, 0.623258, -1.0182, -0.503714, 1.2743, 374.86, -4.58993, -1130.05)
+[node name="003_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(1.37023, -0.367098, 0.949744, -0.00621356, 1.58928, 0.623258, -1.0182, -0.503714, 1.2743, -0.139923, -4.58993, -5.04993)
 
-[node name="004_office_chair" type="Node3D" parent="." instance=ExtResource("6_dtuvs")]
-transform = Transform3D(-0.399069, -0.319667, 0.5903, -0.261272, 0.706544, 0.205986, -0.618367, -0.0922283, -0.467988, 368.053, -4.67821, -1116.61)
+[node name="004_office_chair" type="Node3D" parent="." instance=ExtResource("6_qpjpn")]
+transform = Transform3D(-0.399069, -0.319667, 0.5903, -0.261272, 0.706544, 0.205986, -0.618367, -0.0922283, -0.467988, -6.94656, -4.67821, 8.39441)
 
-[node name="005_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(-1.61274, -0.478749, 1.07181, -0.000784557, 1.82173, 0.812538, -1.17387, 0.656519, -1.47306, 378.495, -4.53693, -1118.82)
+[node name="005_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(-1.61274, -0.478749, 1.07181, -0.000784557, 1.82173, 0.812538, -1.17387, 0.656519, -1.47306, 3.49512, -4.53693, 6.18176)
 
-[node name="006_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(-1.63303, -0.124349, 0.215705, -0.0317097, 1.52335, 0.63811, -0.246953, 0.626679, -1.50833, 383.959, -4.59221, -1127.4)
+[node name="006_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(-1.63303, -0.124349, 0.215705, -0.0317097, 1.52335, 0.63811, -0.246953, 0.626679, -1.50833, 8.95901, -4.59221, -2.39502)
 
-[node name="007_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(1.43742, 0.228413, 1.73635, 0.611841, 2.03927, -0.77477, -1.64095, 0.96044, 1.2321, 385.197, -4.15074, -1117.49)
+[node name="007_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(1.43742, 0.228413, 1.73635, 0.611841, 2.03927, -0.77477, -1.64095, 0.96044, 1.2321, 10.1972, -4.15074, 7.51147)
 
-[node name="008_shelf" type="Node3D" parent="." instance=ExtResource("8_yfks5")]
-transform = Transform3D(-0.671658, -0.473331, 1.02126, -0.136612, 1.21474, 0.473159, -1.1173, 0.136014, -0.671779, 376.983, -3.75018, -1128.21)
+[node name="008_shelf" type="Node3D" parent="." instance=ExtResource("8_voi0u")]
+transform = Transform3D(-0.671658, -0.473331, 1.02126, -0.136612, 1.21474, 0.473159, -1.1173, 0.136014, -0.671779, 1.98322, -3.75018, -3.21069)
 
-[node name="009_barbed_wire" type="Node3D" parent="." instance=ExtResource("9_hen4a")]
-transform = Transform3D(0.606784, 0.0463195, 1.67926, -0.616371, 1.66706, 0.176737, -1.56274, -0.639534, 0.58232, 384.135, -2.47816, -1131.34)
+[node name="009_barbed_wire" type="Node3D" parent="." instance=ExtResource("9_w7rq2")]
+transform = Transform3D(0.606784, 0.0463195, 1.67926, -0.616371, 1.66706, 0.176737, -1.56274, -0.639534, 0.58232, 9.13489, -2.47816, -6.3374)
 
-[node name="010_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_f0v81")]
-transform = Transform3D(1.30724, 0.172828, -0.45011, -0.362438, 1.21006, -0.587991, 0.317973, 0.668749, 1.18026, 376.545, -4.38242, -1131.79)
+[node name="010_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_mmu3a")]
+transform = Transform3D(1.30724, 0.172828, -0.45011, -0.362438, 1.21006, -0.587991, 0.317973, 0.668749, 1.18026, 1.54501, -4.38242, -6.79236)
 
-[node name="011_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_f0v81")]
-transform = Transform3D(1.04765, 0.554184, 1.15036, -0.0747603, 1.51207, -0.660353, -1.2747, 0.36679, 0.984185, 367.534, -4.53875, -1120.03)
+[node name="011_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_mmu3a")]
+transform = Transform3D(1.04765, 0.554184, 1.15036, -0.0747603, 1.51207, -0.660353, -1.2747, 0.36679, 0.984185, -7.46613, -4.53875, 4.97388)
 
-[node name="012_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-1.49021, 0.918827, 0.83891, 0.610902, 1.68066, -0.755584, -1.08389, -0.316015, -1.57926, 368.864, -4.7827, -1121.63)
+[node name="012_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-1.49021, 0.918827, 0.83891, 0.610902, 1.68066, -0.755584, -1.08389, -0.316015, -1.57926, -6.13565, -4.7827, 3.37268)
 
-[node name="013_monolith" type="Node3D" parent="." instance=ExtResource("12_ovvux")]
-transform = Transform3D(0.054414, -0.55879, 1.632, -0.348349, 1.59561, 0.557946, -1.68947, -0.346993, -0.0624789, 380.48, -0.95312, -1133.31)
+[node name="013_monolith" type="Node3D" parent="." instance=ExtResource("12_s3vqi")]
+transform = Transform3D(0.054414, -0.55879, 1.632, -0.348349, 1.59561, 0.557946, -1.68947, -0.346993, -0.0624789, 5.48047, -0.95312, -8.30627)
 
-[node name="014_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-2.47711, -1.07503, -1.11641, -0.969718, 2.71697, -0.464644, 1.20902, -0.0233974, -2.66005, 369.813, -4.25343, -1134.09)
+[node name="014_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-2.47711, -1.07503, -1.11641, -0.969718, 2.71697, -0.464644, 1.20902, -0.0233974, -2.66005, -5.18655, -4.25343, -9.08826)
 
-[node name="015_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(-0.229786, 0.0950409, -1.12797, 0.258134, 1.12505, 0.0422089, 1.10214, -0.243684, -0.245056, 366.489, -4.45858, -1126.57)
+[node name="015_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(-0.229786, 0.0950409, -1.12797, 0.258134, 1.12505, 0.0422089, 1.10214, -0.243684, -0.245056, -8.51083, -4.45858, -1.56836)
 
-[node name="016_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_f0v81")]
-transform = Transform3D(-1.37574, 0.216916, -0.960973, 0.00308053, 1.65151, 0.368378, 0.985146, 0.297757, -1.34314, 379.08, -2.77116, -1129.28)
+[node name="016_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_mmu3a")]
+transform = Transform3D(-1.37574, 0.216916, -0.960973, 0.00308053, 1.65151, 0.368378, 0.985146, 0.297757, -1.34314, 4.07974, -2.77116, -4.28235)
 
-[node name="017_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(0.701936, 0.233628, -2.28956, -0.309547, 2.38152, 0.14811, 2.28054, 0.251344, 0.724817, 371.625, -4.35033, -1133.79)
+[node name="017_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(0.701936, 0.233628, -2.28956, -0.309547, 2.38152, 0.14811, 2.28054, 0.251344, 0.724817, -3.37457, -4.35033, -8.79089)
 
-[node name="018_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(1.80706, 0.26069, 1.14392, -0.761446, 1.85874, 0.779267, -0.892591, -1.05787, 1.65111, 379.874, -4.62702, -1116.7)
+[node name="018_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(1.80706, 0.26069, 1.14392, -0.761446, 1.85874, 0.779267, -0.892591, -1.05787, 1.65111, 4.87427, -4.62702, 8.29736)
 
-[node name="019_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(1.36856, -0.467819, -1.80662, 0.739163, 2.193, -0.00793754, 1.71358, -0.572338, 1.44629, 382.809, -4.1635, -1125.05)
+[node name="019_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(1.36856, -0.467819, -1.80662, 0.739163, 2.193, -0.00793754, 1.71358, -0.572338, 1.44629, 7.80908, -4.1635, -0.0467529)
 
-[node name="020_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(-1.36121, -0.574334, -0.712328, -0.48483, 1.53558, -0.311624, 0.776022, -0.0480615, -1.44418, 380.554, -4.28544, -1121.17)
+[node name="020_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(-1.36121, -0.574334, -0.712328, -0.48483, 1.53558, -0.311624, 0.776022, -0.0480615, -1.44418, 5.55386, -4.28544, 3.82922)
 
-[node name="021_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_gev34")]
-transform = Transform3D(0.218674, 0.4593, -1.67338, -0.597864, 1.60329, 0.361934, 1.62902, 0.526765, 0.357461, 368.946, -4.65743, -1130.25)
+[node name="021_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_6t2pc")]
+transform = Transform3D(0.218674, 0.4593, -1.67338, -0.597864, 1.60329, 0.361934, 1.62902, 0.526765, 0.357461, -6.05423, -4.65743, -5.25281)
 
-[node name="022_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(2.30942, -0.493663, 0.132155, 0.39857, 2.12271, 0.964293, -0.31986, -0.919248, 2.15575, 375.319, -4.45077, -1135.72)
+[node name="022_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(2.30942, -0.493663, 0.132155, 0.39857, 2.12271, 0.964293, -0.31986, -0.919248, 2.15575, 0.318634, -4.45077, -10.7239)
 
-[node name="023_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(0.348393, -0.0269735, -0.999267, -0.0529621, 1.05623, -0.0469764, 0.998227, 0.0654538, 0.346264, 371.863, -4.7819, -1119.78)
+[node name="023_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(0.348393, -0.0269735, -0.999267, -0.0529621, 1.05623, -0.0469764, 0.998227, 0.0654538, 0.346264, -3.13745, -4.7819, 5.21912)
 
-[node name="024_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-0.539737, -0.106602, 1.37977, -0.513009, 1.39089, -0.0932171, -1.28528, -0.510395, -0.542209, 375.108, -4.70041, -1134.99)
+[node name="024_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-0.539737, -0.106602, 1.37977, -0.513009, 1.39089, -0.0932171, -1.28528, -0.510395, -0.542209, 0.108276, -4.70041, -9.99304)
 
-[node name="025_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(-0.260346, 0.433035, 0.889758, 0.138646, 0.926925, -0.410555, -0.979778, 0.0161014, -0.294522, 368.419, -4.6804, -1115.33)
+[node name="025_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(-0.260346, 0.433035, 0.889758, 0.138646, 0.926925, -0.410555, -0.979778, 0.0161014, -0.294522, -6.58136, -4.6804, 9.67468)
 
-[node name="026_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-0.848792, 0.474008, -0.314399, 0.410456, 0.901414, 0.250912, 0.393773, 0.0821379, -0.939242, 371.523, -4.80662, -1124.24)
+[node name="026_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-0.848792, 0.474008, -0.314399, 0.410456, 0.901414, 0.250912, 0.393773, 0.0821379, -0.939242, -3.47681, -4.80662, 0.758301)
 
-[node name="027_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(0.626467, -0.00975946, 0.506344, 0.075178, 0.798288, -0.0776265, -0.500827, 0.107621, 0.621716, 384.764, -2.70149, -1130.93)
+[node name="027_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(0.626467, -0.00975946, 0.506344, 0.075178, 0.798288, -0.0776265, -0.500827, 0.107621, 0.621716, 9.76434, -2.70149, -5.93005)
 
-[node name="028_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(0.386169, -0.396067, -1.164, 0.414872, 1.19049, -0.26744, 1.15743, -0.294575, 0.484223, 368.997, -4.80471, -1127.61)
+[node name="028_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(0.386169, -0.396067, -1.164, 0.414872, 1.19049, -0.26744, 1.15743, -0.294575, 0.484223, -6.00281, -4.80471, -2.60583)
 
-[node name="029_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(0.727122, 0.0900602, 0.315871, 0.0153721, 0.757118, -0.251253, -0.328099, 0.23506, 0.688251, 375.665, -4.82918, -1115.58)
+[node name="029_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(0.727122, 0.0900602, 0.315871, 0.0153721, 0.757118, -0.251253, -0.328099, 0.23506, 0.688251, 0.665253, -4.82918, 9.42004)
 
-[node name="030_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(-0.351549, 0.0854795, 0.542561, 0.0221896, 0.645863, -0.087377, -0.548805, -0.0286419, -0.351082, 367.281, -4.80253, -1126.45)
+[node name="030_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(-0.351549, 0.0854795, 0.542561, 0.0221896, 0.645863, -0.087377, -0.548805, -0.0286419, -0.351082, -7.71933, -4.80253, -1.44897)
 
-[node name="031_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(0.825965, -0.373709, 0.238349, 0.386933, 0.853794, -0.0021919, -0.216221, 0.100317, 0.906571, 377.987, -4.72302, -1126.52)
+[node name="031_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(0.825965, -0.373709, 0.238349, 0.386933, 0.853794, -0.0021919, -0.216221, 0.100317, 0.906571, 2.98679, -4.72302, -1.51965)
 
-[node name="032_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(0.583781, -0.327075, -0.64318, 0.0580547, 0.845928, -0.377485, 0.719227, 0.197198, 0.552525, 379.068, -2.22312, -1131.17)
+[node name="032_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(0.583781, -0.327075, -0.64318, 0.0580547, 0.845928, -0.377485, 0.719227, 0.197198, 0.552525, 4.06818, -2.22312, -6.172)
 
-[node name="033_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(-0.492685, 0.213526, -1.08478, -0.187091, 1.15439, 0.3122, 1.08965, 0.294752, -0.436879, 381.613, -1.05778, -1132.7)
+[node name="033_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(-0.492685, 0.213526, -1.08478, -0.187091, 1.15439, 0.3122, 1.08965, 0.294752, -0.436879, 6.61337, -1.05778, -7.69946)
 
-[node name="034_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(1.4377, 0.113027, -0.268524, -0.0462541, 1.42344, 0.351503, 0.287647, -0.336033, 1.39864, 384.303, -4.89515, -1119.34)
+[node name="034_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(1.4377, 0.113027, -0.268524, -0.0462541, 1.42344, 0.351503, 0.287647, -0.336033, 1.39864, 9.30341, -4.89515, 5.66113)
 
-[node name="035_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_f0v81")]
-transform = Transform3D(-0.83568, 0.330791, -0.0531793, 0.326574, 0.772322, -0.327842, -0.0748333, -0.323587, -0.836842, 378.058, -3.18145, -1133.94)
+[node name="035_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_mmu3a")]
+transform = Transform3D(-0.83568, 0.330791, -0.0531793, 0.326574, 0.772322, -0.327842, -0.0748333, -0.323587, -0.836842, 3.05762, -3.18145, -8.93896)
 
-[node name="036_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(-0.654557, 0.00419477, 0.712471, -0.231337, 0.913825, -0.217912, -0.673882, -0.317781, -0.617233, 369.483, -4.41907, -1136.11)
+[node name="036_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(-0.654557, 0.00419477, 0.712471, -0.231337, 0.913825, -0.217912, -0.673882, -0.317781, -0.617233, -5.51654, -4.41907, -11.1064)
 
-[node name="037_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(-0.823697, -0.39512, 0.100034, -0.35756, 0.808766, 0.250304, -0.195647, 0.185421, -0.878603, 375.746, -4.7235, -1127.58)
+[node name="037_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(-0.823697, -0.39512, 0.100034, -0.35756, 0.808766, 0.250304, -0.195647, 0.185421, -0.878603, 0.746399, -4.7235, -2.58191)
 
-[node name="038_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-0.103733, 0.655829, -1.36286, -0.00980948, 1.36574, 0.657963, 1.51242, 0.0538398, -0.0892075, 366.213, -4.84419, -1124.84)
+[node name="038_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-0.103733, 0.655829, -1.36286, -0.00980948, 1.36574, 0.657963, 1.51242, 0.0538398, -0.0892075, -8.78738, -4.84419, 0.162964)
 
-[node name="039_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(0.575702, -0.0258805, 0.190616, 0.0318408, 0.605995, -0.0138886, -0.189712, 0.0231718, 0.576116, 375.402, -4.89727, -1121.4)
+[node name="039_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(0.575702, -0.0258805, 0.190616, 0.0318408, 0.605995, -0.0138886, -0.189712, 0.0231718, 0.576116, 0.402313, -4.89727, 3.60352)
 
-[node name="040_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(0.721732, 0.217356, -0.619971, -0.284115, 0.933688, -0.00340692, 0.592357, 0.183, 0.753743, 377.011, -4.62787, -1117.14)
+[node name="040_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(0.721732, 0.217356, -0.619971, -0.284115, 0.933688, -0.00340692, 0.592357, 0.183, 0.753743, 2.01065, -4.62787, 7.85889)
 
-[node name="041_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.0455044, 0.306239, 1.41599, 0.488209, 1.33706, -0.27348, -1.36399, 0.468356, -0.145126, 387.253, -4.56325, -1124.1)
+[node name="041_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.0455044, 0.306239, 1.41599, 0.488209, 1.33706, -0.27348, -1.36399, 0.468356, -0.145126, 12.2527, -4.56325, 0.901978)
 
-[node name="042_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(0.118217, 0.228004, 0.994623, 0.194796, 0.977819, -0.247304, -1.00166, 0.21707, 0.0692923, 366.256, -4.55285, -1116.62)
+[node name="042_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(0.118217, 0.228004, 0.994623, 0.194796, 0.977819, -0.247304, -1.00166, 0.21707, 0.0692923, -8.74429, -4.55285, 8.37585)
 
-[node name="043_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(0.622886, -0.175536, 0.139434, 0.211442, 0.59683, -0.193203, -0.0744775, 0.226323, 0.617634, 381.531, -4.82645, -1121.62)
+[node name="043_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(0.622886, -0.175536, 0.139434, 0.211442, 0.59683, -0.193203, -0.0744775, 0.226323, 0.617634, 6.53113, -4.82645, 3.38428)
 
-[node name="044_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(-0.405445, -0.0881198, 0.912777, 0.104321, 0.987102, 0.141633, -0.911068, 0.152243, -0.389988, 381.556, -4.7994, -1115.09)
+[node name="044_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(-0.405445, -0.0881198, 0.912777, 0.104321, 0.987102, 0.141633, -0.911068, 0.152243, -0.389988, 6.55597, -4.7994, 9.91394)
 
-[node name="045_desk" type="Node3D" parent="." instance=ExtResource("17_bswqy")]
-transform = Transform3D(0.696815, 0.223956, 0.0660325, -0.232875, 0.651578, 0.247555, 0.016895, -0.255653, 0.688785, 363.307, -4.74147, -1122.93)
+[node name="045_desk" type="Node3D" parent="." instance=ExtResource("17_fc1su")]
+transform = Transform3D(0.696815, 0.223956, 0.0660325, -0.232875, 0.651578, 0.247555, 0.016895, -0.255653, 0.688785, -11.6927, -4.74147, 2.07227)
 
-[node name="046_barbed_wire" type="Node3D" parent="." instance=ExtResource("9_hen4a")]
-transform = Transform3D(-0.186807, -0.573886, -0.95549, -0.403901, 0.937822, -0.484308, 1.03883, 0.261431, -0.360121, 368, -4.99757, -1118.86)
+[node name="046_barbed_wire" type="Node3D" parent="." instance=ExtResource("9_w7rq2")]
+transform = Transform3D(-0.186807, -0.573886, -0.95549, -0.403901, 0.937822, -0.484308, 1.03883, 0.261431, -0.360121, -6.99963, -4.99757, 6.13647)
 
-[node name="047_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(-1.01024, 0.0091885, 0.784534, -0.321839, 1.16162, -0.428034, -0.71554, -0.535452, -0.915124, 371.34, -4.73954, -1120.07)
+[node name="047_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(-1.01024, 0.0091885, 0.784534, -0.321839, 1.16162, -0.428034, -0.71554, -0.535452, -0.915124, -3.65991, -4.73954, 4.92981)
 
-[node name="048_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(0.512741, 0.180945, -1.28341, 0.248788, 1.34078, 0.288428, 1.272, -0.33518, 0.460927, 379.66, -0.592489, -1136.06)
+[node name="048_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(0.512741, 0.180945, -1.28341, 0.248788, 1.34078, 0.288428, 1.272, -0.33518, 0.460927, 4.66003, -0.592489, -11.0625)
 
-[node name="049_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(1.27477, -0.393069, -0.0372268, 0.384236, 1.26399, -0.188696, 0.0908385, 0.16953, 1.32058, 376.061, -4.68857, -1117.54)
+[node name="049_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(1.27477, -0.393069, -0.0372268, 0.384236, 1.26399, -0.188696, 0.0908385, 0.16953, 1.32058, 1.06146, -4.68857, 7.4613)
 
-[node name="050_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(1.43353, 0.122609, -0.0199796, -0.115664, 1.40178, 0.303452, 0.0453213, -0.300713, 1.4064, 379.788, -4.80658, -1127.53)
+[node name="050_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(1.43353, 0.122609, -0.0199796, -0.115664, 1.40178, 0.303452, 0.0453213, -0.300713, 1.4064, 4.78751, -4.80658, -2.52637)
 
-[node name="051_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.869079, 0.107706, -0.551368, -0.0805738, 0.981252, 0.318683, 0.555981, 0.310564, -0.815684, 383.406, -4.79476, -1125.73)
+[node name="051_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.869079, 0.107706, -0.551368, -0.0805738, 0.981252, 0.318683, 0.555981, 0.310564, -0.815684, 8.40604, -4.79476, -0.725464)
 
-[node name="052_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(-0.277892, -0.0864595, -0.585801, -0.0126021, 0.647818, -0.0896346, 0.592013, -0.0267943, -0.276884, 366.07, -4.77922, -1129.57)
+[node name="052_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(-0.277892, -0.0864595, -0.585801, -0.0126021, 0.647818, -0.0896346, 0.592013, -0.0267943, -0.276884, -8.93021, -4.77922, -4.57227)
 
-[node name="053_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(-0.216725, -0.281936, 0.498461, -0.150354, 0.542278, 0.241347, -0.55258, -0.0369743, -0.261168, 366.657, -4.40338, -1115.75)
+[node name="053_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(-0.216725, -0.281936, 0.498461, -0.150354, 0.542278, 0.241347, -0.55258, -0.0369743, -0.261168, -8.34271, -4.40338, 9.24707)
 
-[node name="054_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(-0.0485443, -0.326898, -0.95998, 0.192791, 0.940578, -0.33004, 0.995619, -0.198072, 0.0171022, 362.716, -3.88022, -1121.76)
+[node name="054_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(-0.0485443, -0.326898, -0.95998, 0.192791, 0.940578, -0.33004, 0.995619, -0.198072, 0.0171022, -12.2838, -3.88022, 3.23584)
 
-[node name="055_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(0.468545, -0.126854, 0.654225, 0.23059, 0.781203, -0.0136694, -0.625244, 0.193046, 0.485221, 372.874, -4.78286, -1115.24)
+[node name="055_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(0.468545, -0.126854, 0.654225, 0.23059, 0.781203, -0.0136694, -0.625244, 0.193046, 0.485221, -2.1261, -4.78286, 9.76184)
 
-[node name="056_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(0.801031, -0.0832608, -0.162989, 0.134794, 0.763359, 0.272509, 0.123808, -0.292401, 0.75784, 369.504, -4.78831, -1121.83)
+[node name="056_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(0.801031, -0.0832608, -0.162989, 0.134794, 0.763359, 0.272509, 0.123808, -0.292401, 0.75784, -5.49567, -4.78831, 3.16858)
 
-[node name="057_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_f0v81")]
-transform = Transform3D(0.0767534, -0.00539583, 0.92597, -0.334827, 0.866115, 0.0328008, -0.863331, -0.336386, 0.0696011, 375.703, -4.60908, -1136.38)
+[node name="057_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_mmu3a")]
+transform = Transform3D(0.0767534, -0.00539583, 0.92597, -0.334827, 0.866115, 0.0328008, -0.863331, -0.336386, 0.0696011, 0.702881, -4.60908, -11.3754)
 
-[node name="058_office_chair" type="Node3D" parent="." instance=ExtResource("6_dtuvs")]
-transform = Transform3D(0.31389, 0.0898555, 0.134245, -0.110407, 0.333485, 0.0349378, -0.117923, -0.0730504, 0.324624, 369.921, -4.81427, -1116.23)
+[node name="058_office_chair" type="Node3D" parent="." instance=ExtResource("6_qpjpn")]
+transform = Transform3D(0.31389, 0.0898555, 0.134245, -0.110407, 0.333485, 0.0349378, -0.117923, -0.0730504, 0.324624, -5.07864, -4.81427, 8.76648)
 
-[node name="059_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(0.358836, 0.506723, -1.4506, -0.356703, 1.4764, 0.4275, 1.49458, 0.230706, 0.450306, 375.291, -4.89321, -1118.64)
+[node name="059_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(0.358836, 0.506723, -1.4506, -0.356703, 1.4764, 0.4275, 1.49458, 0.230706, 0.450306, 0.291199, -4.89321, 6.35535)
 
-[node name="060_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(0.909826, 0.412875, 0.164855, -0.426243, 0.916834, 0.0562229, -0.126336, -0.119907, 0.997542, 372.692, -4.89576, -1134.66)
+[node name="060_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(0.909826, 0.412875, 0.164855, -0.426243, 0.916834, 0.0562229, -0.126336, -0.119907, 0.997542, -2.30795, -4.89576, -9.66223)
 
-[node name="061_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_gev34")]
-transform = Transform3D(0.100768, 0.462523, 1.00071, 0.0179455, 1.00406, -0.465879, -1.10228, 0.0586295, 0.0838983, 384.219, -4.8172, -1124.36)
+[node name="061_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_6t2pc")]
+transform = Transform3D(0.100768, 0.462523, 1.00071, 0.0179455, 1.00406, -0.465879, -1.10228, 0.0586295, 0.0838983, 9.21869, -4.8172, 0.643921)
 
-[node name="062_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(0.524961, 0.0262805, 0.437335, -0.0874877, 0.675077, 0.0644501, -0.4293, -0.105438, 0.521652, 381.772, -3.1251, -1130.71)
+[node name="062_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(0.524961, 0.0262805, 0.437335, -0.0874877, 0.675077, 0.0644501, -0.4293, -0.105438, 0.521652, 6.77185, -3.1251, -5.71179)
 
-[node name="063_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(-0.294375, -0.219934, -0.546052, 0.073284, 0.592079, -0.277979, 0.5841, -0.185127, -0.240323, 366.104, -4.75015, -1125.15)
+[node name="063_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(-0.294375, -0.219934, -0.546052, 0.073284, 0.592079, -0.277979, 0.5841, -0.185127, -0.240323, -8.89636, -4.75015, -0.146118)
 
-[node name="064_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_gev34")]
-transform = Transform3D(-0.530292, -0.247358, -0.326008, -0.190061, 0.621444, -0.162362, 0.362414, -0.0360358, -0.562169, 366.549, -5.01761, -1127.45)
+[node name="064_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_6t2pc")]
+transform = Transform3D(-0.530292, -0.247358, -0.326008, -0.190061, 0.621444, -0.162362, 0.362414, -0.0360358, -0.562169, -8.45056, -5.01761, -2.44629)
 
-[node name="065_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(0.198766, 0.160618, -0.829947, 0.157583, 0.830596, 0.198484, 0.830529, -0.196036, 0.160967, 373.7, -4.95438, -1117)
+[node name="065_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(0.198766, 0.160618, -0.829947, 0.157583, 0.830596, 0.198484, 0.830529, -0.196036, 0.160967, -1.29968, -4.95438, 7.99756)
 
-[node name="066_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(0.336891, 0.126477, 0.234595, -0.041925, 0.398556, -0.154668, -0.263199, 0.0984035, 0.324916, 371.945, -4.91589, -1120.31)
+[node name="066_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(0.336891, 0.126477, 0.234595, -0.041925, 0.398556, -0.154668, -0.263199, 0.0984035, 0.324916, -3.0549, -4.91589, 4.68896)
 
-[node name="067_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-0.419128, -0.055416, -0.49807, -0.00335705, 0.649599, -0.0694503, 0.501132, -0.0419962, -0.417032, 366.639, -4.94108, -1127.21)
+[node name="067_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-0.419128, -0.055416, -0.49807, -0.00335705, 0.649599, -0.0694503, 0.501132, -0.0419962, -0.417032, -8.36127, -4.94108, -2.20703)
 
-[node name="068_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(-0.0639437, 0.0639436, -0.320152, 0.0840578, 0.318461, 0.046817, 0.315469, -0.0718941, -0.0773676, 366.429, -4.9441, -1123.93)
+[node name="068_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(-0.0639437, 0.0639436, -0.320152, 0.0840578, 0.318461, 0.046817, 0.315469, -0.0718941, -0.0773676, -8.57144, -4.9441, 1.06897)
 
-[node name="069_medallion" type="Node3D" parent="." instance=ExtResource("18_43r6i")]
-transform = Transform3D(0.00717088, 0.0131517, 0.174674, 0.0582998, 0.164675, -0.0147922, -0.165182, 0.0586917, 0.00236215, 371.528, -5.01012, -1121.93)
+[node name="069_medallion" type="Node3D" parent="." instance=ExtResource("18_20hw1")]
+transform = Transform3D(0.00717088, 0.0131517, 0.174674, 0.0582998, 0.164675, -0.0147922, -0.165182, 0.0586917, 0.00236215, -3.47205, -5.01012, 3.07129)
 
-[node name="070_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(-0.269922, -0.196565, -0.510919, -0.102559, 0.577722, -0.168083, 0.537734, 0.0115178, -0.288519, 382.448, -4.92385, -1124.29)
+[node name="070_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(-0.269922, -0.196565, -0.510919, -0.102559, 0.577722, -0.168083, 0.537734, 0.0115178, -0.288519, 7.44781, -4.92385, 0.707031)
 
-[node name="071_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-0.586408, -0.175006, -0.146615, -0.19219, 0.596533, 0.0566429, 0.123232, 0.0975614, -0.609338, 376.354, -4.96345, -1120.06)
+[node name="071_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-0.586408, -0.175006, -0.146615, -0.19219, 0.596533, 0.0566429, 0.123232, 0.0975614, -0.609338, 1.35382, -4.96345, 4.94092)
 
-[node name="072_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(0.229791, 0.0112226, 0.138872, 0.00800736, 0.266349, -0.0347742, -0.139094, 0.0338735, 0.227422, 363.082, -4.82239, -1126.73)
+[node name="072_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(0.229791, 0.0112226, 0.138872, 0.00800736, 0.266349, -0.0347742, -0.139094, 0.0338735, 0.227422, -11.9183, -4.82239, -1.72766)
 
-[node name="073_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.204265, 0.0738864, -0.726344, 0.108622, 0.748918, 0.0456358, 0.721967, -0.0917718, -0.21237, 369.689, -4.83336, -1135.79)
+[node name="073_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.204265, 0.0738864, -0.726344, 0.108622, 0.748918, 0.0456358, 0.721967, -0.0917718, -0.21237, -5.3114, -4.83336, -10.7917)
 
-[node name="074_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(0.569977, -0.00128917, -0.150488, 0.061756, 0.539573, 0.22928, 0.137239, -0.237448, 0.521829, 379.022, -4.99098, -1123.66)
+[node name="074_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(0.569977, -0.00128917, -0.150488, 0.061756, 0.539573, 0.22928, 0.137239, -0.237448, 0.521829, 4.02228, -4.99098, 1.33728)
 
-[node name="075_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(0.285243, -0.102191, 0.011052, 0.0976997, 0.259424, -0.122811, 0.0319367, 0.1191, 0.276991, 374.35, -4.94724, -1115.83)
+[node name="075_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(0.285243, -0.102191, 0.011052, 0.0976997, 0.259424, -0.122811, 0.0319367, 0.1191, 0.276991, -0.649811, -4.94724, 9.17249)
 
-[node name="076_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(0.0334315, -0.14902, -0.322455, -0.0935983, 0.308739, -0.152385, 0.342671, 0.0988686, -0.0101639, 379.047, -5.01056, -1115.62)
+[node name="076_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(0.0334315, -0.14902, -0.322455, -0.0935983, 0.308739, -0.152385, 0.342671, 0.0988686, -0.0101639, 4.04718, -5.01056, 9.38489)
 
-[node name="077_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(0.142386, -0.0931526, -0.434497, 0.0523385, 0.456597, -0.0807392, 0.441278, -0.0240981, 0.149775, 367.814, -4.97088, -1120.02)
+[node name="077_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(0.142386, -0.0931526, -0.434497, 0.0523385, 0.456597, -0.0807392, 0.441278, -0.0240981, 0.149775, -7.18625, -4.97088, 4.97876)
 
-[node name="078_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(0.324106, -0.0973601, 0.42361, 0.205213, 0.500087, -0.0420719, -0.383161, 0.185481, 0.335788, 385.43, -3.28189, -1130.53)
+[node name="078_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(0.324106, -0.0973601, 0.42361, 0.205213, 0.500087, -0.0420719, -0.383161, 0.185481, 0.335788, 10.4297, -3.28189, -5.52795)
 
-[node name="079_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(-0.12155, 0.107941, -0.266608, 0.0428498, 0.293002, 0.0990914, 0.284421, 0.00198688, -0.128866, 371.504, -4.92372, -1124.33)
+[node name="079_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(-0.12155, 0.107941, -0.266608, 0.0428498, 0.293002, 0.0990914, 0.284421, 0.00198688, -0.128866, -3.49561, -4.92372, 0.668823)
 
-[node name="080_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(0.0513625, -0.15286, -0.369319, -0.148947, 0.338216, -0.160702, 0.370914, 0.156984, -0.0133911, 369.634, -4.97813, -1121.83)
+[node name="080_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(0.0513625, -0.15286, -0.369319, -0.148947, 0.338216, -0.160702, 0.370914, 0.156984, -0.0133911, -5.36566, -4.97813, 3.17188)
 
-[node name="081_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(-0.156131, 0.0446993, 0.259679, 0.0220462, 0.302999, -0.038901, -0.262574, -0.00113858, -0.157675, 363.764, -4.92292, -1123.77)
+[node name="081_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(-0.156131, 0.0446993, 0.259679, 0.0220462, 0.302999, -0.038901, -0.262574, -0.00113858, -0.157675, -11.2359, -4.92292, 1.2345)
 
-[node name="082_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.297151, -0.254406, 0.633725, -0.00554814, 0.692, 0.275199, -0.682861, 0.105084, -0.278005, 383.477, -4.84451, -1122.82)
+[node name="082_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.297151, -0.254406, 0.633725, -0.00554814, 0.692, 0.275199, -0.682861, 0.105084, -0.278005, 8.47711, -4.84451, 2.18176)
 
-[node name="083_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.55641, 0.0620532, -0.155424, 0.0773641, 0.573869, -0.0478418, 0.148398, -0.0665089, -0.557812, 371.729, -4.91082, -1129.19)
+[node name="083_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.55641, 0.0620532, -0.155424, 0.0773641, 0.573869, -0.0478418, 0.148398, -0.0665089, -0.557812, -3.2709, -4.91082, -4.19043)
 
-[node name="084_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-0.466633, -0.142078, 0.0671023, -0.104005, 0.436906, 0.201822, -0.117779, 0.177096, -0.444073, 363.238, -4.85065, -1122.22)
+[node name="084_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-0.466633, -0.142078, 0.0671023, -0.104005, 0.436906, 0.201822, -0.117779, 0.177096, -0.444073, -11.7616, -4.85065, 2.78235)
 
-[node name="085_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(-0.467765, -0.111371, 0.51148, -0.152808, 0.685114, 0.0094313, -0.500665, -0.10505, -0.480749, 368.746, -4.99318, -1118.24)
+[node name="085_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(-0.467765, -0.111371, 0.51148, -0.152808, 0.685114, 0.0094313, -0.500665, -0.10505, -0.480749, -6.25449, -4.99318, 6.76294)
 
-[node name="086_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.658585, 0.269128, -0.227855, 0.318622, 0.660983, -0.140225, 0.151087, -0.220802, -0.697496, 365.52, -4.86234, -1122.57)
+[node name="086_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.658585, 0.269128, -0.227855, 0.318622, 0.660983, -0.140225, 0.151087, -0.220802, -0.697496, -9.4801, -4.86234, 2.42798)
 
-[node name="087_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-0.193609, 0.105482, -0.462588, 0.00250405, 0.49984, 0.112928, 0.474455, 0.0404057, -0.189363, 374.151, -4.95202, -1115.7)
+[node name="087_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-0.193609, 0.105482, -0.462588, 0.00250405, 0.49984, 0.112928, 0.474455, 0.0404057, -0.189363, -0.848602, -4.95202, 9.302)
 
-[node name="088_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(-0.439859, -0.356428, 0.374089, -0.217874, 0.573409, 0.290159, -0.468523, 0.0679728, -0.486132, 384.646, -4.93783, -1126.66)
+[node name="088_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(-0.439859, -0.356428, 0.374089, -0.217874, 0.573409, 0.290159, -0.468523, 0.0679728, -0.486132, 9.64639, -4.93783, -1.65845)
 
-[node name="089_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(0.551505, -0.142103, 0.276802, 0.184119, 0.603157, -0.0571969, -0.250824, 0.1303, 0.566639, 367.254, -4.93775, -1117.12)
+[node name="089_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(0.551505, -0.142103, 0.276802, 0.184119, 0.603157, -0.0571969, -0.250824, 0.1303, 0.566639, -7.74573, -4.93775, 7.88281)
 
-[node name="090_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(-0.823347, -0.0625997, -0.00145808, -0.0617384, 0.814788, -0.11887, 0.0104505, -0.118419, -0.817122, 375.548, -4.87894, -1115.89)
+[node name="090_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(-0.823347, -0.0625997, -0.00145808, -0.0617384, 0.814788, -0.11887, 0.0104505, -0.118419, -0.817122, 0.548309, -4.87894, 9.10815)
 
-[node name="091_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_f0v81")]
-transform = Transform3D(0.201589, 0.0224154, 0.243169, 0.0155264, 0.313506, -0.0417706, -0.243706, 0.0385149, 0.198483, 377.762, -3.66994, -1130.59)
+[node name="091_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_mmu3a")]
+transform = Transform3D(0.201589, 0.0224154, 0.243169, 0.0155264, 0.313506, -0.0417706, -0.243706, 0.0385149, 0.198483, 2.7623, -3.66994, -5.58838)
 
-[node name="092_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(0.223397, 0.0677607, -0.279482, 0.0498811, 0.339406, 0.122161, 0.28322, -0.113225, 0.198934, 375.259, -4.90184, -1113.61)
+[node name="092_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(0.223397, 0.0677607, -0.279482, 0.0498811, 0.339406, 0.122161, 0.28322, -0.113225, 0.198934, 0.259216, -4.90184, 11.3929)
 
-[node name="093_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(0.417073, -0.116868, 0.0523019, 0.103989, 0.413161, 0.0939561, -0.074698, -0.0773527, 0.422824, 370.119, -4.77351, -1113.97)
+[node name="093_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(0.417073, -0.116868, 0.0523019, 0.103989, 0.413161, 0.0939561, -0.074698, -0.0773527, 0.422824, -4.88062, -4.77351, 11.0286)
 
-[node name="094_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_gev34")]
-transform = Transform3D(0.619672, -0.00459454, -0.436822, 0.0392615, 0.75565, 0.0477479, 0.435078, -0.0616459, 0.617847, 383.695, -4.9931, -1118.08)
+[node name="094_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_6t2pc")]
+transform = Transform3D(0.619672, -0.00459454, -0.436822, 0.0392615, 0.75565, 0.0477479, 0.435078, -0.0616459, 0.617847, 8.6947, -4.9931, 6.92065)
 
-[node name="095_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.406708, 0.196844, 0.728033, -0.222844, 0.758849, -0.329666, -0.7205, -0.34582, -0.308997, 371.287, -4.9884, -1114.79)
+[node name="095_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.406708, 0.196844, 0.728033, -0.222844, 0.758849, -0.329666, -0.7205, -0.34582, -0.308997, -3.71301, -4.9884, 10.2067)
 
-[node name="096_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(0.131711, 0.0767076, 0.653804, -0.211861, 0.636227, -0.0319652, -0.623264, -0.200057, 0.14903, 368.552, -5.0065, -1126.67)
+[node name="096_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(0.131711, 0.0767076, 0.653804, -0.211861, 0.636227, -0.0319652, -0.623264, -0.200057, 0.14903, -6.44836, -5.0065, -1.67139)
 
-[node name="097_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(-0.0963248, 0.0376203, 0.591523, 0.113751, 0.589317, -0.0189565, -0.581701, 0.109011, -0.101658, 368.857, -4.93275, -1134.06)
+[node name="097_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(-0.0963248, 0.0376203, 0.591523, 0.113751, 0.589317, -0.0189565, -0.581701, 0.109011, -0.101658, -6.14346, -4.93275, -9.06421)
 
-[node name="098_oil_barrel" type="Node3D" parent="." instance=ExtResource("19_r3ymv")]
-transform = Transform3D(0.0684768, 0.0234424, 0.0933834, 7.50847e-05, 0.11458, -0.0288185, -0.0962808, 0.016762, 0.0663936, 366.739, -4.37603, -1115.77)
+[node name="098_oil_barrel" type="Node3D" parent="." instance=ExtResource("19_oefgd")]
+transform = Transform3D(0.0684768, 0.0234424, 0.0933834, 7.50847e-05, 0.11458, -0.0288185, -0.0962808, 0.016762, 0.0663936, -8.26108, -4.37603, 9.23376)
 
-[node name="099_monolith" type="Node3D" parent="." instance=ExtResource("12_ovvux")]
-transform = Transform3D(0.0318993, 0.193295, -0.6094, -0.148155, 0.595783, 0.181221, 0.621917, 0.132015, 0.0744284, 370.278, -4.93494, -1133.8)
+[node name="099_monolith" type="Node3D" parent="." instance=ExtResource("12_s3vqi")]
+transform = Transform3D(0.0318993, 0.193295, -0.6094, -0.148155, 0.595783, 0.181221, 0.621917, 0.132015, 0.0744284, -4.72165, -4.93494, -8.79626)
 
-[node name="100_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(-0.083875, -0.0975769, 0.466108, -0.136138, 0.458444, 0.0714746, -0.456338, -0.118832, -0.106994, 377.786, -4.9634, -1125.55)
+[node name="100_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(-0.083875, -0.0975769, 0.466108, -0.136138, 0.458444, 0.0714746, -0.456338, -0.118832, -0.106994, 2.7861, -4.9634, -0.552734)
 
-[node name="101_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(0.521047, 0.294631, 0.619721, -0.267374, 0.803806, -0.157347, -0.631959, -0.0971594, 0.577528, 383.225, -4.83535, -1125.2)
+[node name="101_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(0.521047, 0.294631, 0.619721, -0.267374, 0.803806, -0.157347, -0.631959, -0.0971594, 0.577528, 8.22473, -4.83535, -0.200928)
 
-[node name="102_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(0.23514, -0.0202628, -0.257521, -0.133909, 0.28823, -0.14495, 0.220899, 0.196295, 0.186255, 373.716, -4.91938, -1122.76)
+[node name="102_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(0.23514, -0.0202628, -0.257521, -0.133909, 0.28823, -0.14495, 0.220899, 0.196295, 0.186255, -1.28381, -4.91938, 2.24011)
 
-[node name="103_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(-0.255442, -0.0272518, 0.059287, -0.0358228, 0.258791, -0.0353896, -0.0545375, -0.0423443, -0.254443, 378.255, -4.39852, -1128.38)
+[node name="103_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(-0.255442, -0.0272518, 0.059287, -0.0358228, 0.258791, -0.0353896, -0.0545375, -0.0423443, -0.254443, 3.25455, -4.39852, -3.37769)
 
-[node name="104_medallion" type="Node3D" parent="." instance=ExtResource("18_43r6i")]
-transform = Transform3D(-0.239423, 0.0270384, 0.169199, 0.092229, 0.265357, 0.088103, -0.144406, 0.124649, -0.224259, 376.729, -4.91014, -1134.54)
+[node name="104_medallion" type="Node3D" parent="." instance=ExtResource("18_20hw1")]
+transform = Transform3D(-0.239423, 0.0270384, 0.169199, 0.092229, 0.265357, 0.088103, -0.144406, 0.124649, -0.224259, 1.72867, -4.91014, -9.54175)
 
-[node name="105_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(0.265257, 0.208593, -0.475506, 0.0317715, 0.526439, 0.248659, 0.518274, -0.139032, 0.228124, 366.561, -4.44422, -1116.24)
+[node name="105_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(0.265257, 0.208593, -0.475506, 0.0317715, 0.526439, 0.248659, 0.518274, -0.139032, 0.228124, -8.43915, -4.44422, 8.75964)
 
-[node name="106_barbed_wire" type="Node3D" parent="." instance=ExtResource("9_hen4a")]
-transform = Transform3D(0.075104, -0.0888951, -0.264889, 0.0845807, 0.268655, -0.0661778, 0.266298, -0.0602584, 0.0957259, 385.933, -5.00883, -1128.95)
+[node name="106_barbed_wire" type="Node3D" parent="." instance=ExtResource("9_w7rq2")]
+transform = Transform3D(0.075104, -0.0888951, -0.264889, 0.0845807, 0.268655, -0.0661778, 0.266298, -0.0602584, 0.0957259, 10.9325, -5.00883, -3.95215)
 
-[node name="107_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(-0.224524, 0.110754, -0.136276, 0.100142, 0.262461, 0.0483169, 0.144254, -0.00981803, -0.245648, 378.191, -4.70043, -1113.24)
+[node name="107_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(-0.224524, 0.110754, -0.136276, 0.100142, 0.262461, 0.0483169, 0.144254, -0.00981803, -0.245648, 3.19073, -4.70043, 11.7582)
 
-[node name="108_oil_barrel" type="Node3D" parent="." instance=ExtResource("19_r3ymv")]
-transform = Transform3D(-0.0150239, 0.0575559, -0.173706, 0.00595476, 0.174352, 0.0572549, 0.182896, -0.000948699, -0.0161331, 367.41, -4.95595, -1116.53)
+[node name="108_oil_barrel" type="Node3D" parent="." instance=ExtResource("19_oefgd")]
+transform = Transform3D(-0.0150239, 0.0575559, -0.173706, 0.00595476, 0.174352, 0.0572549, 0.182896, -0.000948699, -0.0161331, -7.58997, -4.95595, 8.46814)
 
-[node name="109_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_gev34")]
-transform = Transform3D(-0.277805, -0.11496, -0.375349, -0.033492, 0.465095, -0.117659, 0.391128, -0.0418265, -0.276673, 380.847, -4.95508, -1126.2)
+[node name="109_scrap_heap_lod" type="Node3D" parent="." instance=ExtResource("16_6t2pc")]
+transform = Transform3D(-0.277805, -0.11496, -0.375349, -0.033492, 0.465095, -0.117659, 0.391128, -0.0418265, -0.276673, 5.84732, -4.95508, -1.20105)
 
-[node name="110_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.714249, 0.0870113, 0.20492, 0.0783565, 0.742822, -0.042299, -0.208383, -0.0189204, -0.718285, 383.678, -4.92645, -1122.4)
+[node name="110_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.714249, 0.0870113, 0.20492, 0.0783565, 0.742822, -0.042299, -0.208383, -0.0189204, -0.718285, 8.6785, -4.92645, 2.59778)
 
-[node name="111_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(0.453777, -0.0397037, -0.180753, 0.0393164, 0.488408, -0.00857928, 0.180838, -0.0065573, 0.45543, 381.554, -4.86256, -1116.47)
+[node name="111_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(0.453777, -0.0397037, -0.180753, 0.0393164, 0.488408, -0.00857928, 0.180838, -0.0065573, 0.45543, 6.55359, -4.86256, 8.53125)
 
-[node name="112_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.495337, -0.195809, 0.357412, -0.03267, 0.579816, 0.272376, -0.406223, 0.192133, -0.457723, 364.051, -4.89095, -1127.1)
+[node name="112_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.495337, -0.195809, 0.357412, -0.03267, 0.579816, 0.272376, -0.406223, 0.192133, -0.457723, -10.9493, -4.89095, -2.09851)
 
-[node name="113_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_4sr2r")]
-transform = Transform3D(0.138821, -0.133034, 0.225738, 0.0680118, 0.265002, 0.114348, -0.253042, -0.00175698, 0.154576, 385.723, -4.88554, -1119.88)
+[node name="113_barrels_c_lod" type="Node3D" parent="." instance=ExtResource("7_nrka7")]
+transform = Transform3D(0.138821, -0.133034, 0.225738, 0.0680118, 0.265002, 0.114348, -0.253042, -0.00175698, 0.154576, 10.7234, -4.88554, 5.12329)
 
-[node name="114_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(0.168071, 0.122573, 0.215986, -0.124573, 0.267226, -0.0547154, -0.214839, -0.0590584, 0.200694, 378.424, -5.03184, -1117.18)
+[node name="114_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(0.168071, 0.122573, 0.215986, -0.124573, 0.267226, -0.0547154, -0.214839, -0.0590584, 0.200694, 3.42444, -5.03184, 7.8241)
 
-[node name="115_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_y5kyg")]
-transform = Transform3D(-0.340362, 0.156321, 0.509918, 0.201196, 0.597846, -0.0489808, -0.493936, 0.135805, -0.371326, 378.714, -4.98624, -1114.03)
+[node name="115_scrap_heap_b_rust_lod" type="Node3D" parent="." instance=ExtResource("13_72juw")]
+transform = Transform3D(-0.340362, 0.156321, 0.509918, 0.201196, 0.597846, -0.0489808, -0.493936, 0.135805, -0.371326, 3.71384, -4.98624, 10.9659)
 
-[node name="116_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_h7ff3")]
-transform = Transform3D(0.200695, -0.133515, -0.572304, -0.0602694, 0.596893, -0.160386, 0.584574, 0.107378, 0.179947, 365.583, -4.88644, -1129.1)
+[node name="116_scrap_heap_rust_lod" type="Node3D" parent="." instance=ExtResource("11_l4fdh")]
+transform = Transform3D(0.200695, -0.133515, -0.572304, -0.0602694, 0.596893, -0.160386, 0.584574, 0.107378, 0.179947, -9.41672, -4.88644, -4.10498)
 
-[node name="117_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(0.183825, -0.20356, -0.374825, 0.104553, 0.417205, -0.175301, 0.41352, -0.0149944, 0.210945, 381.229, -4.98624, -1117.64)
+[node name="117_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(0.183825, -0.20356, -0.374825, 0.104553, 0.417205, -0.175301, 0.41352, -0.0149944, 0.210945, 6.22882, -4.98624, 7.3562)
 
-[node name="118_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(-0.186714, 0.0199869, 0.450638, 0.18511, 0.448154, 0.0568204, -0.411349, 0.1926, -0.178977, 379.528, -1.11876, -1135.17)
+[node name="118_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(-0.186714, 0.0199869, 0.450638, 0.18511, 0.448154, 0.0568204, -0.411349, 0.1926, -0.178977, 4.52844, -1.11876, -10.1652)
 
-[node name="119_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(-0.403001, 0.109574, 0.315631, 0.0323599, 0.50501, -0.134002, -0.332539, -0.0836485, -0.39555, 365.339, -4.87444, -1131.41)
+[node name="119_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(-0.403001, 0.109574, 0.315631, 0.0323599, 0.50501, -0.134002, -0.332539, -0.0836485, -0.39555, -9.66147, -4.87444, -6.41492)
 
-[node name="120_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_xobam")]
-transform = Transform3D(0.134699, 0.0150635, 0.235038, -0.0207556, 0.270468, -0.00543933, -0.234603, -0.0152797, 0.13543, 370.857, -4.99274, -1126.98)
+[node name="120_barrels_c_rust_lod" type="Node3D" parent="." instance=ExtResource("5_nv48k")]
+transform = Transform3D(0.134699, 0.0150635, 0.235038, -0.0207556, 0.270468, -0.00543933, -0.234603, -0.0152797, 0.13543, -4.14325, -4.99274, -1.9812)
 
-[node name="121_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_52dmp")]
-transform = Transform3D(-0.0288615, -0.0765699, -0.462146, 0.0144745, 0.462656, -0.0775582, 0.468223, -0.0190222, -0.0260893, 366.101, -4.91692, -1120.33)
+[node name="121_scrap_heap_b_lod" type="Node3D" parent="." instance=ExtResource("14_a7nju")]
+transform = Transform3D(-0.0288615, -0.0765699, -0.462146, 0.0144745, 0.462656, -0.0775582, 0.468223, -0.0190222, -0.0260893, -8.89893, -4.91692, 4.67224)
 
-[node name="122_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_301us")]
-transform = Transform3D(-0.00419348, -0.154149, -0.393505, 0.0168118, 0.393152, -0.15419, 0.422286, -0.0171827, 0.00223085, 377.921, -3.36873, -1130.69)
+[node name="122_barrels_b_rust_lod" type="Node3D" parent="." instance=ExtResource("4_nspy7")]
+transform = Transform3D(-0.00419348, -0.154149, -0.393505, 0.0168118, 0.393152, -0.15419, 0.422286, -0.0171827, 0.00223085, 2.92062, -3.36873, -5.69189)
 
-[node name="123_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_f0v81")]
-transform = Transform3D(0.404684, 0.00690843, 0.063989, -0.0170298, 0.404376, 0.0640435, -0.0620669, -0.0659079, 0.399644, 376.195, -4.86031, -1121.45)
+[node name="123_barrels_lod" type="Node3D" parent="." instance=ExtResource("10_mmu3a")]
+transform = Transform3D(0.404684, 0.00690843, 0.063989, -0.0170298, 0.404376, 0.0640435, -0.0620669, -0.0659079, 0.399644, 1.19479, -4.86031, 3.54688)
 
-[node name="124_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_d36u4")]
-transform = Transform3D(-0.163768, -0.110673, -0.435981, 0.144127, 0.426604, -0.162431, 0.426093, -0.186837, -0.112626, 364.769, -4.7377, -1118.48)
+[node name="124_barrels_rust_lod" type="Node3D" parent="." instance=ExtResource("15_6ynpy")]
+transform = Transform3D(-0.163768, -0.110673, -0.435981, 0.144127, 0.426604, -0.162431, 0.426093, -0.186837, -0.112626, -10.2311, -4.7377, 6.52454)
 
-[node name="125_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_xpdh4")]
-transform = Transform3D(0.368718, 0.284314, 0.38588, -0.209075, 0.533493, -0.193297, -0.431307, -0.0155538, 0.423584, 381.114, -1.937, -1131.85)
+[node name="125_barrels_b_lod" type="Node3D" parent="." instance=ExtResource("3_cdp2l")]
+transform = Transform3D(0.368718, 0.284314, 0.38588, -0.209075, 0.533493, -0.193297, -0.431307, -0.0155538, 0.423584, 6.11447, -1.937, -6.85217)
 
-[node name="126_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(-0.131835, -0.000720567, 0.318589, 0.0819794, 0.333102, 0.0346773, -0.307862, 0.0890091, -0.127195, 377.401, 0.821844, -1142.85)
+[node name="126_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(-0.131835, -0.000720567, 0.318589, 0.0819794, 0.333102, 0.0346773, -0.307862, 0.0890091, -0.127195, 2.40109, 0.821844, -17.8522)
 
-[node name="127_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(-0.102552, 0.00637301, 0.0272967, 0.011095, 0.104303, 0.0173314, -0.0257415, 0.0195669, -0.101277, 392.942, 0.418687, -1118.9)
+[node name="127_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(-0.102552, 0.00637301, 0.0272967, 0.011095, 0.104303, 0.0173314, -0.0257415, 0.0195669, -0.101277, 17.942, 0.418687, 6.10364)
 
-[node name="128_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(0.169976, 0.0387679, 0.242857, 0.0147146, 0.293085, -0.0570848, -0.245491, 0.04441, 0.16473, 375.734, 0.416918, -1108.56)
+[node name="128_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(0.169976, 0.0387679, 0.242857, 0.0147146, 0.293085, -0.0570848, -0.245491, 0.04441, 0.16473, 0.734467, 0.416918, 16.4421)
 
-[node name="129_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(0.00462423, 0.0345419, -0.170782, 0.010236, 0.170493, 0.0347607, 0.173939, -0.0109515, 0.0024947, 381.43, 0.383453, -1140.09)
+[node name="129_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(0.00462423, 0.0345419, -0.170782, 0.010236, 0.170493, 0.0347607, 0.173939, -0.0109515, 0.0024947, 6.43045, 0.383453, -15.0906)
 
-[node name="130_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(0.20489, 0.00877363, -0.223239, -0.0259842, 0.301784, -0.0119878, 0.221896, 0.0272379, 0.204727, 394.314, 0.203441, -1125)
+[node name="130_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(0.20489, 0.00877363, -0.223239, -0.0259842, 0.301784, -0.0119878, 0.221896, 0.0272379, 0.204727, 19.3138, 0.203441, -0.00195312)
 
-[node name="131_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(0.0811637, -0.00217503, 0.000594956, 0.00212324, 0.0809295, 0.0062082, -0.000759313, -0.00619025, 0.0809552, 367.871, 0.366288, -1139.73)
+[node name="131_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(0.0811637, -0.00217503, 0.000594956, 0.00212324, 0.0809295, 0.0062082, -0.000759313, -0.00619025, 0.0809552, -7.12851, 0.366288, -14.7299)
 
-[node name="132_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(-0.0894511, -0.011043, -0.142439, 0.03422, 0.161507, -0.0340113, 0.138708, -0.0469662, -0.0834666, 392.661, 0.85232, -1125.96)
+[node name="132_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(-0.0894511, -0.011043, -0.142439, 0.03422, 0.161507, -0.0340113, 0.138708, -0.0469662, -0.0834666, 17.6609, 0.85232, -0.964722)
 
-[node name="133_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(0.160237, -0.0403211, -0.00350086, 0.0393916, 0.158654, -0.0243145, 0.0092928, 0.0227397, 0.163433, 358.413, 0.208569, -1134.87)
+[node name="133_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(0.160237, -0.0403211, -0.00350086, 0.0393916, 0.158654, -0.0243145, 0.0092928, 0.0227397, 0.163433, -16.5869, 0.208569, -9.86926)
 
-[node name="134_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(-0.0539074, -0.0188857, -0.0588212, -0.0117611, 0.079776, -0.0148351, 0.0606489, -0.00131622, -0.0551597, 375.676, 0.0446993, -1140.75)
+[node name="134_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(-0.0539074, -0.0188857, -0.0588212, -0.0117611, 0.079776, -0.0148351, 0.0606489, -0.00131622, -0.0551597, 0.67627, 0.0446993, -15.7528)
 
-[node name="135_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(0.13308, -0.0364503, 0.050969, 0.0343732, 0.142504, 0.0121625, -0.0523923, 0.000906746, 0.137445, 392.846, 0.856259, -1125.6)
+[node name="135_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(0.13308, -0.0364503, 0.050969, 0.0343732, 0.142504, 0.0121625, -0.0523923, 0.000906746, 0.137445, 17.8459, 0.856259, -0.599243)
 
-[node name="136_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(-0.0309259, -0.010156, 0.15786, -0.0205062, 0.159749, 0.00626025, -0.156852, -0.0188825, -0.0319432, 392.219, 0.845618, -1120.33)
+[node name="136_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(-0.0309259, -0.010156, 0.15786, -0.0205062, 0.159749, 0.00626025, -0.156852, -0.0188825, -0.0319432, 17.2192, 0.845618, 4.66882)
 
-[node name="137_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(0.0736331, 0.00364514, 0.0496044, -0.000480204, 0.0886669, -0.00580279, -0.0497359, 0.00454048, 0.0734946, 359.889, 0.259919, -1119.22)
+[node name="137_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(0.0736331, 0.00364514, 0.0496044, -0.000480204, 0.0886669, -0.00580279, -0.0497359, 0.00454048, 0.0734946, -15.1112, 0.259919, 5.77722)
 
-[node name="138_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(0.197718, 0.0411036, -0.0331593, -0.0476615, 0.194225, -0.0434317, 0.0227471, 0.0496832, 0.19722, 378.841, -0.114228, -1110.18)
+[node name="138_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(0.197718, 0.0411036, -0.0331593, -0.0476615, 0.194225, -0.0434317, 0.0227471, 0.0496832, 0.19722, 3.84146, -0.114228, 14.8248)
 
-[node name="139_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(0.0318244, -0.0326716, -0.287542, 0.06565, 0.282549, -0.0248383, 0.281848, -0.0621243, 0.0382529, 362.758, 0.437718, -1110.59)
+[node name="139_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(0.0318244, -0.0326716, -0.287542, 0.06565, 0.282549, -0.0248383, 0.281848, -0.0621243, 0.0382529, -12.2415, 0.437718, 14.4069)
 
-[node name="140_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(0.246591, -0.0270174, 0.0779964, 0.0406585, 0.253596, -0.0407006, -0.071835, 0.0507908, 0.244705, 358.964, 0.847212, -1132.16)
+[node name="140_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(0.246591, -0.0270174, 0.0779964, 0.0406585, 0.253596, -0.0407006, -0.071835, 0.0507908, 0.244705, -16.0364, 0.847212, -7.15735)
 
-[node name="141_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(-0.0809828, 0.0644286, -0.305633, 0.072829, 0.310931, 0.0462481, 0.303741, -0.0573751, -0.0925763, 362.809, -0.0948908, -1115.61)
+[node name="141_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(-0.0809828, 0.0644286, -0.305633, 0.072829, 0.310931, 0.0462481, 0.303741, -0.0573751, -0.0925763, -12.1914, -0.0948908, 9.39014)
 
-[node name="142_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(0.0111547, -0.011707, 0.0715069, -0.0137281, 0.0706974, 0.013716, -0.0711465, -0.0154769, 0.00856462, 390.591, 0.826565, -1134)
+[node name="142_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(0.0111547, -0.011707, 0.0715069, -0.0137281, 0.0706974, 0.013716, -0.0711465, -0.0154769, 0.00856462, 15.5911, 0.826565, -9.00146)
 
-[node name="143_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(0.0709258, 0.0401895, -0.242142, 0.0473856, 0.245065, 0.0545543, 0.240837, -0.0600531, 0.0605763, 355.688, 0.0641421, -1121.77)
+[node name="143_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(0.0709258, 0.0401895, -0.242142, 0.0473856, 0.245065, 0.0545543, 0.240837, -0.0600531, 0.0605763, -19.3117, 0.0641421, 3.22986)
 
-[node name="144_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(-0.0818606, -0.00338506, 0.0196518, -0.00380542, 0.0841575, -0.0013554, -0.0195747, -0.00220448, -0.0819193, 385.963, 0.709693, -1139.75)
+[node name="144_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(-0.0818606, -0.00338506, 0.0196518, -0.00380542, 0.0841575, -0.0013554, -0.0195747, -0.00220448, -0.0819193, 10.9631, 0.709693, -14.7542)
 
-[node name="145_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(0.0951255, 0.00534361, -0.0865956, 0.00331982, 0.128186, 0.0115569, 0.0866967, -0.0107717, 0.094572, 387.812, 0.0907884, -1134.34)
+[node name="145_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(0.0951255, 0.00534361, -0.0865956, 0.00331982, 0.128186, 0.0115569, 0.0866967, -0.0107717, 0.094572, 12.8121, 0.0907884, -9.3407)
 
-[node name="146_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_wf345")]
-transform = Transform3D(-0.109477, -0.0261337, -0.25905, -0.00507032, 0.281179, -0.0262234, 0.260316, -0.00551393, -0.109455, 362.376, 0.269918, -1114.84)
+[node name="146_namaqualand_boulder_03_1k" type="Node3D" parent="." instance=ExtResource("20_87o81")]
+transform = Transform3D(-0.109477, -0.0261337, -0.25905, -0.00507032, 0.281179, -0.0262234, 0.260316, -0.00551393, -0.109455, -12.6243, 0.269918, 10.1598)
 
-[node name="147_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_qly3d")]
-transform = Transform3D(0.0500049, -0.00703077, -0.0555609, -0.00541246, 0.0735302, -0.0141758, 0.0557419, 0.0134468, 0.0484661, 393.438, 0.684193, -1124.92)
+[node name="147_sand_rocks_small_01_1k" type="Node3D" parent="." instance=ExtResource("21_dapnn")]
+transform = Transform3D(0.0500049, -0.00703077, -0.0555609, -0.00541246, 0.0735302, -0.0141758, 0.0557419, 0.0134468, 0.0484661, 18.4375, 0.684193, 0.0817871)

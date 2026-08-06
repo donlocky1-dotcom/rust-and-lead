@@ -1416,8 +1416,11 @@ func _test_quest_wayfinding() -> void:
 	ow4._player.position = los + soll * OverworldView.TRAIL_SPACING_M
 	ow4._process_trail(0.016)
 	var versatz: float = (ow4._trail[0] as MeshInstance3D).position.distance_to(vorher[1])
+	# Toleranz am Schrittabstand gemessen, nicht als feste Zahl: Der Abstand ist inzwischen von
+	# 2,1 m auf Schrittlaenge (78 cm) gefallen, und eine feste Schranke waere dabei stillschweigend
+	# von „streng" zu „nichtssagend" gewandert — oder umgekehrt.
 	_check("Ein ganzer Schritt rueckt um genau einen Abdruck vor (%.2f m)" % versatz,
-		versatz < 0.25, "Abweichung %.2f m" % versatz)
+		versatz < OverworldView.TRAIL_SPACING_M * 0.12, "Abweichung %.2f m" % versatz)
 
 	# ── Der Umweg um den Sumpf ────────────────────────────────────────────────
 	# Ein Leitsystem, das einen umbringt, ist schlimmer als gar keines.

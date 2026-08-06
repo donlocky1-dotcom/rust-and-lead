@@ -80,9 +80,12 @@ func _neu_bauen() -> void:
 	ecken.resize((n + 1) * (n + 1))
 	for iz in n + 1:
 		for ix in n + 1:
-			var x: float = c.x - r + float(ix) * schritt
-			var z: float = c.z - r + float(iz) * schritt
-			ecken[iz * (n + 1) + ix] = Vector3(x, WorldManager.height_at(x, z), z)
+			var lx: float = -r + float(ix) * schritt
+			var lz: float = -r + float(iz) * schritt
+			# Gemessen wird in der WELT, abgelegt wird LOKAL — so bleibt die Hoehe exakt und
+			# die Szene trotzdem am Ursprung.
+			ecken[iz * (n + 1) + ix] = Vector3(lx,
+				WorldManager.height_at(c.x + lx, c.z + lz), lz)
 
 	var flaechen := PackedVector3Array()
 	flaechen.resize(n * n * 6)

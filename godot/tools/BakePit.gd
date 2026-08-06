@@ -109,6 +109,10 @@ func _backen(id: String) -> int:
 	var wurzel := Node3D.new()
 	wurzel.name = id
 	add_child(wurzel)
+	# Alles relativ zur Kratermitte ablegen. Mit Weltkoordinaten laege die Szene bei x = 370,
+	# z = −1130, und der Editor oeffnete sie mit der Kamera im Nichts.
+	var mitte: Vector3 = WorldManager.feature_center(f)
+	mitte.y = 0.0
 
 	var boden := PitFloor.new()
 	boden.name = "BODEN_NUR_EDITOR"
@@ -130,6 +134,7 @@ func _backen(id: String) -> int:
 		# Ohne `owner` fällt ein Kind beim Packen unter den Tisch — die Falle bei
 		# `PackedScene.pack()`, und sie fällt nicht auf, weil das Speichern trotzdem gelingt.
 		teil.owner = wurzel
+		teil.position -= mitte
 		teil.name = "%03d_%s" % [gezaehlt, teil.scene_file_path.get_file().get_basename()]
 		gezaehlt += 1
 	ow.free()
