@@ -23,9 +23,17 @@ extends RefCounted
 ## Länge eines Spieltags in echten Sekunden.
 const DAY_SEC: float = 720.0
 
-## Uhrzeit, bei der eine neue Runde beginnt: kurz nach Sonnenaufgang. Der Prolog spielt am
-## Morgen — wer auf einer Müllkippe erwacht, tut das im ersten Licht, nicht um Mitternacht.
-const START_HOUR: float = 7.5
+## Uhrzeit, bei der eine neue Runde beginnt: **Abendrot**.
+##
+## Der Prolog ist darauf gebaut: Der Held erwacht in der Dämmerung auf der Kippe, und während er
+## Richtung Rustwater geht, wird es Nacht. Wenn die Stadt in Sicht kommt, liegt sie als warmer
+## Lichtfleck in einer dunklen Wüste — das ist das Bild, auf das der ganze Anfang zuläuft.
+##
+## Die Rechnung dahinter: Ein Spieltag dauert zwölf Minuten, der Weg von der Grube nach
+## Rustwater gut einen Kilometer, also vier Minuten zu Fuß. Das sind acht Spielstunden — von
+## 18:36 aus wird es unterwegs verlässlich dunkel, im Sattel (dreifaches Tempo) reicht es
+## gerade für die Dämmerung.
+const START_HOUR: float = 18.6
 
 # ── Phasen ────────────────────────────────────────────────────────────────────
 const NACHT: String = "nacht"

@@ -39,6 +39,7 @@ static func serialize() -> Dictionary:
 		"weapons": GameState.weapons.duplicate(),
 		"weapon_id": GameState.weapon_id,
 		"prolog_done": GameState.prolog_done,
+		"saw_rustwater": GameState.saw_rustwater,
 		"hour": GameState.hour,
 		"quest_base": GameState.quest_base.duplicate(true),
 		"memories_found": GameState.memories_found,
@@ -91,6 +92,7 @@ static func deserialize(data: Dictionary) -> void:
 	GameState.weapons = Array(data.get("weapons", []))
 	GameState.weapon_id = String(data.get("weapon_id", ""))
 	GameState.prolog_done = bool(data.get("prolog_done", false))
+	GameState.saw_rustwater = bool(data.get("saw_rustwater", false))
 	GameState.hour = float(data.get("hour", 7.5))
 	GameState.quest_base = _int_dict(data.get("quest_base", {}))
 	GameState.memories_found = clampi(int(data.get("memories_found", 0)), 0, MemoryManager.chain_length())

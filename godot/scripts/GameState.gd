@@ -105,6 +105,9 @@ var weapon_id: String = ""
 ## Prolog abgeschlossen? Steuert, wo eine Runde ANFAENGT: erst die Grube, danach Rustwater.
 var prolog_done: bool = false
 
+## Hat er Rustwater schon einmal von weitem gesehen? Steuert den einmaligen Kameraflug.
+var saw_rustwater: bool = false
+
 ## Tageszeit in Stunden (0–24). Laeuft in Echtzeit weiter und steht im Spielstand — wer abends
 ## aufhoert, faengt abends wieder an.
 var hour: float = DayCycle.START_HOUR

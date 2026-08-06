@@ -743,6 +743,51 @@ func _light_saloon(r: Dictionary, stadtmitte: Vector2) -> void:
 		11.0, 2.2, false, 0.42)
 
 
+## Der Anflug auf Rustwater — einmal im Spiel, beim ersten Anblick der Stadt.
+##
+## Der Held erwacht in der Daemmerung auf der Kippe; waehrend er losgeht, wird es Nacht. Wenn
+## Rustwater in Sicht kommt, uebernimmt die Kamera: erst in SEINE Sicht, damit man das sieht,
+## was er sieht — eine beleuchtete Stadt in einer dunklen Wueste —, dann hinueber, um den
+## Wasserturm herum und zurueck in die Spielhaltung.
+##
+## Der Turm ist nicht zufaellig das Ziel der Kurve: Er ist die Landmarke, an der man Rustwater
+## von weitem erkennt, und die Fahrt sagt „das ist der Ort, auf den du zulaeufst", ohne ein
+## Wort dafuer zu brauchen.
+const INTRO_SIGHT_M: float = 210.0
+const INTRO_EYE_M: float = 1.62
+func _maybe_intro_flight() -> void:
+	if GameState.prolog_done or GameState.saw_rustwater or _player == null:
+		return
+	if _in_cine() or _in_flight() or _overlay_open():
+		return
+	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
+	var flach := Vector3(stadt.x - _player.position.x, 0.0, stadt.z - _player.position.z)
+	if flach.length() > INTRO_SIGHT_M:
+		return
+	GameState.saw_rustwater = true
+	var hin: Vector3 = flach.normalized()
+	var quer := Vector3(-hin.z, 0.0, hin.x)
+	var turm: Vector3 = stadt + Vector3(TOWER_SPOT.x, 0.0, TOWER_SPOT.y)
+	var auge: Vector3 = _player.position + Vector3(0.0, INTRO_EYE_M, 0.0)
+	var punkte: Array = [
+		# 1. In seine Sicht. Was er sieht, sieht der Spieler.
+		{ "pos": auge, "ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": 1.6 },
+		# 2. Ueber die Wueste auf die Stadt zu, in Kopfhoehe bleibend — der Anflug.
+		{ "pos": auge.lerp(stadt, 0.55) + Vector3(0.0, 7.0, 0.0),
+			"ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": 2.6 },
+		# 3. Um den Wasserturm herum. Zwei Punkte, sonst wird aus der Kurve eine Ecke.
+		{ "pos": turm + quer * 26.0 + Vector3(0.0, 16.0, 0.0),
+			"ziel": turm + Vector3(0.0, 9.0, 0.0), "sek": 2.2 },
+		{ "pos": turm - hin * 24.0 + quer * 10.0 + Vector3(0.0, 21.0, 0.0),
+			"ziel": turm + Vector3(0.0, 9.0, 0.0), "sek": 2.0 },
+		# 4. Zurueck in die Spielhaltung ueber der Figur.
+		{ "pos": _player.position + _cam_offset(_cam_dist),
+			"ziel": _player.position + Vector3(0.0, 1.0, 0.0), "sek": 2.4 },
+	]
+	_play_flight(punkte)
+	_say("🌙 Rustwater. Licht in der Wüste.", 4.0)
+
+
 ## Die Mondscheibe am Himmel.
 ##
 ## Kein Schmuck: Eine helle Nacht ohne sichtbare Quelle wirkt wie ein vergessener Regler — man
@@ -4150,8 +4195,80 @@ static func _yaw_towards(von: Vector3, nach: Vector3) -> float:
 	return atan2(-d.x, -d.z)
 
 
+# ── Kameraflug ───────────────────────────────────────────────────────────────
+## Eine gefahrene Einstellung: eine Liste von Standpunkten mit Blickzielen und Dauern.
+##
+## Anders als die Nahaufnahme, die IMMER dasselbe tut (Kopf suchen, heranfahren), ist ein Flug
+## ein Drehbuch. Deshalb kommt er als Daten herein und nicht als Formel — wer eine zweite Fahrt
+## will, schreibt eine zweite Liste, keinen zweiten Sonderfall.
+##
+## Zwischen zwei Punkten wird mit `smoothstep` geblendet: Ein linearer Schnitt zwischen zwei
+## Standpunkten faehrt an, faehrt und bremst nicht, und das liest sich als Kamerafahrt eines
+## Anfaengers. Weich hinein, weich hinaus, und die Uebergaenge zwischen den Abschnitten
+## verschwinden.
+var _flight: Array = []          # [{ pos, ziel, sek }]
+var _flight_t: float = 0.0
+var _flight_von := Transform3D.IDENTITY
+
+
+func _play_flight(punkte: Array) -> void:
+	if _cam == null or punkte.is_empty():
+		return
+	_flight = punkte
+	_flight_t = 0.0
+	_flight_von = _cam.global_transform
+	_set_hud_hidden(true)
+	_set_cine_clean(true)
+	_show_bars(true)
+	_end_stick()
+
+
+func _in_flight() -> bool:
+	return not _flight.is_empty()
+
+
+func _end_flight() -> void:
+	_flight.clear()
+	_set_hud_hidden(false)
+	_set_cine_clean(false)
+	_show_bars(false)
+
+
+## Kamera fuer den aktuellen Augenblick des Fluges.
+func _flight_frame() -> Array:
+	var t: float = _flight_t
+	var von_pos: Vector3 = _flight_von.origin
+	var von_ziel: Vector3 = von_pos - _flight_von.basis.z * 10.0
+	for p in _flight:
+		var sek: float = maxf(float(p["sek"]), 0.05)
+		if t <= sek:
+			var k: float = smoothstep(0.0, 1.0, t / sek)
+			return [von_pos.lerp(p["pos"], k), von_ziel.lerp(p["ziel"], k)]
+		t -= sek
+		von_pos = p["pos"]
+		von_ziel = p["ziel"]
+	return [von_pos, von_ziel]
+
+
+func _flight_total() -> float:
+	var s: float = 0.0
+	for p in _flight:
+		s += maxf(float(p["sek"]), 0.05)
+	return s
+
+
 func _process_camera(delta: float) -> void:
 	if _cam == null:
+		return
+	if _in_flight():
+		_flight_t += delta
+		var ff: Array = _flight_frame()
+		_cam.position = ff[0]
+		if ff[0].distance_to(ff[1]) > 0.05:
+			_cam.look_at(ff[1], Vector3.UP)
+		_cam.fov = CAM_FOV
+		if _flight_t >= _flight_total():
+			_end_flight()
 		return
 	if _in_cine():
 		_cine_left -= delta
@@ -4192,6 +4309,7 @@ func _process(delta: float) -> void:
 	_process_zone_title(delta)
 	_process_fog(delta)
 	_process_daytime(delta)
+	_maybe_intro_flight()
 	_process_interactions(delta)
 	_process_trail(delta)
 	_process_mount(delta)

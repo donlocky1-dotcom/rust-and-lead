@@ -242,7 +242,7 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   lässt offen, ob sie knietief oder haushoch ist. Die Mitte bleibt der Lache vorbehalten — dort
   erwacht der Held.
 * **Tageszeit** (`DayCycle`) — ein Spieltag dauert **zwölf Minuten** Echtzeit, die Uhr steht im
-  Spielstand. Vier Phasen: Nacht · Dämmerung · Tag · Abendrot. Bewusst nicht nur „hell/dunkel":
+  Spielstand und eine Runde beginnt im **Abendrot** (18:36), weil der Prolog darauf gebaut ist. Vier Phasen: Nacht · Dämmerung · Tag · Abendrot. Bewusst nicht nur „hell/dunkel":
   Die interessanten Bilder liegen dazwischen, wenn die Sonne tief steht und die Schatten lang
   sind. Ein Fußmarsch quer durch den Krater dauert achtzehn Minuten — eine lange Reise führt
   also durch mehr als eine Tageszeit, und das ist Absicht.
@@ -262,8 +262,9 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   schiene es durch die Wände und das Haus sähe aus wie aus Papier; mit ihnen kommt es nur durch
   Tür und Fenster heraus. Nur dieses eine Licht wirft Schatten (ein Punktlicht kostet sechs
   Schattenkarten), die Kerzen füllen bloß den Raum. Sie gehen mit der Dämmerung weich an und aus, nicht auf
-  die Sekunde. Kommen später Öffnungszeiten für die anderen Häuser, ist der Saloon die
-  Ausnahme — er ist der Ort, an dem man nachts noch jemanden findet.
+  die Sekunde. **Nichts schließt nachts.** Händler, Werkstatt und Quest-Geber sind rund um
+  die Uhr erreichbar; Öffnungszeiten wären eine Wartezeit, die nichts erzählt. Die Nacht ändert,
+  wie die Welt AUSSIEHT und wer draußen herumläuft — nicht, was man tun kann.
 * **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und
   Truhen erscheinen nie in einer Hauswand und nie hinter einem geschlossenen Sektor-Tor.
 * **Jeder Ort hängt an mindestens einer Route**, und das Schienennetz ist zusammenhängend —

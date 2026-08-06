@@ -1558,7 +1558,18 @@ func _test_daycycle() -> void:
 			nacht += 1
 	_check("Es gibt Nachttiere (%d)" % nacht, nacht > 0)
 	_check("Aber nicht alle", nacht < CombatData.ENEMY_TYPES.size())
-	_check("Die Uhr steht im Spielstand", DayCycle.clock_text(7.5) == "07:30")
+	_check("Die Uhr laeuft im Spielstand", DayCycle.clock_text(7.5) == "07:30")
+	# 8. Der Prolog beginnt im Abendrot: Der Held erwacht in der Daemmerung, und waehrend er
+	#    nach Rustwater geht, wird es Nacht. Faengt eine Runde mittags an, gibt es kein
+	#    beleuchtetes Rustwater in dunkler Wueste — und der ganze Anfang laeuft ins Leere.
+	_check("Eine Runde beginnt im Abendrot (%s)" % DayCycle.clock_text(DayCycle.START_HOUR),
+		DayCycle.phase_at(DayCycle.START_HOUR) == DayCycle.ABEND)
+	# Und der Fussmarsch zur Stadt reicht, damit es dabei WIRKLICH dunkel wird: gut ein
+	# Kilometer bei 4,7 m/s.
+	var marsch: float = 1000.0 / WorldManager.PLAYER_SPEED_MS
+	var ankunft: float = DayCycle.advance(DayCycle.START_HOUR, marsch)
+	_check("Bei Ankunft zu Fuss ist es Nacht (%s)" % DayCycle.clock_text(ankunft),
+		DayCycle.phase_at(ankunft) == DayCycle.NACHT)
 
 
 ## Gegner greifen an — mit Ausholen, Treffer und Pause.

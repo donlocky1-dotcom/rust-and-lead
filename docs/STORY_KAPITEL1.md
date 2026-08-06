@@ -15,6 +15,11 @@ Der Held erwacht **in der Lache am Grund der Schrottgrube**. Kein Menü, keine E
 Lache ist der einzige freie Fleck im Schutt — der einzige Ort, an dem man liegen kann; genau
 deshalb wird sie beim Füllen ausgespart.
 
+**0. Es ist Abendrot.** Eine Runde beginnt um **18:36** (`DayCycle.START_HOUR`). Das ist keine
+Kosmetik, sondern der Bauplan des Prologs: Der Held erwacht in der Dämmerung, und während er
+Richtung Rustwater geht, wird es Nacht. Zu Fuß dauert der Kilometer vier Minuten — acht
+Spielstunden, Ankunft gegen **01:40**. Im Sattel reicht es gerade für die Dämmerung.
+
 **1. Aufwachen.** Kamerafahrt von oben auf die Figur, dann in die Spielkamera. Erste Meldung:
 
 > *Dein Schädel dröhnt. Öl im Mund, Rost in der Nase. Du weißt nicht, wie du hierhergekommen
@@ -36,6 +41,19 @@ Kilometer weit; zu Fuß sind das vier Minuten, im Sattel gut eine.
 
 **5. Der Weg.** Die Fußspur führt aus der Grube nach Rustwater — und, seit die Palisade steht,
 **durch das Tor** statt gegen die Mauer.
+
+**6. Der Anblick.** Auf 210 m übernimmt die Kamera, einmal im ganzen Spiel:
+
+1. **In seine Sicht** (1,6 s) — auf Augenhöhe, Blick auf die Stadt. Was er sieht, sieht der
+   Spieler: eine beleuchtete Stadt in einer dunklen Wüste.
+2. **Anflug** (2,6 s) über die Wüste, in Kopfhöhe bleibend.
+3. **Um den Wasserturm** (2,2 + 2,0 s, zwei Punkte — mit einem würde aus der Kurve eine Ecke).
+   Der Turm ist die Landmarke, an der man Rustwater von weitem erkennt; die Fahrt sagt „das ist
+   der Ort, auf den du zuläufst", ohne ein Wort dafür zu brauchen.
+4. **Zurück in die Spielhaltung** (2,4 s) über der Figur.
+
+Dazu die Zeile: *„🌙 Rustwater. Licht in der Wüste."* Der Flug merkt sich in
+`GameState.saw_rustwater`, dass er gelaufen ist — er kommt nicht wieder.
 
 **Abschluss des Prologs:** Betreten von Rustwater setzt `GameState.prolog_done = true`. Ab dann
 beginnt eine Runde wieder in der Stadt; niemand soll nach dem zweiten Kapitel wieder auf der
