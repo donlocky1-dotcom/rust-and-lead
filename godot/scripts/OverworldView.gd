@@ -669,24 +669,27 @@ func _process_daytime(delta: float) -> void:
 ## ohne etwas anzuleuchten, ist ein Aufkleber.
 const NIGHT_LIGHT_COLOR: Color = Color(1.0, 0.72, 0.38)   # Petroleum, warm
 var _night_lights: Array = []
-func _add_night_light(pos: Vector3, reichweite: float, energie: float) -> void:
+func _add_night_light(pos: Vector3, reichweite: float, energie: float,
+		schatten: bool = false, glas_m: float = 0.55,
+		farbe: Color = NIGHT_LIGHT_COLOR) -> void:
 	var l := OmniLight3D.new()
-	l.light_color = NIGHT_LIGHT_COLOR
+	l.light_color = farbe
 	l.omni_range = reichweite
 	l.light_energy = 0.0
-	# Kein Schatten: Ein Punktlicht mit Schatten kostet sechs Schattenkarten, und der Gewinn ist
-	# bei einer Laterne ueber einem leeren Platz gering.
-	l.shadow_enabled = false
+	# Schatten kosten bei einem Punktlicht SECHS Schattenkarten. Ueber einem leeren Platz lohnt
+	# das nicht — beim Licht IM Saloon schon: Ohne Schatten schiene es durch die Waende, und das
+	# Haus saehe aus, als waere es aus Papier. Genau dieses eine Licht traegt den Effekt.
+	l.shadow_enabled = schatten
 	l.position = pos
 	add_child(l)
-	_night_lights.append({ "node": l, "max": energie })
+	_night_lights.append({ "node": l, "max": energie, "farbe": farbe })
 	# Die Quelle selbst, damit man sie sieht und nicht nur ihren Schein.
 	var glas := MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2(0.55, 0.55)
+	q.size = Vector2(glas_m, glas_m)
 	glas.mesh = q
 	var m := StandardMaterial3D.new()
-	m.albedo_color = NIGHT_LIGHT_COLOR
+	m.albedo_color = farbe
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
@@ -697,6 +700,47 @@ func _add_night_light(pos: Vector3, reichweite: float, energie: float) -> void:
 	glas.position = pos
 	add_child(glas)
 	_night_lights[-1]["glas"] = glas
+
+
+## Der Saloon leuchtet von INNEN.
+##
+## Der erste Versuch hat zwei Laternen vor die Tuer gestellt. Das beleuchtete den Platz, aber
+## das Haus blieb ein dunkler Kasten mit einem Scheinwerfer davor — und der Saloon ist der Ort,
+## an dem nachts noch jemand wach ist. Das muss man ihm ANSEHEN.
+##
+## Also: Kerzen und Laternen im Schankraum, und eine Laterne an der Tuer.
+##
+## Das Licht im Haus wirft SCHATTEN. Das ist der ganze Trick: Ohne sie schiene es durch die
+## Waende, und der Saloon saehe aus, als waere er aus Papier. Mit Schatten kommt es nur dort
+## heraus, wo das Modell Oeffnungen hat — durch Tuer und Fenster, und genau das ist das Bild.
+##
+## Nur EINES der Lichter wirft Schatten. Ein Punktlicht mit Schatten kostet sechs Schattenkarten;
+## drei davon waeren achtzehn, fuer ein Haus. Die uebrigen sind Kerzen mit kleiner Reichweite —
+## sie fuellen den Raum, sie muessen nicht hinaus.
+const KERZE: Color = Color(1.0, 0.66, 0.30)
+func _light_saloon(r: Dictionary, stadtmitte: Vector2) -> void:
+	var mitte := Vector2(r["c"])
+	var boden: float = WorldManager.height_at(mitte.x, mitte.y)
+	var yaw: float = float(r["yaw"])
+	var laengs := Vector2(cos(yaw), sin(yaw))
+	var quer := Vector2(-laengs.y, laengs.x)
+	# Der Schankraum: ein grosses Licht in der Mitte, das durch die Oeffnungen hinausfaellt …
+	_add_night_light(Vector3(mitte.x, boden + 2.3, mitte.y), 16.0, 4.2, true, 0.0)
+	# … und Kerzen an den Tischen, kurz und warm. Sie halten den Raum hell, auch wo das grosse
+	# Licht von einem Balken verdeckt wird.
+	for versatz in [Vector2(-0.45, -0.3), Vector2(0.5, 0.35), Vector2(-0.15, 0.55)]:
+		var p: Vector2 = mitte + laengs * (r["h"].x * float(versatz.x)) \
+			+ quer * (r["h"].y * float(versatz.y))
+		_add_night_light(Vector3(p.x, boden + 1.25, p.y), 5.0, 1.3, false, 0.16, KERZE)
+	# Die Laterne an der Tuer. Wohin „vor" zeigt, sagt die Stadtmitte — der Saloon steht an der
+	# Strasse, und die fuehrt dorthin; damit stimmt es auch, wenn jemand das Haus umstellt.
+	var zur_strasse: Vector2 = stadtmitte - mitte
+	if zur_strasse.length() < 0.5:
+		zur_strasse = Vector2(0.0, 1.0)
+	zur_strasse = zur_strasse.normalized()
+	var tuer: Vector2 = mitte + zur_strasse * (maxf(r["h"].x, r["h"].y) + 0.8)
+	_add_night_light(Vector3(tuer.x, WorldManager.height_at(tuer.x, tuer.y) + 2.5, tuer.y),
+		11.0, 2.2, false, 0.42)
 
 
 ## Die Mondscheibe am Himmel.
@@ -742,7 +786,7 @@ func _apply_daytime() -> void:
 		if glas != null:
 			glas.visible = dunkel > 0.02
 			(glas.material_override as StandardMaterial3D).albedo_color = \
-				Color(NIGHT_LIGHT_COLOR, dunkel)
+				Color(l.get("farbe", NIGHT_LIGHT_COLOR), dunkel)
 	if _moon != null:
 		var sicht: float = DayCycle.moon_visibility(h)
 		_moon.visible = sicht > 0.01
@@ -1890,21 +1934,7 @@ func _register_town_rects(sperren: Array) -> void:
 	for r in sperren:
 		_solid_rect_rot(Vector3(r["c"].x, 0.0, r["c"].y), r["h"], float(r["yaw"]))
 		if String(r["asset"]) == "saloon":
-			# Vor die Tuer, nicht ins Haus: Das Licht soll den PLATZ beleuchten. Wohin „vor"
-			# zeigt, sagt die Stadtmitte — der Saloon steht an der Strasse, und die fuehrt
-			# dorthin. Zwei Lichter: eines an der Fassade, eines weiter draussen auf dem Platz.
-			var mitte := Vector2(r["c"])
-			var zur_strasse: Vector2 = (Vector2(stadt.x, stadt.z) - mitte)
-			if zur_strasse.length() < 0.5:
-				zur_strasse = Vector2(0.0, 1.0)
-			zur_strasse = zur_strasse.normalized()
-			var vor: Vector2 = mitte + zur_strasse * (maxf(r["h"].x, r["h"].y) + 1.2)
-			_add_night_light(Vector3(vor.x, WorldManager.height_at(vor.x, vor.y) + 3.1, vor.y),
-				17.0, 3.4)
-			var platz: Vector2 = mitte + zur_strasse * (maxf(r["h"].x, r["h"].y) + 8.0)
-			_add_night_light(
-				Vector3(platz.x, WorldManager.height_at(platz.x, platz.y) + 3.6, platz.y),
-				14.0, 2.0)
+			_light_saloon(r, Vector2(stadt.x, stadt.z))
 		var text: String = String(r["label"])
 		if text != "":
 			_label(Vector3(r["c"].x, float(r["deckel"]) + 2.2, r["c"].y), text,

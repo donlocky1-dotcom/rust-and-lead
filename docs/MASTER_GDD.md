@@ -256,9 +256,12 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   Entscheidung, und Quests können sie verlangen.
 * **Nachtbeleuchtung.** Zwei Orte brennen die Nacht durch: der **Gatling-Saloon** — der hat
   **immer offen**, bei Mabel ist immer jemand wach — und der **Bahnsteig**, denn eine Station
-  ohne Licht findet nachts niemand, und reisen soll man auch im Dunkeln. Die Lichter reichen
-  ausdrücklich über das Gebäude hinaus auf den **Platz davor**: Ein Fenster, das leuchtet, ohne
-  etwas anzuleuchten, ist ein Aufkleber. Sie gehen mit der Dämmerung weich an und aus, nicht auf
+  ohne Licht findet nachts niemand, und reisen soll man auch im Dunkeln.
+  Der Saloon leuchtet **von innen**: ein großes Licht im Schankraum, drei Kerzen an den Tischen,
+  eine Laterne an der Tür. Das Raumlicht wirft **Schatten** — das ist der ganze Trick: Ohne sie
+  schiene es durch die Wände und das Haus sähe aus wie aus Papier; mit ihnen kommt es nur durch
+  Tür und Fenster heraus. Nur dieses eine Licht wirft Schatten (ein Punktlicht kostet sechs
+  Schattenkarten), die Kerzen füllen bloß den Raum. Sie gehen mit der Dämmerung weich an und aus, nicht auf
   die Sekunde. Kommen später Öffnungszeiten für die anderen Häuser, ist der Saloon die
   Ausnahme — er ist der Ort, an dem man nachts noch jemanden findet.
 * **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und
