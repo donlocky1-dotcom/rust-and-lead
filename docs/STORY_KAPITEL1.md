@@ -115,9 +115,16 @@ dasselbe Problem wie bei der Palisade, wo sie vor der Mauer endete statt durchs 
 Erst wenn er am Fels steht, zeigt sie hinauf.
 
 **5b. Der Ausguck.** Auf halbem Weg (276 m von der Grube, 255 m vor der Stadt) ragt ein
-**15 m hoher Fels** aus dem Sand: flaches Plateau, ringsum steile Kante, auf der Grubenseite ein
-Sporn, über den man hinaufkommt. Wer aus der Grube kommt, sieht ihn vor sich und steigt hinauf,
-um sich zu orientieren.
+**15 m hoher Fels** aus dem Sand: zwei Kuppen mit einer Senke dazwischen, ringsum steile Kante,
+auf der Grubenseite ein Sporn, über den man hinaufkommt. Wer aus der Grube kommt, sieht ihn vor
+sich und steigt hinauf, um sich zu orientieren.
+
+**Der Aufstieg ist eine Flanke, keine Spalte.** Der Rampensektor war mit 54° zu eng: Weil
+`_rampen_anteil` von der Mitte nach außen ausblendet, war davon nur der innere Kern voll
+wirksam, und was man beim Hochlaufen sah, waren zwei Felswände links und rechts und eine Rinne
+dazwischen. Mit **96°** geht man eine breite Flanke hinauf. Die Steigung in der Mitte ändert
+sich dadurch nicht — dort ist der Rampenanteil in beiden Fällen 1 —, nur die Breite, auf der
+sie gilt.
 
 **Ein Fels, kein Hügel** — der Unterschied steckt in drei Dingen:
 
@@ -162,12 +169,31 @@ Bedingung lautet: *Stehst du drin?* Mehr nicht. Der Ring atmet langsam, damit er
 wird und nicht als Verzierung, und verschwindet mitsamt Beschriftung, sobald die Rundsicht einmal
 gelaufen ist.
 
-Wo er liegt, wird **gemessen**, nicht eingetragen: vom Gipfel Richtung Rustwater nach außen, bis
-der Boden um mehr als 1,2 m abfällt — das ist die Abbruchkante —, dann um genau den Ringradius
-zurück. Damit berührt der vordere Bogen die Kante und der Rest liegt auf. Wer drinsteht, steht
-**1,8 m vor dem Abgrund**: 14,7 m hoch bei einem 15,0 m hohen Fels, und zweieinhalb Meter weiter
-geht es auf 10,3 m hinunter. Weil der Punkt gemessen wird, wandert er mit, wenn jemand den Fels
-umbaut.
+Wo er liegt, wird **gemessen**, nicht eingetragen: der **höchste Punkt der rechten Kuppe**, auf
+dem der Ring noch ganz aufliegt. „Rechts" ist dabei nicht willkürlich, sondern das Kreuzprodukt
+aus Blickrichtung und Hochachse — dieselbe Rechnung, mit der auch eine Kamera ihren Rechtsvektor
+bildet. Gemessen kommt dabei heraus: **16,1 m**, gut einen Meter über dem Gipfelmittelpunkt und
+3,0 m rechts der Achse; der tiefste Punkt des Reifens liegt noch auf 15,3 m, und acht Meter
+Richtung Rustwater fällt der Fels auf 8,3 m ab.
+
+**Die Fußspur nimmt dabei den Umweg über die Kuppe.** Solange der Ring auf der Blickachse lag,
+brauchte es das nicht — die Rampe zeigt dorthin, wer ihr folgt, kommt an. Seit er auf der
+rechten Kuppe sitzt, läuft die gerade Linie vom Rampenfuß zum Ring quer über die Flanke, und die
+steht mit **72°** weit jenseits der Steigungsgrenze: Die Spur zeigte auf eine Wand. Derselbe
+Fehler wie damals an der Palisade, wo sie vor der Mauer endete statt durchs Tor zu gehen. Jetzt
+zeigt sie erst auf die Felsmitte — den Kopf der Rampe — und von dort in den Ring; über den
+Sattel dazwischen ist der steilste Schritt 39°.
+
+Ein Höhenmaximum allein reicht dafür nicht: Eine Spitze ist der höchste Punkt und trägt keinen
+Ring von 1,8 m. Jeder Kandidat wird deshalb mit seinen acht Ringpunkten geprüft, und es gewinnt
+der höchste, auf dem der Reif nicht wegsackt. Weil das gerechnet und nicht eingetragen ist,
+wandert der Punkt mit, wenn jemand den Fels umbaut.
+
+> **Ein vierter verworfener Anlauf**, der beinahe stehen geblieben wäre: die Messung der
+> Vorderkante Richtung Rustwater — nach außen bis zum Abbruch, dann um den Ringradius zurück.
+> Sie funktionierte und lag trotzdem falsch, weil der Fels **zwei Kuppen** hat und die
+> Vorderkante genau in die Senke dazwischen fällt: 14,7 m, während zwei Schritte weiter rechts
+> 16,6 m gewesen wären. Eine korrekte Rechnung auf die falsche Frage.
 
 > Zwei Zwischenlösungen, die sich nicht bewährt haben, stehen hier als Warnung. **Erstens:** Weil
 > der Standplatz nur 2,6 m vor dem Gipfelpunkt landete, sah das nach einer *Rinne* aus — die

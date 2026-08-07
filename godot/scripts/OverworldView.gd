@@ -692,36 +692,46 @@ const VISTA_SEK_WEIT: float = 3.2
 const VISTA_SEK_TAL: float = 3.0
 const VISTA_SEK_HEIM: float = 1.8
 
-## Der Standplatz an der VORDERKANTE — dort, wo man hinsoll.
+## Der Standplatz: der HÖCHSTE Punkt auf der rechten Kuppe.
 ##
-## Zwei Anläufe vorher, beide aus derselben Sorte Fehler: Erst der waagerechte Abstand zur
-## Felsmitte (auf der Rampe ist man dort acht Meter zu tief), dann zusätzlich die Höhe (besser,
-## aber immer noch geraten — man steht irgendwo oben, nicht an der Kante).
+## Drei Anläufe vorher, und alle drei erklären, warum es jetzt so gerechnet wird.
 ##
-## Der Fehler war nicht die Formel, sondern der Ansatz: Ein Auslöser, den man nicht SIEHT, muss
-## raten, wo „richtig" ist. Also ein Ring, der leuchtet. Die Fußspur führt hinein, man stellt
-## sich hin, es geht los — kein Ratespiel und keine Toleranz, die mal zu groß und mal zu klein
-## ist.
+## Der erste Auslöser fragte nur den waagerechten Abstand zur Felsmitte ab — auf der Rampe ist
+## man dort acht Meter zu tief, die Fahrt startete, und die Kamera lief durch den Berg. Der
+## zweite zählte zusätzlich die Höhe: besser, aber immer noch geraten, denn *oben* heißt nicht
+## *irgendwo*. Falsch war beide Male nicht die Formel, sondern der Ansatz — **ein Auslöser, den
+## man nicht SIEHT, zwingt zum Raten.** Daher der leuchtende Ring, in den die Fußspur führt.
 ##
-## Der Punkt wird GEMESSEN, nicht gesetzt: vom Gipfel aus Richtung Rustwater nach außen, bis
-## der Boden abfällt. Das ist die Kante — und sie wandert mit, wenn jemand den Fels umbaut.
+## Der dritte Anlauf maß die Vorderkante Richtung Rustwater. Das funktionierte, hatte aber einen
+## Haken, den erst das Bild zeigte: Der Fels hat zwei Kuppen, und die Vorderkante liegt in der
+## Senke dazwischen — man stand auf 14,7 m, während zwei Schritte weiter rechts 16,6 m gewesen
+## wären. Wer sich auf einen Felsen stellt, um sich zu orientieren, stellt sich auf die höchste
+## Stelle.
 ##
-## Die Messung sagt: Der Grat liegt dicht an der Mitte. Schon 2,6 m vor dem Gipfelpunkt fällt es
-## ab, vier Meter weiter steht man auf 10,9 m statt auf 15,0 m. Die Rustwater-Seite ist keine
-## Terrasse mit Kante, sondern eine Schulter, die sofort weggeht — was für den Blick genau
-## richtig ist und für den Ring eine Einschränkung: Er muss klein sein und weit genug zurück
-## liegen, sonst hängt sein vorderer Bogen vier Meter über dem Hang in der Luft.
+## Gesucht wird deshalb der **höchste Punkt der rechten Hälfte**, und „rechts" ist dabei nicht
+## willkürlich: Es ist die Seite, auf die man beim Aufstieg zuläuft, gerechnet als Kreuzprodukt
+## aus Blickrichtung und Hochachse — dieselbe Rechnung, die auch die Kamera für „rechts im Bild"
+## benutzt.
 ##
-## Deshalb wird um GENAU den Ringradius zurückgesetzt. Dann berührt der vordere Rand des Rings
-## die Abbruchkante und der Rest liegt auf. Wer drinsteht, steht anderthalb Meter vor dem
-## Abgrund — näher geht nicht, ohne zu fallen.
+## Ein Höhenmaximum allein reicht nicht: Eine Bergspitze ist der höchste Punkt und trägt keinen
+## Ring von 1,8 m. Deshalb wird jeder Kandidat mit seinen acht Ringpunkten geprüft, und es
+## gewinnt der höchste, auf dem der Reif noch ganz aufliegt. Damit wandert der Punkt mit, wenn
+## jemand den Fels umbaut, statt als Zahl im Code zu veralten.
 const VISTA_KANTE_TOL_M: float = 1.2
 const VISTA_RING_R_M: float = 1.8
+## Wie weit der Reif am Rand absacken darf, bevor der Platz als zu schmal gilt.
+##
+## 0,9 m — nachgemessen und nicht geschätzt. Bei 1,1 landet der Ring auf 16,1 m, 3,0 m rechts
+## der Achse, und sein tiefster Rand liegt auf 15,3 m: Der Reif sackt also nur 0,8 m ab, die
+## Toleranz war um einen Viertelmeter zu lasch. Bei 0,9 kommt exakt derselbe Punkt heraus, nur
+## mit der schärferen Zusage. Enger geht es nicht: Bei 0,75 rutscht der Platz auf 15,9 m, bei
+## 0,6 auf 15,3 m — dann steht man wieder fast auf dem Gipfelmittelpunkt statt auf der rechten
+## Kuppe, und der Sinn der Sache wäre weg.
+const VISTA_PLATZ_TOL_M: float = 0.9
 var _vista_spot_cache: Vector3 = Vector3.ZERO
 func _vista_spot() -> Vector3:
 	# Gerechnet wird das EINMAL. `_maybe_vista()` fragt in jedem Bild, `_trail_goal()` auch, und
-	# die Schleife tastet den halben Felsradius in 25-cm-Schritten ab — der Fels bewegt sich
-	# dabei nie.
+	# hier werden ein paar hundert Bodenhöhen abgetastet — der Fels bewegt sich dabei nie.
 	if _vista_spot_cache != Vector3.ZERO:
 		return _vista_spot_cache
 	var f: Dictionary = _feature("ausguck")
@@ -730,17 +740,37 @@ func _vista_spot() -> Vector3:
 	var mitte: Vector3 = WorldManager.feature_center(f)
 	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
 	var hin := Vector3(stadt.x - mitte.x, 0.0, stadt.z - mitte.z).normalized()
-	var gipfel: float = WorldManager.height_at(mitte.x, mitte.z)
-	var kante: Vector3 = mitte
-	var d: float = 0.0
-	while d < float(f["radius"]):
-		d += 0.25
-		var q: Vector3 = mitte + hin * d
-		if WorldManager.height_at(q.x, q.z) < gipfel - VISTA_KANTE_TOL_M:
-			break
-		kante = q
-	var spot: Vector3 = kante - hin * VISTA_RING_R_M
-	_vista_spot_cache = Vector3(spot.x, WorldManager.height_at(spot.x, spot.z), spot.z)
+	# Rechts im Bild: Kreuzprodukt aus Blickrichtung und Hochachse.
+	var rechts := Vector3(-hin.z, 0.0, hin.x)
+	var suche: float = float(f["radius"]) * 0.45
+	var best: Vector3 = Vector3(mitte.x, WorldManager.height_at(mitte.x, mitte.z), mitte.z)
+	var best_h: float = -1e9
+	var schritt: float = 0.5
+	var n: int = int(suche / schritt)
+	for ix in range(-n, n + 1):
+		for iz in range(-n, n + 1):
+			var off: Vector3 = rechts * (float(ix) * schritt) + hin * (float(iz) * schritt)
+			# Nur die rechte Hälfte, und nur innerhalb des Suchkreises.
+			if off.dot(rechts) <= 0.0 or off.length() > suche:
+				continue
+			var q: Vector3 = mitte + off
+			var h: float = WorldManager.height_at(q.x, q.z)
+			if h <= best_h:
+				continue
+			# Trägt der Platz den ganzen Reif? Acht Punkte auf dem Ring, keiner darf wegsacken.
+			var traegt: bool = true
+			for k in 8:
+				var w: float = TAU * float(k) / 8.0
+				var rx: float = q.x + cos(w) * VISTA_RING_R_M
+				var rz: float = q.z + sin(w) * VISTA_RING_R_M
+				if WorldManager.height_at(rx, rz) < h - VISTA_PLATZ_TOL_M:
+					traegt = false
+					break
+			if not traegt:
+				continue
+			best_h = h
+			best = Vector3(q.x, h, q.z)
+	_vista_spot_cache = best
 	return _vista_spot_cache
 
 
@@ -833,9 +863,13 @@ func _feature(id: String) -> Dictionary:
 ## Bewegung sagt „das gehört zu dir".
 const MARKE_FARBE: Color = Color(1.0, 0.80, 0.38)
 const MARKE_PULS_HZ: float = 0.55
-## Wie breit das Band ist und wie hoch es über dem Fels liegt. Der erste Reif war 12 cm schmal
-## und verschwand additiv über hellem Sand fast vollständig; 45 cm liest man aus jeder Entfernung.
-const MARKE_BAND_M: float = 0.45
+## Wie breit das Band ist und wie hoch es über dem Fels liegt.
+##
+## Der erste Reif war 12 cm schmal und verschwand additiv über hellem Sand fast vollständig.
+## 45 cm waren dann zu viel — bei 1,8 m Radius ist das ein Viertel davon, und aus flachem Blick
+## ging der Reif in seine eigene Füllung über. 32 cm liest man aus jeder Entfernung und lässt
+## den Platz in der Mitte noch als Platz erkennen.
+const MARKE_BAND_M: float = 0.32
 const MARKE_LUFT_M: float = 0.06
 var _marke: Node3D = null
 ## Ein Ring, der dem Fels FOLGT.
@@ -884,7 +918,12 @@ func _marke_ring(pos: Vector3, radius: float) -> Node3D:
 	reif.material_override = mat
 	reif.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	puls.add_child(reif)
-	# Eine schwache Scheibe darin — der bloße Umriss liest sich aus der Spielkamera als Loch.
+	# Eine SEHR schwache Scheibe darin — der bloße Umriss liest sich aus der Spielkamera als Loch.
+	#
+	# Sie stand zuerst auf 0,16 Alpha und wurde im Betrieb noch auf 0,24 hochgezogen. Additiv über
+	# hellem Fels war das Ergebnis kein Ring mehr, sondern ein gelber Fleck: Band und Füllung
+	# gingen ineinander über, und was den Platz markieren sollte, sah aus wie ein Lichtkegel.
+	# 0,07 reicht, damit die Mitte nicht als Loch liest, und bleibt hinter dem Band zurück.
 	var scheibe := SurfaceTool.new()
 	scheibe.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i2 in seg:
@@ -903,7 +942,7 @@ func _marke_ring(pos: Vector3, radius: float) -> Node3D:
 	var innen := MeshInstance3D.new()
 	innen.mesh = scheibe.commit()
 	var m2: StandardMaterial3D = mat.duplicate()
-	m2.albedo_color = Color(MARKE_FARBE.r, MARKE_FARBE.g, MARKE_FARBE.b, 0.16)
+	m2.albedo_color = Color(MARKE_FARBE.r, MARKE_FARBE.g, MARKE_FARBE.b, 0.07)
 	innen.material_override = m2
 	innen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	puls.add_child(innen)
@@ -946,7 +985,7 @@ func _process_marke(_delta: float) -> void:
 	var t: float = sin(_flacker_t * TAU * MARKE_PULS_HZ) * 0.5 + 0.5
 	for c in puls.get_children():
 		var m: StandardMaterial3D = (c as MeshInstance3D).material_override
-		m.albedo_color.a = lerpf(0.45, 1.0, t) * (1.0 if c.get_index() == 0 else 0.24)
+		m.albedo_color.a = lerpf(0.45, 1.0, t) * (1.0 if c.get_index() == 0 else 0.09)
 
 
 ## Geroell auf dem Ausguck.
@@ -3583,6 +3622,8 @@ func _npc_pos(giver: String) -> Vector3:
 ## Problem wie bei der Palisade, wo sie vor der Mauer endete statt durchs Tor zu gehen. Erst
 ## wenn er am Fels steht, zeigt sie hinauf.
 const AUSGUCK_FUSS_M: float = 4.0
+## Ab wie weit unter der Kuppe die Spur erst einmal AUF die Kuppe zeigt statt in den Ring.
+const AUSGUCK_OBEN_M: float = 2.5
 func _prolog_ziel() -> Vector3:
 	if _player == null:
 		return Vector3.INF
@@ -3595,12 +3636,24 @@ func _prolog_ziel() -> Vector3:
 	var mitte: Vector3 = WorldManager.feature_center(f)
 	var reich: float = WorldManager.feature_reach(f)
 	var d: float = Vector2(_player.position.x - mitte.x, _player.position.z - mitte.z).length()
+	var kuppe: Vector3 = Vector3(mitte.x, WorldManager.height_at(mitte.x, mitte.z), mitte.z)
 	if d <= reich + AUSGUCK_FUSS_M:
-		# Am Fels: in den leuchtenden Ring an der Vorderkante. Ueber die Rampe kommt er von
-		# selbst — sie ist die einzige Seite, die die Steigungsgrenze durchlaesst.
 		var spot: Vector3 = _vista_spot()
-		return spot if spot != Vector3.INF else Vector3(mitte.x,
-			WorldManager.height_at(mitte.x, mitte.z), mitte.z)
+		if spot == Vector3.INF:
+			return kuppe
+		# Am Fels, aber noch UNTEN: erst auf die Kuppe, dann in den Ring.
+		#
+		# Solange der Ring auf der Blickachse lag, brauchte es das nicht — die Rampe zeigt
+		# dorthin, und wer ihr folgt, kommt an. Seit er auf der rechten Kuppe sitzt, laeuft die
+		# gerade Linie vom Rampenfuss zum Ring quer ueber die Flanke, und die steht mit 72° weit
+		# jenseits der Steigungsgrenze: Die Fussspur zeigte auf eine Wand. Derselbe Fehler wie
+		# damals an der Palisade, wo sie vor der Mauer endete statt durchs Tor zu gehen.
+		#
+		# Die Felsmitte ist der Kopf der Rampe und von unten auf ihr erreichbar; von dort ist der
+		# Ring einen Sattel weit entfernt, den man hinaufgehen kann.
+		if _player.position.y < kuppe.y - AUSGUCK_OBEN_M:
+			return kuppe
+		return spot
 	# Noch draussen: zum Fuss der Rampe. `ramp_deg` zaehlt wie ueberall im Gelaende — 0° ist
 	# Osten, und Norden ist −z, deshalb das Minus beim Sinus.
 	var w: float = deg_to_rad(float(f.get("ramp_deg", 0.0)))

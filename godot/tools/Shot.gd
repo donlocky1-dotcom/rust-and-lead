@@ -357,9 +357,12 @@ func _setup_ui(art: String) -> void:
 		# ausgerechnet das Bild, das den Ring pruefen soll, keinen.
 		if ow._marke == null:
 			ow._build_vista_marke()
-		var rwm: Vector3 = WorldManager.poi_scene_position("rustwater")
 		var ring: Vector3 = ow._vista_spot()
-		var hin: Vector3 = Vector3(rwm.x - ring.x, 0.0, rwm.z - ring.z).normalized()
+		# Aus der Richtung, aus der man ANKOMMT — und die ist seit dem Umzug des Rings auf die
+		# rechte Kuppe nicht mehr die Rustwater-Achse, sondern der Weg von der Felsmitte herueber.
+		# Mit der alten Achse stand die Figur einen Hang tiefer und der Ring schwebte ueber ihr.
+		var fmitte: Vector3 = WorldManager.feature_center(ow._feature("ausguck"))
+		var hin: Vector3 = Vector3(ring.x - fmitte.x, 0.0, ring.z - fmitte.z).normalized()
 		# Die Figur einen Schritt VOR dem Ring — so, wie sie ankommt, noch nicht ausgeloest.
 		var steh: Vector3 = ring - hin * 3.4
 		steh.y = WorldManager.height_at(steh.x, steh.z)

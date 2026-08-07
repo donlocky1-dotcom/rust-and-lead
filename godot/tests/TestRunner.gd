@@ -70,7 +70,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_poi_walkable": 22,
 	"_test_town_walkable": 17,
 	"_test_enemy_attacks": 20,
-	"_test_daycycle": 162,
+	"_test_daycycle": 165,
 	"_test_dialog": 22,
 	"_test_memory_manager": 29,
 	"_test_encounter_manager": 24,
@@ -1892,50 +1892,112 @@ func _test_prolog() -> void:
 	_check("Das Pulsieren fasst nur die Scheiben an",
 		quelle.contains("for c in puls.get_children():")
 		and not quelle.contains("for c in _marke.get_children():"))
-	# Der Ring liegt an der Kante Richtung Rustwater — gemessen, nicht gesetzt.
+	# Der Ring liegt auf der HOECHSTEN Stelle der rechten Kuppe — gemessen, nicht gesetzt.
 	#
-	# Wie schmal der Grat oben ist, hat erst die Messung gezeigt — und dabei einen Fehlschluss
-	# ausgeraeumt, der zwischendurch als Loesung im Code stand. Weil der Standplatz beim ersten
-	# Anlauf nur 2,6 m vor dem Gipfelpunkt landete, sah das nach einer RINNE aus: Die Kerbung
-	# schneidet Spalten in die Kuppe, und eine Messung auf einem einzelnen Strahl bleibt an der
-	# ersten haengen. Ein Faecher aus fuenf Strahlen sollte darueber hinweglaufen — er verschob
-	# den Punkt um keinen Zentimeter. Die Rustwater-Seite ist keine Rinne, sondern eine Schulter,
-	# die sofort weggeht: Grat dicht an der Mitte, vier Meter weiter schon vier Meter tiefer.
-	# Fuer den Blick ist das genau richtig; nur der Ring muss klein sein und weit genug zurueck.
+	# Hier stand vorher die Vorderkanten-Messung: vom Gipfel Richtung Rustwater nach aussen bis
+	# zum Abbruch, dann um den Ringradius zurueck. Die war nicht falsch, aber sie landete in der
+	# SENKE zwischen den beiden Kuppen des Felsens — 14,7 m, waehrend zwei Schritte weiter rechts
+	# 16,6 m gewesen waeren. Wer auf einen Felsen steigt, um sich zu orientieren, stellt sich auf
+	# die hoechste Stelle.
+	#
+	# Ein Hoehenmaximum allein reicht dafuer nicht: Eine Spitze ist der hoechste Punkt und traegt
+	# keinen Ring von 1,8 m. Geprueft wird deshalb dasselbe wie im Code — hoechster Punkt der
+	# rechten Haelfte, auf dem der Reif noch ganz aufliegt.
 	var stadt3: Vector3 = WorldManager.poi_scene_position("rustwater")
 	var hin3 := Vector3(stadt3.x - a_mitte.x, 0.0, stadt3.z - a_mitte.z).normalized()
+	# "Rechts im Bild" ist das Kreuzprodukt aus Blickrichtung und Hochachse — dieselbe Rechnung,
+	# mit der auch eine Kamera ihren Rechtsvektor bildet.
+	var rechts3 := Vector3(-hin3.z, 0.0, hin3.x)
 	var gipfel3: float = WorldManager.height_at(a_mitte.x, a_mitte.z)
-	var kante: Vector3 = a_mitte
-	var dk: float = 0.0
-	while dk < float(aus["radius"]):
-		dk += 0.25
-		var q3: Vector3 = a_mitte + hin3 * dk
-		if WorldManager.height_at(q3.x, q3.z) < gipfel3 - OW2.VISTA_KANTE_TOL_M:
-			break
-		kante = q3
-	# Zurueckgesetzt wird um GENAU den Ringradius — daran haengt die naechste Pruefung.
-	var spot3: Vector3 = kante - hin3 * OW2.VISTA_RING_R_M
-	var hoehe_spot: float = WorldManager.height_at(spot3.x, spot3.z)
+	var such3: float = float(aus["radius"]) * 0.45
+	var spot3: Vector3 = Vector3(a_mitte.x, gipfel3, a_mitte.z)
+	var hoehe_spot: float = -1e9
+	var n3: int = int(such3 / 0.5)
+	for ix3 in range(-n3, n3 + 1):
+		for iz3 in range(-n3, n3 + 1):
+			var off3: Vector3 = rechts3 * (float(ix3) * 0.5) + hin3 * (float(iz3) * 0.5)
+			if off3.dot(rechts3) <= 0.0 or off3.length() > such3:
+				continue
+			var q3: Vector3 = a_mitte + off3
+			var h3: float = WorldManager.height_at(q3.x, q3.z)
+			if h3 <= hoehe_spot:
+				continue
+			var traegt3: bool = true
+			for k3 in 8:
+				var w3: float = TAU * float(k3) / 8.0
+				if WorldManager.height_at(q3.x + cos(w3) * OW2.VISTA_RING_R_M,
+						q3.z + sin(w3) * OW2.VISTA_RING_R_M) < h3 - OW2.VISTA_PLATZ_TOL_M:
+					traegt3 = false
+					break
+			if not traegt3:
+				continue
+			hoehe_spot = h3
+			spot3 = Vector3(q3.x, h3, q3.z)
 	var ring_ab_mitte: float = Vector2(spot3.x - a_mitte.x, spot3.z - a_mitte.z).length()
-	_check("Der Ring liegt oben (%.1f m von %.1f m)" % [hoehe_spot, gipfel3],
-		hoehe_spot > gipfel3 - 2.0)
-	# Er liegt GANZ auf dem Fels. Vorher war er 2,2 m gross und nur 1,2 m zurueckgesetzt: Sein
+	# Er steht oben — und zwar HOEHER als der Gipfelmittelpunkt, nicht bloss in seiner Naehe.
+	_check("Der Ring liegt auf dem hoechsten Punkt (%.1f m, Gipfelmitte %.1f m)"
+		% [hoehe_spot, gipfel3], hoehe_spot >= gipfel3)
+	# Auf der rechten Seite, wie gewuenscht.
+	_check("Und auf der rechten Kuppe (%.1f m rechts der Achse)"
+		% (spot3 - a_mitte).dot(rechts3), (spot3 - a_mitte).dot(rechts3) > 0.5)
+	# Der ganze Reif liegt auf. Vorher war er 2,2 m gross und nur 1,2 m zurueckgesetzt: Sein
 	# vorderer Bogen stand einen Meter jenseits der Abbruchkante und damit vier Meter ueber dem
 	# Hang — im Bild ein Reifen, der zur Haelfte in der Luft haengt.
-	var vorderkante: float = WorldManager.height_at(
-		spot3.x + hin3.x * OW2.VISTA_RING_R_M, spot3.z + hin3.z * OW2.VISTA_RING_R_M)
-	_check("Der ganze Reif liegt auf dem Fels (%.1f m am vorderen Rand, Gipfel %.1f m)"
-		% [vorderkante, gipfel3], vorderkante > gipfel3 - OW2.VISTA_KANTE_TOL_M - 0.5)
-	# Und trotzdem steht man vorn: Gleich hinter dem Ring geht es hinunter.
-	var davor: Vector3 = spot3 + hin3 * (OW2.VISTA_RING_R_M + 2.5)
-	_check("Gleich dahinter faellt der Fels ab (%.1f m gegen %.1f m im Ring)"
+	var tiefster: float = 1e9
+	for k4 in 16:
+		var w4: float = TAU * float(k4) / 16.0
+		tiefster = minf(tiefster, WorldManager.height_at(
+			spot3.x + cos(w4) * OW2.VISTA_RING_R_M, spot3.z + sin(w4) * OW2.VISTA_RING_R_M))
+	_check("Der ganze Reif liegt auf dem Fels (tiefster Rand %.1f m, Mitte %.1f m)"
+		% [tiefster, hoehe_spot], tiefster >= hoehe_spot - OW2.VISTA_PLATZ_TOL_M)
+	# Und es ist wirklich ein AUSGUCK: Von dort geht es zur Stadt hin steil hinunter.
+	var davor: Vector3 = spot3 + hin3 * 8.0
+	_check("Richtung Rustwater faellt der Fels ab (%.1f m gegen %.1f m im Ring)"
 		% [WorldManager.height_at(davor.x, davor.z), hoehe_spot],
-		WorldManager.height_at(davor.x, davor.z) < hoehe_spot - 1.5)
-	_check("Der Standplatz liegt vor dem Gipfelpunkt, nicht darauf (%.1f m)" % ring_ab_mitte,
+		WorldManager.height_at(davor.x, davor.z) < hoehe_spot - 3.0)
+	_check("Der Standplatz liegt nicht auf dem Gipfelmittelpunkt (%.1f m)" % ring_ab_mitte,
 		ring_ab_mitte > 0.5)
 	# Einmal gerechnet, nicht in jedem Bild: `_maybe_vista()` fragt pro Frame, `_trail_goal()`
-	# auch, und die Schleife tastet den halben Felsradius in 25-cm-Schritten ab.
+	# auch, und hier werden ein paar hundert Bodenhoehen abgetastet.
 	_check("Der Standplatz wird gemerkt", quelle.contains("_vista_spot_cache"))
+	# UND MAN KOMMT HIN. Das ist die Pruefung, die dem Ring erst seinen Sinn gibt: Ein Standplatz,
+	# den die Steigungsgrenze aussperrt, ist ein Auftrag, den man nicht erfuellen kann. Seit der
+	# Ring nicht mehr auf der Achse liegt, sondern auf der rechten Kuppe, fuehrt der Weg ueber die
+	# Senke zwischen den beiden Kuppen — und die koennte zu steil sein.
+	#
+	# Abgetastet wird die gerade Linie vom Rampenfuss zum Ring in Halbmeterschritten. Gerade ist
+	# strenger als noetig (im Spiel darf man ausweichen), aber wenn schon die Gerade durchgeht,
+	# geht es sicher.
+	var r_winkel: float = deg_to_rad(float(aus["ramp_deg"]))
+	var r_reich: float = WorldManager.feature_reach(aus)
+	var r_fuss: Vector3 = Vector3(a_mitte.x + cos(r_winkel) * r_reich, 0.0,
+		a_mitte.z - sin(r_winkel) * r_reich)
+	r_fuss.y = WorldManager.height_at(r_fuss.x, r_fuss.z)
+	# Zwei Etappen, genau wie `_prolog_ziel()` sie fuehrt: erst die Rampe hinauf auf die Kuppe,
+	# dann ueber den Sattel in den Ring. Die DIREKTE Linie vom Rampenfuss zum Ring taugt nicht —
+	# sie laeuft quer ueber die Flanke und trifft 72°. Genau daran ist die erste Fassung
+	# gescheitert, und deshalb hat die Fussspur jetzt einen Zwischenpunkt.
+	var r_kuppe: Vector3 = Vector3(a_mitte.x, WorldManager.height_at(a_mitte.x, a_mitte.z),
+		a_mitte.z)
+	var r_steilste: float = 0.0
+	for r_bein in [[r_fuss, r_kuppe], [r_kuppe, spot3]]:
+		var r_von: Vector3 = r_bein[0]
+		var r_nach: Vector3 = r_bein[1]
+		var r_strecke: float = Vector2(r_nach.x - r_von.x, r_nach.z - r_von.z).length()
+		var r_schritte: int = maxi(1, int(r_strecke / 0.5))
+		var r_letzte: float = WorldManager.height_at(r_von.x, r_von.z)
+		for r_st in range(1, r_schritte + 1):
+			var r_t: float = float(r_st) / float(r_schritte)
+			var r_px: float = lerpf(r_von.x, r_nach.x, r_t)
+			var r_pz: float = lerpf(r_von.z, r_nach.z, r_t)
+			var r_ph: float = WorldManager.height_at(r_px, r_pz)
+			r_steilste = maxf(r_steilste, (r_ph - r_letzte) / (r_strecke / float(r_schritte)))
+			r_letzte = r_ph
+	_check("Ueber die Kuppe kommt man in den Ring (steilster Schritt %.0f°)"
+		% rad_to_deg(atan(r_steilste)), r_steilste < OW2.MAX_STEIGUNG)
+	# Und die Fussspur fuehrt auch wirklich ueber die Kuppe, statt quer ueber die Flanke zu zeigen.
+	_check("Und die Fussspur nimmt den Umweg ueber die Kuppe",
+		quelle.contains("AUSGUCK_OBEN_M"))
 	# Und der Reif liegt AUF dem Boden, statt durch die Figur zu gehen — dritter Anlauf, und
 	# diesmal einer, der die Ursache trifft statt eines Symptoms. Ohne Tiefentest lag er ueber
 	# allem: Die Figur trug ihn im Bild wie einen Hula-Hoop um die Huefte. Mit Tiefentest

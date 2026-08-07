@@ -106,7 +106,14 @@ const TERRAIN: Array = [
 	# `scrap: false`, weil hier kein Müll liegt. Eine Anhöhe in der Wüste ist Fels, keine Halde.
 	{ "id": "ausguck", "kind": "crater", "x": 228, "y": 372, "scrap": false,
 		"radius": 27.0, "depth": -15.0, "rim": 0.0, "rim_width": 0.10, "kerb": 0.20, "fels": true, "step": 0.6,
-		"floor": 0.16, "ramp_deg": 135.0, "ramp_span": 54.0,
+		# `ramp_span` 96° statt 54°: Der Aufstieg war eine SCHLUCHT. 54° sind bei 27 m Radius am
+		# Fuss zwar 25 m Bogen, aber `_rampen_anteil` blendet mit `smoothstep` von der Mitte nach
+		# aussen aus — voll wirksam war davon nur der innere Kern, und was man beim Hochlaufen
+		# sah, waren zwei Felswaende links und rechts und eine Rinne dazwischen. Der Weg auf einen
+		# Aussichtsfelsen soll eine Flanke sein, die man hinaufgeht, keine Spalte, durch die man
+		# sich zwaengt. Die Steigung in der Mitte aendert sich dadurch nicht — dort ist der
+		# Rampenanteil in beiden Faellen 1 —, nur die Breite, auf der sie gilt.
+		"floor": 0.16, "ramp_deg": 135.0, "ramp_span": 96.0,
 		# Vier Gesteinsbaender mit flachen Absaetzen dazwischen — siehe `_terrassen`.
 		"stufen": 4.0, "terrasse": 0.72,
 		# Aufgesetzte Buckel: [Versatz x, Versatz z, Radius, Hoehe] in Metern vom Mittelpunkt.
