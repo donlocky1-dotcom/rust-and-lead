@@ -660,13 +660,27 @@ func _process_wach(delta: float) -> void:
 ## (`VISTA_FOV`) statt der engen Spielkamera — ein Ueberblick, der durch ein Fernrohr
 ## stattfindet, ist keiner.
 const VISTA_FOV: float = 78.0
-const VISTA_R_M: float = 14.0
-const VISTA_H0: float = 3.5
-const VISTA_H1: float = 17.0
-const VISTA_GRAD: float = 230.0
+## Die Rundsicht folgt dem Muster der Aussichtspunkte in Assassin's Creed, und das besteht aus
+## zwei Bewegungen, nicht aus einer:
+##
+##  1. **Eng und tief.** Die Kamera kommt von unten am Fels hoch und umrundet die Figur dicht —
+##     sie ist gross im Bild, fast von unten gesehen, und der Horizont dreht sich HINTER ihr.
+##     Das ist der Teil, der sagt: *er* steht da oben.
+##  2. **Weit auf.** Danach zieht sie in einem Zug hinaus und hoch, bis die Figur klein und das
+##     Land gross ist. Das ist der Teil, der sagt: *das* liegt vor ihm.
+##
+## Der ganze Effekt liegt im Verhaeltnis der beiden. Eine Umrundung auf mittlerer Distanz waere
+## keins von beidem — sie zeigte eine Figur, die zu klein fuer ein Portraet und zu gross fuer
+## eine Landschaft ist. Genau das war der erste Entwurf.
+const VISTA_NAH_M: float = 8.5
+const VISTA_NAH_H: float = 2.0
+const VISTA_WEIT_M: float = 44.0
+const VISTA_WEIT_H: float = 15.0
+const VISTA_GRAD: float = 250.0
 const VISTA_SEK_AUF: float = 2.6
-const VISTA_SEK_RUNDE: float = 7.4
-const VISTA_SEK_TAL: float = 3.2
+const VISTA_SEK_RUNDE: float = 6.6
+const VISTA_SEK_WEIT: float = 3.2
+const VISTA_SEK_TAL: float = 3.0
 const VISTA_SEK_HEIM: float = 1.8
 func _maybe_vista() -> void:
 	if GameState.saw_vista or GameState.prolog_done or _player == null:
@@ -678,32 +692,41 @@ func _maybe_vista() -> void:
 		return
 	var mitte: Vector3 = WorldManager.feature_center(f)
 	var flach := Vector2(_player.position.x - mitte.x, _player.position.z - mitte.z)
-	# Oben auf dem Plateau — also innerhalb des flachen Teils, nicht schon an der Flanke.
-	if flach.length() > float(f["radius"]) * float(f["floor"]):
+	# Oben auf dem Standplatz — der ist schmal, also darf der Radius grosszuegig sein.
+	if flach.length() > float(f["radius"]) * 0.34:
 		return
 	GameState.saw_vista = true
 	var p: Vector3 = _player.position
 	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
 	var zur_stadt := Vector3(stadt.x - p.x, 0.0, stadt.z - p.z).normalized()
+	var quer := Vector3(-zur_stadt.z, 0.0, zur_stadt.x)
 	var heim: Transform3D = _cam.global_transform
-	# Angefangen wird hinter ihm, auf der Grubenseite — da kommt er her.
-	var start: Vector3 = p - zur_stadt * VISTA_R_M + Vector3(0.0, VISTA_H0, 0.0)
+	var brust: Vector3 = p + Vector3(0.0, 1.1, 0.0)
+	# Der Kreis liegt UM DIE FIGUR, nicht um den Fels — sie ist das Motiv.
+	var start: Vector3 = p - zur_stadt * VISTA_NAH_M + Vector3(0.0, VISTA_NAH_H, 0.0)
 	var punkte: Array = [
-		{ "pos": start, "ziel": p + Vector3(0.0, 1.2, 0.0), "sek": VISTA_SEK_AUF,
-			"fov": VISTA_FOV },
+		# 1. Von unten am Fels hoch. Sie erscheint gegen den Himmel, bevor man sieht, worauf sie
+		#    steht — dieselbe Ordnung wie beim Erwachen: erst der Mensch, dann der Ort.
+		{ "pos": p - zur_stadt * (VISTA_NAH_M + 4.0) + Vector3(0.0, -9.0, 0.0),
+			"ziel": brust, "sek": VISTA_SEK_AUF, "fov": VISTA_FOV },
+		{ "pos": start, "ziel": brust, "sek": 0.9, "fov": VISTA_FOV },
 	]
-	# Um ihn herum. Er bleibt in der Mitte, der Horizont dreht sich — so sieht man die ganze
-	# Umgebung, ohne die Figur aus dem Bild zu verlieren.
+	# 2. Eng um sie herum, knapp ueber Kopfhoehe des Standplatzes.
 	punkte.append_array(orbit_punkte(Vector3(p.x, WorldManager.height_at(p.x, p.z), p.z), start,
-		VISTA_GRAD, VISTA_H0, VISTA_H1, 1.2, VISTA_SEK_RUNDE))
+		VISTA_GRAD, VISTA_NAH_H, VISTA_NAH_H + 2.4, 1.1, VISTA_SEK_RUNDE))
 	for q in punkte:
 		q["fov"] = VISTA_FOV
-	# Und hinunter ins Tal: ueber seine Schulter auf Rustwater. Der Punkt, auf den der ganze
-	# Aufstieg hinauslaeuft.
-	# Der Blick ins Tal: knapp ueber Kopfhoehe hinter ihm, damit die Felskante unten im Bild
-	# steht und Rustwater darunter in der Ebene liegt. Aus 15 m auf 255 m sind das 3° unter der
-	# Waagerechten — die Kamera muss also gar nicht kippen, sie schaut geradeaus hinaus. Ein
-	# steiler Blick von oben herab machte aus der Ebene eine Landkarte.
+	# 3. Weit auf: hinaus und hoch, der Blick bleibt an ihr. Sie wird klein, das Land gross.
+	# Weit hinter ihn, aber FLACH. Der erste Versuch ging auf 30 m Hoehe — von dort schaut die
+	# Kamera fast senkrecht nach unten, der Horizont faellt aus dem Bild und aus der Landschaft
+	# wird eine Landkarte. Bei 15 m steht die Figur im unteren Drittel und das Land dahinter
+	# reicht bis zum Rand; geblickt wird zwischen sie und die Stadt, damit beide drin sind.
+	punkte.append({ "pos": p - zur_stadt * VISTA_WEIT_M * 0.88 + quer * VISTA_WEIT_M * 0.34
+		+ Vector3(0.0, VISTA_WEIT_H, 0.0), "ziel": brust.lerp(stadt, 0.10),
+		"sek": VISTA_SEK_WEIT, "fov": VISTA_FOV })
+	# 4. Und hinunter ins Tal: knapp ueber ihre Schulter auf Rustwater. Aus 15 m auf 255 m sind
+	#    das 3° unter der Waagerechten — die Kamera schaut geradeaus unter der Felskante
+	#    hindurch, statt von oben auf eine Landkarte.
 	punkte.append({ "pos": p - zur_stadt * 7.0 + Vector3(0.0, 3.0, 0.0),
 		"ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": VISTA_SEK_TAL, "fov": VISTA_FOV })
 	punkte.append({ "pos": heim.origin, "ziel": heim.origin - heim.basis.z * 10.0,

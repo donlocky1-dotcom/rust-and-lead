@@ -91,9 +91,10 @@ const TERRAIN: Array = [
 	#  • **15 m statt 24.** Man will darüber stehen, nicht darauf thronen. Aus 15 m sieht man
 	#    Rustwater in 255 m Entfernung unter einem Winkel von 3° — praktisch waagerecht, also
 	#    unter der Felskante hindurch in die Ebene. Genau der Blick, um den es geht.
-	#  • **27 m Radius statt 46, Plateau bis 60 %.** Das sind 11 m Wand auf 15 m senkrecht: im
-	#    Mittel 54°, an der steilsten Stelle über 65°. Ein 32 m breiter Klotz mit 15 m hohen
-	#    Wänden ist ein Felsen; dieselbe Höhe auf 92 m Breite wäre eine Bodenwelle.
+	#  • **Ein SCHMALER Standplatz.** `floor` 0,16 statt 0,60 — die flache Kuppe misst gut vier
+	#    Meter im Radius statt sechzehn. Ein Ausguck ist ein Standplatz, kein Parkplatz: Der
+	#    erste Versuch hatte ein Plateau, auf dem die Figur verloren stand wie auf einem Feld.
+	#    Dazu zwei vorgelagerte Blöcke (siehe unten), damit es nicht EINE Form bleibt.
 	#  • **`kerb` 0,27.** Der Umriss ist NICHT rund, sondern um bis zu 27 % je nach Richtung
 	#    verzogen — Vorsprünge und Einbuchtungen statt eines Kegels. Ohne das bleibt jede
 	#    Erhebung ein Hügel, egal wie steil sie ist.
@@ -104,8 +105,22 @@ const TERRAIN: Array = [
 	#
 	# `scrap: false`, weil hier kein Müll liegt. Eine Anhöhe in der Wüste ist Fels, keine Halde.
 	{ "id": "ausguck", "kind": "crater", "x": 228, "y": 372, "scrap": false,
-		"radius": 27.0, "depth": -15.0, "rim": 0.0, "rim_width": 0.10, "kerb": 0.27, "fels": true, "step": 0.6,
-		"floor": 0.60, "ramp_deg": 135.0, "ramp_span": 54.0 },
+		"radius": 27.0, "depth": -15.0, "rim": 0.0, "rim_width": 0.10, "kerb": 0.20, "fels": true, "step": 0.6,
+		"floor": 0.16, "ramp_deg": 135.0, "ramp_span": 54.0,
+		# Aufgesetzte Buckel: [Versatz x, Versatz z, Radius, Hoehe] in Metern vom Mittelpunkt.
+		# Sie machen aus der einen Kuppe eine Stufenform mit Absaetzen und einem Nebengipfel.
+		#
+		# Warum INNERHALB der Form und nicht als zweite Erhebung daneben: Der Weltboden wird aus
+		# Rechtecken gekachelt, in die je Gelaendeform EIN Loch geschnitten wird, und in das
+		# Loch kommt der verformte Flicken. Zwei ueberlappende Formen schneiden ueberlappende
+		# Loecher und legen zwei Flicken uebereinander — der Boden waere doppelt gezaehlt und die
+		# beiden Netze wuerden um dieselbe Oberflaeche streiten. Als Buckel derselben Form ist es
+		# ein Loch, ein Netz, eine Oberflaeche.
+		"buckel": [
+			[-9.0, 7.0, 13.0, 4.5],     # Nebengipfel, etwas tiefer als die Hauptkuppe
+			[11.0, -6.0, 10.0, 3.0],    # Vorsprung ueber der Klippe zur Stadt hin
+			[4.0, 12.0, 15.0, -2.5],    # und eine Scharte, damit es nicht nur nach oben geht
+		] },
 	# Das Wellenmeer: ein Dünenfeld östlich von Rustwater, 220 m breit. Nicht an einem Ort
 	# verankert, sondern frei auf der Karte — es IST die Landmarke.
 	#
@@ -234,8 +249,9 @@ static func _feature_height(f: Dictionary, off: Vector2) -> float:
 		var s: float = sin(PI * (t - 1.0) / w)
 		return float(f["rim"]) * s * s
 	var boden: float = _floor_share(f, off)
+	var buckel: float = _buckel_height(f, off)
 	if t <= boden:
-		return -float(f["depth"])
+		return -float(f["depth"]) + buckel
 	var u: float = (t - boden) / maxf(1.0 - boden, 0.0001)
 	# Zwei Wandprofile, und der Unterschied ist der zwischen Düne und Fels.
 	#
@@ -248,8 +264,28 @@ static func _feature_height(f: Dictionary, off: Vector2) -> float:
 	# der Anhöhe) und flacht nach unten ab — die Kante ist eine Kante, und am Fuß legt sich der
 	# Sand an. Das ist die Silhouette einer Tafelberg-Kuppe, und die erkennt man als Stein.
 	if bool(f.get("fels", false)):
-		return -float(f["depth"]) * pow(1.0 - u, 1.8)
-	return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, u))
+		return -float(f["depth"]) * pow(1.0 - u, 1.8) + buckel * (1.0 - u)
+	return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, u)) + buckel * (1.0 - u)
+
+
+## Aufgesetzte Buckel einer Form: weiche Kuppen (und Scharten, bei negativer Hoehe), die auf das
+## Grundprofil addiert werden.
+##
+## Sie sind das, was aus einer Kuppe einen FELSEN macht: Absaetze, ein Nebengipfel, eine
+## Scharte. Weich (`smoothstep`), weil ein Buckel keine eigene Kante haben soll — die Kante
+## liefert das Grundprofil, der Buckel nur die Unregelmaessigkeit darunter.
+static func _buckel_height(f: Dictionary, off: Vector2) -> float:
+	var liste: Array = f.get("buckel", [])
+	if liste.is_empty():
+		return 0.0
+	var h: float = 0.0
+	for b in liste:
+		var d: float = off.distance_to(Vector2(float(b[0]), float(b[1])))
+		var r: float = float(b[2])
+		if d >= r:
+			continue
+		h += float(b[3]) * (1.0 - smoothstep(0.0, 1.0, d / r))
+	return h
 
 
 ## Höhenprofil eines Dünenfelds. Zwei überlagerte Wellen und ein weicher Rand.
@@ -335,7 +371,10 @@ static func normal_at(x: float, z: float, eps: float = 0.25) -> Vector3:
 static func feature_reach(f: Dictionary) -> float:
 	if String(f.get("kind", "crater")) == "dunes":
 		return float(f["radius"])
-	return float(f["radius"]) * (1.0 + float(f["rim_width"]))
+	# `kerb` MUSS hier hinein: Es verlaengert den Radius je nach Richtung, und ein Loch, das
+	# davon nichts weiss, ist auf der breitesten Seite zu klein — dort laege die flache
+	# Bodenplatte ueber dem Fels.
+	return float(f["radius"]) * (1.0 + float(f["rim_width"]) + float(f.get("kerb", 0.0)))
 
 
 ## Mittelpunkt einer Form in Szenenmetern.
