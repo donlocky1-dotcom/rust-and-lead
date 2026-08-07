@@ -78,15 +78,34 @@ static func daylight(stunde: float) -> float:
 	return sin(PI * (h - auf) / (unter - auf))
 
 
-## Höhe der Sonne über dem Horizont in Grad (negativ = unter dem Horizont).
-static func sun_altitude_deg(stunde: float) -> float:
-	return lerpf(-14.0, 62.0, daylight(stunde))
+## ## Sonne und Mond STEHEN — sie wandern nicht
+##
+## Ein Spieltag dauert zwoelf Minuten. Eine Sonne, die in dieser Zeit den ganzen Bogen
+## abfaehrt, bewegt sich um zwei Grad je Sekunde — und damit wandert jeder Schatten in der Welt
+## sichtbar mit. Godot rechnet die Schattenkarte fuer jeden Frame neu, und weil sie eine
+## begrenzte Aufloesung hat, tanzen die Kanten dabei: Was aussieht wie grobes Rauschen, ist
+## eine Schattenkarte, die zwischen zwei Rasterpositionen hin- und herspringt.
+##
+## Das ist der Preis fuer eine Genauigkeit, die niemand sehen will. Also stehen beide fest —
+## die Sonne auf einer hohen Nachmittagsposition, der Mond ihr gegenueber. Was sich mit der
+## Tageszeit aendert, ist FARBE und STAERKE, und genau daran erkennt man die Uhrzeit ohnehin:
+## Ein Abendrot ist rot, kein bestimmter Winkel.
+##
+## Der Gewinn ist doppelt. Die Schatten stehen still, also flimmern sie nicht. Und weil sie
+## stillstehen, lohnt sich eine hoehere Aufloesung fuer sie (Projekteinstellung
+## `directional_shadow/size`) — bei einer wandernden Sonne haette die nur schaerfer flimmern
+## lassen.
+const SONNE_HOEHE: float = 54.0
+const SONNE_AZIMUT: float = 38.0
+
+## Höhe der Sonne über dem Horizont in Grad. Konstant — siehe oben.
+static func sun_altitude_deg(_stunde: float) -> float:
+	return SONNE_HOEHE
 
 
 ## Richtung, aus der die Sonne scheint — wandert über den Tag von Ost nach West.
-static func sun_azimuth_deg(stunde: float) -> float:
-	var h: float = fposmod(stunde, 24.0)
-	return lerpf(-60.0, 60.0, clampf((h - H_DAEMMERUNG) / (H_NACHT - H_DAEMMERUNG), 0.0, 1.0)) + 35.0
+static func sun_azimuth_deg(_stunde: float) -> float:
+	return SONNE_AZIMUT
 
 
 ## Lichtfarbe. Tief stehende Sonne ist rot, hohe ist fast weiß, Nacht ist Mondblau.
@@ -128,9 +147,25 @@ static func sun_energy(stunde: float) -> float:
 ## Zwei gerichtete Lichter kosten eine zweite Schattenkarte. Das ist der Preis dafuer, dass
 ## Sonne und Mond gleichzeitig existieren duerfen — und in der Daemmerung tun sie das
 ## tatsaechlich, weshalb ein einzelnes umschaltendes Licht dort einen Sprung machen wuerde.
+## Der Mond geht auf, BEVOR die Sonne unten ist — und das ist keine Kosmetik, sondern die
+## Reparatur einer Luecke.
+##
+## Vorher verschwand er, sobald `daylight` ueber 0,28 lag. Um 18:36 (dem Beginn des Prologs)
+## stand die Sonne bei +15° und der Mond bei 0,00 — und weil die 66°-Wand der Schrottgrube die
+## tief stehende Sonne verdeckt, blieb der Grubenboden nur mit Umgebungslicht zurueck. Genau
+## diese Stunde war die dunkelste des ganzen Tages, ausgerechnet im ersten Augenblick des
+## Spiels.
+##
+## Am echten Himmel steht der Vollmond laengst am Osthorizont, waehrend die Sonne im Westen
+## untergeht. Die Ueberblendung deckt jetzt diesen Bereich ab: Ab `daylight` 0,66 abwaerts
+## uebernimmt er allmaehlich, bei 0,12 hat er die volle Staerke.
 const MOND_FARBE: Color = Color(0.62, 0.70, 0.95)
+## Wo der Mond steht. Etwas flacher als die Sonne und ihr gegenueber: So faellt sein Licht aus
+## der anderen Richtung, und die Nachtschatten liegen woanders als die Tagschatten — der
+## Unterschied ist zu sehen, ohne dass sich etwas bewegen muss.
+const MOND_HOEHE: float = 44.0
 static func moon_energy(stunde: float) -> float:
-	return MOND_ENERGIE * (1.0 - smoothstep(0.0, 0.28, daylight(stunde)))
+	return MOND_ENERGIE * (1.0 - smoothstep(0.12, 0.66, daylight(stunde)))
 
 
 ## Himmelsfarbe. Der Bronzehimmel der Story-Bibel bei Tag, tiefes Blaugrau bei Nacht.
@@ -165,12 +200,12 @@ static func ambient_energy(stunde: float) -> float:
 ##
 ## Gebraucht für die Mondscheibe am Himmel. Sie ist kein Schmuck: Eine helle Nacht ohne
 ## sichtbare Quelle wirkt wie ein vergessener Regler. Man muss sehen, WOHER das Licht kommt.
-static func moon_altitude_deg(stunde: float) -> float:
-	return lerpf(52.0, -12.0, daylight(stunde))
+static func moon_altitude_deg(_stunde: float) -> float:
+	return MOND_HOEHE
 
 
-static func moon_azimuth_deg(stunde: float) -> float:
-	return sun_azimuth_deg(stunde) + 180.0
+static func moon_azimuth_deg(_stunde: float) -> float:
+	return SONNE_AZIMUT + 180.0
 
 
 ## Sichtbarkeit der Mondscheibe (0–1). Sie verblasst, sobald es hell wird — am Taghimmel steht

@@ -1536,10 +1536,25 @@ func _test_daycycle() -> void:
 	_check("Die Mittagssonne ist deutlich staerker als der Mond",
 		DayCycle.sun_energy(12.75) > DayCycle.moon_energy(1.0) * 1.6)
 	# Die Mondscheibe steht der Sonne gegenueber und nur nachts am Himmel.
-	_check("Der Mond steht nachts hoch (%.0f°)" % DayCycle.moon_altitude_deg(1.0),
+	# Sonne und Mond STEHEN — sie wandern nicht. Eine Sonne, die einen Zwoelf-Minuten-Tag
+	# abfaehrt, bewegt sich um zwei Grad je Sekunde, und dabei springt die Schattenkarte
+	# zwischen zwei Rasterpositionen hin und her: sichtbar als grobes Rauschen an jeder Kante.
+	_check("Die Sonne steht fest (%.0f°)" % DayCycle.sun_altitude_deg(1.0),
+		is_equal_approx(DayCycle.sun_altitude_deg(1.0), DayCycle.sun_altitude_deg(12.75)))
+	_check("Und wandert auch nicht seitlich",
+		is_equal_approx(DayCycle.sun_azimuth_deg(6.0), DayCycle.sun_azimuth_deg(18.0)))
+	_check("Der Mond steht hoch (%.0f°)" % DayCycle.moon_altitude_deg(1.0),
 		DayCycle.moon_altitude_deg(1.0) > 30.0)
-	_check("Mittags ist er unter dem Horizont",
-		DayCycle.moon_altitude_deg(12.75) < 0.0)
+	_check("Und der Sonne gegenueber (%.0f° zu %.0f°)"
+		% [DayCycle.moon_azimuth_deg(1.0), DayCycle.sun_azimuth_deg(1.0)],
+		absf(fposmod(DayCycle.moon_azimuth_deg(1.0) - DayCycle.sun_azimuth_deg(1.0), 360.0) - 180.0) < 1.0)
+	# Der Mond geht auf, BEVOR die Sonne unten ist. Vorher gab es eine Luecke: Um 18:36 stand
+	# die Sonne bei +15° — von der 66°-Wand der Schrottgrube verdeckt — und der Mond bei 0,00.
+	# Die dunkelste Stunde des Tages lag ausgerechnet im ersten Augenblick des Spiels.
+	_check("Zum Prologbeginn leuchtet der Mond schon (%.2f)"
+		% DayCycle.moon_energy(DayCycle.START_HOUR),
+		DayCycle.moon_energy(DayCycle.START_HOUR) > 0.1)
+	_check("Mittags nicht", DayCycle.moon_energy(12.75) < 0.01)
 	_check("Und mittags unsichtbar", DayCycle.moon_visibility(12.75) < 0.01)
 	_check("Nachts voll da", DayCycle.moon_visibility(1.0) > 0.99)
 	# 5. Die Sonne wandert von Ost nach West und geht nicht rueckwaerts.
@@ -1642,11 +1657,31 @@ func _test_prolog() -> void:
 	# Das Aufstehen ist LANGSAM und die Kamera kommt nah heran. Die Fahrt muss dabei so lange
 	# dauern wie der Clip — sonst haette der Spieler die Steuerung, waehrend die Figur noch am
 	# Boden liegt, und die Animation braeche mitten im Aufstemmen ab.
-	_check("Die Aufwach-Fahrt laesst dem Aufstehen Zeit (%.1f s)" % OW.WACH_SEK,
-		OW.WACH_SEK >= 8.3)
-	_check("Und kommt von oben (%.0f m)" % OW.WACH_HOCH_M, OW.WACH_HOCH_M > 8.0)
-	_check("… bis nah an die Figur (%.1f m)" % OW.WACH_NAH_M,
-		OW.WACH_NAH_M > 1.5 and OW.WACH_NAH_M < 6.0)
+	# Die Szene dauert so lange, wie der Held zu reden hat — nicht andersherum. Eine Kamerafahrt
+	# mit fester Laenge zwingt den Text in ihr Korsett, und dabei kommen vier Halbsaetze heraus.
+	var wach_zeilen: Array = OW._wach_zeilen()
+	var wach_sek: float = OW.speech_gesamt(wach_zeilen)
+	_check("Der Held sagt beim Erwachen mehr als drei Saetze (%d)" % wach_zeilen.size(),
+		wach_zeilen.size() >= 10)
+	_check("Das Erwachen dauert entsprechend lange (%.0f s)" % wach_sek, wach_sek > 40.0)
+	_check("Eine Zeile steht laenger als zwei Sekunden (%.1f s)"
+		% OW.speech_dauer("„Wo bin ich hier?“"), OW.speech_dauer("„Wo bin ich hier?“") > 2.0)
+	_check("Eine lange Zeile laenger als eine kurze",
+		OW.speech_dauer("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") > OW.speech_dauer("ah"))
+	_check("Aber keine laenger als neun Sekunden",
+		OW.speech_dauer("x".repeat(600)) <= 9.0)
+	# Die Kamera faengt DICHT am Kopf an — nicht bei sechzehn Metern, wie im ersten Entwurf.
+	_check("Die Kamera steht anfangs dicht am Kopf (%.1f m)" % OW.WACH_NAH_M,
+		OW.WACH_NAH_M > 0.6 and OW.WACH_NAH_M < 2.0)
+	# Und er haelt zwischendurch inne: `Stand_Up1` ist eine durchlaufende Bewegung, wer nach
+	# Stunden im Schutt aufwacht steht aber nicht am Stueck auf.
+	_check("Er haelt beim Aufstehen inne (%d mal)" % OW.WACH_HALT.size(),
+		OW.WACH_HALT.size() >= 2)
+	var halt_ok: bool = true
+	for h in OW.WACH_HALT:
+		if float(h[0]) >= float(h[1]) or float(h[1]) > 1.0:
+			halt_ok = false
+	_check("Und die Haltepunkte liegen in der Aufsteh-Phase", halt_ok)
 	var quelle: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
 	# Der Held redet SELBST, in der Sprechtafel — nicht ein Erzaehler in der Meldungszeile.
 	_check("Der Held hat eine Stimme", OW.HELD_NAME != "")

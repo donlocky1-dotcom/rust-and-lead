@@ -335,7 +335,17 @@ func _setup_ui(art: String) -> void:
 		ow._cam.position = grube + ow._cam_offset(ow._cam_dist)
 		ow._cam.look_at(grube + Vector3(0.0, 1.0, 0.0), Vector3.UP)
 		ow._erwachen()
-		ow._flight_t = ow._flight_total() * float(art.get_slice("_", 1).to_float())
+		var anteil: float = float(art.get_slice("_", 1).to_float())
+		ow._flight_t = ow._flight_total() * anteil
+		# Die Animation an dieselbe Stelle stellen und die Pose ANWENDEN. Ohne das steht das
+		# Skelett in der Ruhepose — und weil die Kamera dem Kopfknochen folgt, zielte sie auf
+		# den Kopf eines Stehenden, waehrend die Figur am Boden lag.
+		var ap: AnimationPlayer = AssetRegistry.animation_player(ow._player_model)
+		if ap != null:
+			var laenge: float = ap.current_animation_length
+			ap.speed_scale = 1.0
+			ap.seek(laenge * clampf(anteil / OverworldView.WACH_STEH_ANTEIL, 0.0, 1.0), true)
+			ap.advance(0.0)
 		ow.set_process(false)
 		var wf: Array = ow._flight_frame()
 		_cam.position = wf[0]

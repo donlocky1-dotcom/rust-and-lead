@@ -266,6 +266,21 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   | **Wasserturm** | Laterne unter dem Kessel, weit und schwach | Die Landmarke, an der man Rustwater von weitem erkennt. Ohne Licht wäre sie nachts weg. |
   | **Bahnsteig** | Eine Lampe | Eine Station ohne Licht findet nachts niemand, und reisen soll man auch im Dunkeln. |
 
+  **Sonne und Mond stehen — sie wandern nicht.** Ein Spieltag dauert zwölf Minuten; eine Sonne,
+  die in dieser Zeit den ganzen Bogen abfährt, bewegt sich um zwei Grad je Sekunde. Godot
+  rechnet die Schattenkarte dabei jeden Frame neu, und weil sie eine begrenzte Auflösung hat,
+  springen die Kanten zwischen zwei Rasterpositionen — was wie grobes Rauschen aussieht, ist
+  genau das. Also feste Winkel: Was sich mit der Tageszeit ändert, ist **Farbe und Stärke**,
+  und daran erkennt man die Uhrzeit ohnehin (ein Abendrot ist rot, kein bestimmter Winkel).
+  Der Gewinn ist doppelt — die Schatten flimmern nicht mehr, und weil sie stillstehen, lohnt
+  sich für sie eine höhere Auflösung (4096 statt 2048, eine Kaskade statt zwei, 38 m statt
+  60 m Reichweite).
+
+  **Der Mond geht auf, bevor die Sonne unten ist.** Vorher verschwand er, sobald es hell wurde
+  — und um 18:36, dem Beginn des Prologs, stand die Sonne bei +15° (von der 66°-Wand der
+  Schrottgrube verdeckt) und der Mond bei 0,00. Die dunkelste Stunde des Tages lag ausgerechnet
+  im ersten Augenblick des Spiels.
+
   **Der Mond ist eine eigene Lampe.** Vorher lief das Nachtlicht über dieselbe gerichtete
   Quelle wie die Sonne — und die steht nachts bei −14°, also *unter* dem Horizont. Das Licht
   strich von unten durch den Boden und beleuchtete praktisch nichts, während die Mondscheibe

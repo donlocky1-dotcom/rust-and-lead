@@ -145,7 +145,11 @@ const PINCH_PX_PER_STEP: float = 90.0
 ## Reichweite der Schattenkaskaden in Metern. Als Konstante, weil sie mit dem Zoom
 ## zusammenhaengt: Beim weitesten Zoom liegt die hintere Bildkante 27,8 m vom Objektiv — passt
 ## der Zoom kuenftig weiter heraus, muss dieser Wert mit. Ein Test rechnet das nach.
-const CAM_SHADOW_M: float = 60.0
+## Wie weit die Schatten reichen. 60 m war der Kompromiss einer wandernden Sonne. Seit sie
+## feststeht (siehe `DayCycle`), zaehlt nur noch die Aufloesung: 38 m verteilen dieselbe
+## 4096er Schattenkarte auf ein Drittel weniger Flaeche. Weiter als 38 m sieht man aus der
+## Spielkamera ohnehin kaum Bodendetail.
+const CAM_SHADOW_M: float = 38.0
 
 ## Versatz Kamera→Spieler beim gegebenen Abstand. Die Kamera behaelt ihre Ausrichtung IMMER —
 ## sie folgt nur der Position. Blickrichtung, Neigung und Gierung sind Weltkonstanten, kein
@@ -301,9 +305,29 @@ const HELD_NAME: String = "Der Namenlose"
 ##
 ## Und der Held redet SELBST. Vorher stand dort ein Erzähler („Dein Schädel dröhnt") — das ist
 ## eine Stimme, die im ganzen restlichen Spiel nicht mehr vorkommt.
+## Wie lange eine Zeile stehen bleibt, wenn niemand tippt.
+##
+## Aus der LAENGE, nicht als feste Zahl: „…hh. Mein Schädel." und ein Dreizeiler brauchen nicht
+## dieselbe Zeit. Der Sockel ist die Pause zwischen zwei Saetzen, der Zuschlag das Lesen — grob
+## zweihundert Zeichen in der Minute, also gemuetlich. Wer schneller ist, tippt.
+const SPEECH_SOCKEL_SEK: float = 1.9
+const SPEECH_JE_ZEICHEN_SEK: float = 0.052
+static func speech_dauer(text: String) -> float:
+	return clampf(SPEECH_SOCKEL_SEK + float(text.length()) * SPEECH_JE_ZEICHEN_SEK, 2.6, 9.0)
+
+
+## Gesamtdauer einer Rede — damit eine Kamerafahrt sich danach richten kann statt umgekehrt.
+static func speech_gesamt(zeilen: Array) -> float:
+	var s: float = 0.0
+	for z in zeilen:
+		s += speech_dauer(String(z))
+	return s
+
+
 var _speech: Array = []
 var _speech_name: String = ""
 var _speech_giver: String = ""
+var _speech_left: float = 0.0
 func _play_speech(name_text: String, giver: String, zeilen: Array) -> void:
 	if _dialog == null or zeilen.is_empty():
 		return
@@ -322,8 +346,25 @@ func _naechste_zeile() -> void:
 		return
 	if _speech.is_empty():
 		_dialog.visible = false
+		_speech_left = 0.0
 		return
-	_dialog.show_line(_speech_name, String(_speech.pop_front()), _speech_giver)
+	var zeile: String = String(_speech.pop_front())
+	_dialog.show_line(_speech_name, zeile, _speech_giver)
+	_speech_left = speech_dauer(zeile)
+
+
+## Die Tafel blaettert von selbst weiter.
+##
+## Vorher wartete sie auf einen Tipp. Das ist richtig fuer ein Gespraech, in dem der Spieler
+## gerade etwas entscheidet — und falsch fuer einen erzaehlten Augenblick, in dem er zusehen
+## soll: Wer die Kamerafahrt betrachtet, tippt nicht, und dann steht der erste Satz bis zum
+## Ende der Szene. Tippen bleibt moeglich und ueberspringt die Restzeit.
+func _process_speech(delta: float) -> void:
+	if _dialog == null or not _dialog.visible or _speech_left <= 0.0:
+		return
+	_speech_left -= delta
+	if _speech_left <= 0.0:
+		_naechste_zeile()
 
 
 ## Die Tafel wurde weggetippt. Erst blättern, dann beenden.
@@ -390,55 +431,211 @@ func _process_beats(delta: float) -> void:
 ## Die Zahl steht nicht doppelt da: Wie weit gesprungen wird, rechnet `_erwachen` aus der
 ## tatsaechlichen Clip-Laenge. Wer das Rig austauscht, bekommt automatisch den passenden
 ## Einsprung statt einer Figur, die zu frueh steht.
+## Das Erwachen — der erste Augenblick des Spiels, und der laengste.
+##
+## Er dauert so lange, wie der Held zu reden hat. Nicht andersherum: Eine Kamerafahrt mit
+## fester Laenge zwingt den Text in ihr Korsett, und was dabei herauskommt, sind vier
+## Halbsaetze. Hier gibt `_wach_zeilen()` die Dauer vor, und die Kamera verteilt sich darauf.
+##
+## ## Die Kamera bleibt am KOPF
+##
+## Sie faengt dicht am Gesicht an — man sieht einen Mann im Dreck, bevor man sieht, wo er
+## liegt. Waehrend er sich hochstemmt, wandert der Blickpunkt mit dem Kopf nach oben und die
+## Kamera zieht sich zurueck; der Kopf bleibt dabei im Bild, der Ausschnitt wird groesser.
+## Erst ganz zum Schluss gibt sie ihn frei und geht in die Spielhaltung.
+##
+## ## Er haelt zwischendurch inne
+##
+## `Stand_Up1` ist eine durchlaufende Bewegung — jemand steht auf, fertig. Wer nach Stunden im
+## Schutt aufwacht, tut das nicht am Stueck: Er kommt auf einen Arm, bleibt liegen, versucht es
+## noch einmal. Nachgebaut wird das mit ZWEI HALTEPUNKTEN, an denen der Clip stehenbleibt
+## (`WACH_HALT`), und einem Grundtempo unter eins. Beides zusammen macht aus acht Sekunden
+## Animation eine halbe Minute Aufstehen.
 const WACH_HOCH_M: float = 16.0
-## Und wie NAH sie herankommt. Die Fahrt aus 16 m Hoehe zeigt den Ort; das Aufstehen zeigt sie
-## erst, wenn sie unten ist. Drei Meter neben der Figur, auf Kniehoehe — von dort sieht man,
-## wie sich jemand aus einer Lache hochstemmt, statt einen Punkt im Schutt.
-const WACH_NAH_M: float = 3.2
-const WACH_AUGE_M: float = 1.15
-## Der ganze Clip, nicht sein Ende: „langsames Aufstehen" heisst langsam. `Stand_Up1` dauert
-## 8,27 s, und die Kamerafahrt bekommt dieselbe Zeit — plus einen Atemzug, in dem er einfach
-## steht, bevor man ihn steuern darf.
+const WACH_NAH_M: float = 1.15
+const WACH_AUGE_M: float = 1.62
+## Anteil der Szene, in dem er sich aufrichtet. Danach steht er und redet zu Ende.
+const WACH_STEH_ANTEIL: float = 0.66
+## Wo der Clip stehenbleibt, als Anteile der Aufsteh-Phase, und wie lange (Anteil der Phase).
+const WACH_HALT: Array = [[0.30, 0.40], [0.63, 0.71]]
+## Mindestdauer, falls einmal keine Zeilen da sind.
 const WACH_SEK: float = 9.0
-## Solange > 0, gehoert die Figur der Aufwach-Animation: `_process_movement` fasst den Clip
-## nicht an. Ohne das ueberschriebe „idle" ihn im ersten Bild nach der Kamerafahrt, und der
-## Held schnellte aus dem Liegen in den Stand.
+
 var _wach_left: float = 0.0
+var _wach_total: float = 0.0
+var _wach_tempo: float = 1.0
+
+## Was er sagt, waehrend er sich aufrichtet.
+##
+## Der Held ist nicht Beobachter seiner selbst, sondern ein Mensch, der nicht weiss, wo er ist,
+## wie er hierherkommt und wer er war. Genau in dieser Reihenfolge: erst der Koerper (Schaedel,
+## Geschmack, das Klebrige im Haar), dann der Ort, dann die Frage nach ihm selbst — und die
+## bleibt offen. Zum Schluss das Einzige, was jetzt zaehlt: Wasser, und etwas in der Hand.
+##
+## Dass die letzte Frage („Wie heisse ich?") unbeantwortet stehenbleibt, ist der ganze Aufbau
+## der Geschichte in einem Satz.
+static func _wach_zeilen() -> Array:
+	return [
+		"„…hh.“",
+		"„Mein Schädel. Als hätte mir jemand einen Kessel drübergezogen und draufgeschlagen.“",
+		"„Öl im Mund. Rost in der Nase. Und irgendwas Klebriges im Haar.“",
+		"„…das ist Blut. Meins, nehm ich an.“",
+		"„Wo bin ich hier? Blech. Fässer. Ein halber Zug.“",
+		"„Eine Kippe. Ich lieg auf einer Müllkippe, in einer Pfütze aus irgendwas.“",
+		"„Wie komm ich hierher? Denk nach. Irgendwas.“",
+		"„Nichts. Kein Weg, kein Gesicht, kein gestern.“",
+		"„Wer bringt einen Mann auf eine Halde und lässt ihn liegen? Und wofür?“",
+		"„Wie heiße ich eigentlich.“",
+		"„…“",
+		"„Auch das noch nicht. Gut. Später.“",
+		"„Wasser. Ich brauch Wasser, und was zu essen, und was zum Festhalten.“",
+		"„Und dann rede ich mit dem Ersten, der mir über den Weg läuft.“",
+	]
+
+
 func _erwachen() -> void:
 	if _cam == null or _player == null:
 		return
 	GameState.saw_wake = true
+	var zeilen: Array = _wach_zeilen()
+	_wach_total = maxf(speech_gesamt(zeilen) + 1.6, WACH_SEK)
+	_wach_left = _wach_total
+	# Tempo so, dass der Clip die Aufsteh-Phase ausfuellt — abzueglich der Zeit, die er
+	# stillsteht. Aus der ECHTEN Cliplaenge, damit ein neues Rig nicht neu eingestellt werden
+	# muss.
+	var steh_sek: float = _wach_total * WACH_STEH_ANTEIL
+	var halt_anteil: float = 0.0
+	for h in WACH_HALT:
+		halt_anteil += float(h[1]) - float(h[0])
+	var laenge: float = AssetRegistry.clip_length(_player_model, "standup")
+	_wach_tempo = clampf(laenge / maxf(steh_sek * (1.0 - halt_anteil), 0.5), 0.05, 2.0)
 	AssetRegistry.play_clip(_player_model, "standup", false)
-	_wach_left = WACH_SEK
-	# Die Fahrt beginnt über der Figur; `_play_flight` merkt sich die Kamera, wie sie JETZT
-	# steht, also wird sie vorher dorthin gesetzt.
-	var kopf: Vector3 = _player.position + Vector3(0.0, WACH_AUGE_M, 0.0)
-	var liegend: Vector3 = _player.position + Vector3(0.0, 0.25, 0.0)
-	_cam.position = _player.position + Vector3(1.5, WACH_HOCH_M, 1.5)
-	_cam.look_at(liegend, Vector3.UP)
-	# Vier Etappen: von oben herunter, ganz nah heran, langsam mitgehen, dann heraus.
+	var ap: AnimationPlayer = AssetRegistry.animation_player(_player_model)
+	if ap != null:
+		ap.speed_scale = _wach_tempo
+
+	# Die Kamera: erst dicht am Kopf, dann mit ihm nach oben und zurueck.
+	var p: Vector3 = _player.position
+	# Die ersten vier Etappen haengen am KOPF (`"kopf": true`): `pos` ist ein Versatz von ihm,
+	# geblickt wird auf ihn. Dadurch bleibt das Gesicht im Bild, waehrend es sich vom Boden bis
+	# auf Augenhoehe bewegt — und der Ausschnitt wird nur groesser, weil der Versatz waechst.
+	var kopf0: Vector3 = _kopf_welt()
+	if kopf0.x >= INF:
+		kopf0 = p + Vector3(0.0, 0.28, 0.0)
+	_cam.position = kopf0 + Vector3(WACH_NAH_M * 0.62, 0.30, WACH_NAH_M * 0.78)
+	_cam.look_at(kopf0, Vector3.UP)
 	_play_flight([
-		# 1. Der Ort. Aus 16 m sieht man, WO er liegt — mitten im Schutt, allein.
-		{ "pos": _player.position + Vector3(1.2, WACH_HOCH_M * 0.62, 2.0), "ziel": liegend,
-			"sek": WACH_SEK * 0.26 },
-		# 2. Heran, auf Kniehoehe. Ab hier ist die Figur das Bild und nicht mehr die Grube.
-		{ "pos": _player.position + Vector3(WACH_NAH_M * 0.62, 0.95, WACH_NAH_M * 0.78),
-			"ziel": liegend + Vector3(0.0, 0.25, 0.0), "sek": WACH_SEK * 0.24 },
-		# 3. Mitgehen, waehrend er sich hochstemmt: langsam seitlich, der Blick wandert mit ihm
-		#    nach oben. Der laengste Abschnitt — hier passiert das, worum es geht.
-		{ "pos": _player.position + Vector3(-WACH_NAH_M * 0.55, 1.45, WACH_NAH_M * 0.92),
-			"ziel": kopf, "sek": WACH_SEK * 0.32 },
-		# 4. Zurueck in die Spielhaltung.
-		{ "pos": _player.position + _cam_offset(_cam_dist),
-			"ziel": _player.position + Vector3(0.0, 1.0, 0.0), "sek": WACH_SEK * 0.18 },
+		# 1. Am Gesicht. Ein Mann im Dreck, bevor man sieht, wo er liegt.
+		{ "pos": Vector3(WACH_NAH_M * 0.86, 0.34, WACH_NAH_M * 1.05), "kopf": true, "ziel": p,
+			"sek": _wach_total * 0.22 },
+		# 2. Er kommt auf den Arm — die Kamera weicht zurueck, der Kopf bleibt in der Mitte.
+		{ "pos": Vector3(1.5, 0.55, 1.9), "kopf": true, "ziel": p, "sek": _wach_total * 0.24 },
+		# 3. Auf die Knie. Jetzt ist der Oberkoerper im Bild.
+		{ "pos": Vector3(-1.4, 0.75, 2.6), "kopf": true, "ziel": p, "sek": _wach_total * 0.22 },
+		# 4. Er steht. Weiter am Kopf, aber der Ausschnitt zeigt schon die Grube.
+		{ "pos": Vector3(-2.4, 1.2, 3.9), "kopf": true, "ziel": p, "sek": _wach_total * 0.20 },
+		# 5. Und gibt ihn frei.
+		{ "pos": p + _cam_offset(_cam_dist), "ziel": p + Vector3(0.0, 1.0, 0.0),
+			"sek": _wach_total * 0.12 },
 	])
-	_play_speech(HELD_NAME, "held", [
-		"„…hh. Mein Schädel.“",
-		"„Öl im Mund. Rost in der Nase. Und ich lieg in irgendeiner Brühe.“",
-		"„Wie komm ich hier runter? … Nichts. Da ist nichts.“",
-		"„Wer legt einen Mann auf eine Müllkippe und lässt ihn liegen?“",
-		"„Erst mal was zum Festhalten. Dann sehen wir weiter.“",
-	])
+	_wach_licht_setzen(p)
+	_play_speech(HELD_NAME, "held", zeilen)
+
+
+## Das Licht auf dem Helden — ein Abendrot, das die Kraterwand nicht durchlaesst.
+##
+## Der Prolog beginnt um 18:36. Die Sonne steht dann bei 54° … aber die Schrottgrube hat
+## 66°-Waende, und in einem Krater ist tief stehendes Licht genau das, was NICHT ankommt. Der
+## Grubenboden bekam nur Umgebungslicht, und die Figur war eine Silhouette ohne Gesicht — im
+## ersten Augenblick des Spiels, in dem man ihr am naechsten ist.
+##
+## Also ein eigenes Licht, nur fuer diese Szene: warm, tief, von der Seite, wie die letzte
+## Sonne, die ueber den Kraterrand faellt. Das ist kein Schummeln, sondern die Beleuchtung, die
+## jede Filmszene bekommt — und es geht mit, wenn die Szene endet.
+const WACH_LICHT_FARBE: Color = Color(1.0, 0.58, 0.30)
+const WACH_LICHT_ENERGIE: float = 3.2
+var _wach_licht: OmniLight3D = null
+func _wach_licht_setzen(p: Vector3) -> void:
+	if _wach_licht != null and is_instance_valid(_wach_licht):
+		_wach_licht.queue_free()
+	var l := OmniLight3D.new()
+	l.light_color = WACH_LICHT_FARBE
+	l.omni_range = 13.0
+	l.light_energy = WACH_LICHT_ENERGIE
+	l.shadow_enabled = false
+	# Tief und seitlich: streifendes Licht zeichnet Falten und Kanten, ein Licht von oben
+	# macht daraus einen flachen Fleck.
+	l.position = p + Vector3(3.4, 1.5, 2.6)
+	add_child(l)
+	_wach_licht = l
+
+
+## Wo der KOPF gerade wirklich ist — aus dem Skelett, nicht aus der Huelle.
+##
+## `_head_of` nimmt die waagerechte Knotenposition und die gemessene Oberkante. Das stimmt fuer
+## jemanden, der STEHT. Wer liegt, hat seinen Kopf anderthalb Meter neben dem Knotenursprung
+## und dreissig Zentimeter ueber dem Boden — die Kamera zielte im ersten Versuch punktgenau auf
+## seine Stiefel.
+##
+## Der Knochen weiss es in jeder Haltung. Und weil er sich WAEHREND des Aufstehens bewegt,
+## kann die Kamera ihm folgen, statt einer Reihe fester Zielpunkte hinterherzuraten: Der Kopf
+## bleibt im Bild, wenn er hochkommt.
+##
+## `Vector3.INF`, wenn es kein Skelett oder keinen Kopfknochen gibt — dann greift der Aufrufer
+## auf die Wegpunkte zurueck.
+func _kopf_welt() -> Vector3:
+	var skel: Skeleton3D = _skelett(_player_model)
+	if skel == null:
+		return Vector3.INF
+	var i: int = skel.find_bone("Head")
+	if i < 0:
+		for b in skel.get_bone_count():
+			if skel.get_bone_name(b).to_lower() == "head":
+				i = b
+				break
+	if i < 0:
+		return Vector3.INF
+	return skel.global_transform * skel.get_bone_global_pose(i).origin
+
+
+static func _skelett(root: Node) -> Skeleton3D:
+	if root == null:
+		return null
+	if root is Skeleton3D:
+		return root as Skeleton3D
+	for c in root.get_children():
+		var t: Skeleton3D = _skelett(c)
+		if t != null:
+			return t
+	return null
+
+
+## Die Aufsteh-Phase: Tempo und Haltepunkte.
+func _process_wach(delta: float) -> void:
+	if _wach_left <= 0.0:
+		return
+	_wach_left -= delta
+	var ap: AnimationPlayer = AssetRegistry.animation_player(_player_model)
+	if ap == null:
+		return
+	if _wach_left <= 0.0:
+		ap.speed_scale = 1.0
+		if _wach_licht != null and is_instance_valid(_wach_licht):
+			_wach_licht.queue_free()
+			_wach_licht = null
+		return
+	# Anteil der AUFSTEH-Phase (nicht der ganzen Szene): danach steht er und redet zu Ende.
+	var f: float = (1.0 - _wach_left / maxf(_wach_total, 0.01)) / maxf(WACH_STEH_ANTEIL, 0.01)
+	var haelt: bool = false
+	for h in WACH_HALT:
+		if f >= float(h[0]) and f < float(h[1]):
+			haelt = true
+	ap.speed_scale = 0.0 if haelt else _wach_tempo
+	# Das Szenenlicht geht am Ende unter, waehrend die Kamera zurueckfaehrt — sonst erloescht
+	# es auf einen Schlag und die Grube wird in einem Bild dunkel.
+	if _wach_licht != null and is_instance_valid(_wach_licht):
+		var aus: float = _wach_total * 0.18
+		_wach_licht.light_energy = WACH_LICHT_ENERGIE * clampf(_wach_left / aus, 0.0, 1.0)
 
 
 ## Rustwater betreten beendet den Prolog — einmalig.
@@ -453,9 +650,10 @@ func _check_prolog_done() -> void:
 		return
 	GameState.prolog_done = true
 	_play_speech(HELD_NAME, "held", [
-		"„Rustwater. Also gibt es die wirklich.“",
-		"„Licht im Saloon. Um die Zeit ist da noch jemand wach.“",
-		"„Reden wir mit dem, der wach ist.“",
+		"„Rustwater. Es gibt sie also wirklich.“",
+		"„Kupfer unter den Stiefeln. Fackeln am Tor. Hier wohnt jemand, der etwas zu verlieren hat.“",
+		"„Im Saloon brennt Licht. Um die Zeit ist da noch wer wach.“",
+		"„Ich hab keinen Namen, kein Geld und Blut im Haar. Mal sehen, wie weit ich damit komme.“",
 	])
 
 var _player: Node3D
@@ -845,14 +1043,13 @@ func _build_environment() -> void:
 	# sie klebt darauf — man sieht weder, wo sie aufsetzt, noch wie hoch etwas ist. In den
 	# Diablo-Vorlagen wirft selbst der vorbeifliegende Rabe einen harten Schatten auf den Sand.
 	sun.shadow_enabled = true
-	# Zwei Kaskaden statt vier: Wir sehen 15 m weit, und auf dem Handy zaehlt jede eingesparte
-	# Schattenkarte. 60 m Reichweite deckt alles ab, was ueberhaupt im Bild landen kann, und
-	# gibt der Nahzone dafuer die volle Aufloesung.
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	# EINE Kaskade statt zwei. Aufgeteilt wird, um weit entfernte Schatten billiger zu machen —
+	# bei 38 m Reichweite gibt es kein „weit entfernt" mehr, und die Naht zwischen zwei Kaskaden
+	# ist eine sichtbare Kante, die man sich damit spart.
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = CAM_SHADOW_M
-	sun.directional_shadow_split_1 = 0.12
-	sun.shadow_bias = 0.04
-	sun.shadow_normal_bias = 1.4
+	sun.shadow_bias = 0.03
+	sun.shadow_normal_bias = 1.1
 	add_child(sun)
 	var we := WorldEnvironment.new()
 	var env := Environment.new()
@@ -882,6 +1079,9 @@ func _build_environment() -> void:
 	mond.light_color = DayCycle.MOND_FARBE
 	mond.light_energy = 0.0
 	mond.shadow_enabled = true
+	mond.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	mond.shadow_bias = 0.03
+	mond.shadow_normal_bias = 1.1
 	mond.directional_shadow_max_distance = sun.directional_shadow_max_distance
 	add_child(mond)
 	_moonlight = mond
@@ -4818,12 +5018,28 @@ func _end_flight() -> void:
 
 
 ## Kamera fuer den aktuellen Augenblick des Fluges.
+## Ein Wegpunkt, aufgeloest: Standpunkt und Blickziel in Weltkoordinaten.
+##
+## Ein Wegpunkt mit `"kopf": true` ist RELATIV zum Kopf der Figur — `pos` ist dann ein Versatz,
+## und geblickt wird auf den Kopf selbst. Gebraucht fuer das Erwachen: Der Kopf wandert dabei
+## ueber anderthalb Meter durch den Raum (er liegt, dann kniet er, dann steht er), und feste
+## Zielpunkte zielen zwangslaeufig daneben — beim ersten Versuch punktgenau auf seine Stiefel.
+func _flight_punkt(p: Dictionary) -> Array:
+	if not bool(p.get("kopf", false)):
+		return [p["pos"], p["ziel"]]
+	var kopf: Vector3 = _kopf_welt()
+	if kopf.x >= INF:
+		kopf = (_player.position + Vector3(0.0, 1.0, 0.0)) if _player != null else Vector3.ZERO
+	return [kopf + Vector3(p["pos"]), kopf]
+
+
 func _flight_frame() -> Array:
 	var t: float = _flight_t
 	var von_pos: Vector3 = _flight_von.origin
 	var von_ziel: Vector3 = von_pos - _flight_von.basis.z * 10.0
 	for p in _flight:
 		var sek: float = maxf(float(p["sek"]), 0.05)
+		var aufgeloest: Array = _flight_punkt(p)
 		if t <= sek:
 			var roh: float = t / sek
 			# `weich` (Vorgabe) faehrt den Abschnitt sanft an und wieder aus. Das ist richtig
@@ -4833,10 +5049,10 @@ func _flight_frame() -> Array:
 			# setzen `weich` auf false und tragen ihre Beschleunigung in der Verteilung der
 			# Stuetzpunkte (siehe `orbit_punkte`).
 			var k: float = smoothstep(0.0, 1.0, roh) if bool(p.get("weich", true)) else roh
-			return [von_pos.lerp(p["pos"], k), von_ziel.lerp(p["ziel"], k)]
+			return [von_pos.lerp(aufgeloest[0], k), von_ziel.lerp(aufgeloest[1], k)]
 		t -= sek
-		von_pos = p["pos"]
-		von_ziel = p["ziel"]
+		von_pos = aufgeloest[0]
+		von_ziel = aufgeloest[1]
 	return [von_pos, von_ziel]
 
 
@@ -4942,6 +5158,8 @@ func _process(delta: float) -> void:
 	_process_zone_title(delta)
 	_process_fog(delta)
 	_process_daytime(delta)
+	_process_speech(delta)
+	_process_wach(delta)
 	if _prolog_frage > 0.0:
 		_prolog_frage -= delta
 	_process_beats(delta)
@@ -4984,12 +5202,7 @@ func _process_movement(delta: float) -> void:
 	if _in_cine() or _in_flight():
 		return
 	if _wach_left > 0.0:
-		# Aufstehen laeuft noch. Steuern darf man schon (die Kamerafahrt ist vorbei), aber der
-		# Clip bleibt, bis er fertig ist — es sei denn, man laeuft wirklich los.
-		_wach_left -= delta
-		if _move_vector().length() < 0.05:
-			return
-		_wach_left = 0.0
+		return   # das Erwachen gehoert der Szene; `_process_wach` zaehlt es herunter
 	var mv: Vector2 = _move_vector()
 	var moving: bool = mv.length() >= 0.05
 	# Animation folgt der Bewegung, sobald ein animiertes Modell da ist. Kennt das Modell den

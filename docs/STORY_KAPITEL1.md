@@ -21,40 +21,53 @@ Kosmetik, sondern der Bauplan des Prologs: Der Held erwacht in der Dämmerung, u
 Richtung Rustwater geht, wird es Nacht. Zu Fuß dauert der Kilometer vier Minuten — acht
 Spielstunden, Ankunft gegen **01:40**. Im Sattel reicht es gerade für die Dämmerung.
 
-**1. Aufwachen.** Neun Sekunden, der ganze `Stand_Up1`-Clip — „langsames Aufstehen" heißt
-langsam. Vier Kamera-Etappen:
+**1. Aufwachen.** Gut eine Minute — die Szene dauert so lange, wie der Held zu reden hat, nicht
+andersherum. Eine Kamerafahrt mit fester Länge zwingt den Text in ihr Korsett, und dabei kommen
+vier Halbsätze heraus.
 
-1. **Der Ort** (2,3 s) — aus 16 m Höhe. Eine Einstellung zeigt, wo er liegt: mitten im Schutt,
-   allein, ohne Weg nach draußen im Bild.
-2. **Heran** (2,2 s) — auf gut drei Meter, Kniehöhe. Ab hier ist die Figur das Bild.
-3. **Mitgehen** (2,9 s) — langsam seitlich, während er sich hochstemmt, der Blick wandert mit
-   ihm nach oben. Der längste Abschnitt; hier passiert das, worum es geht.
-4. **Zurück** (1,6 s) in die Spielhaltung.
+**Die Kamera bleibt am Kopf.** Sie fängt dicht am Gesicht an — man sieht einen Mann im Dreck,
+bevor man sieht, wo er liegt. Die Wegpunkte hängen am **Kopfknochen** statt an festen Punkten:
+Der Kopf wandert beim Aufstehen über anderthalb Meter durch den Raum, feste Zielpunkte zielten
+zwangsläufig daneben (der erste Versuch punktgenau auf seine Stiefel). Während er hochkommt,
+wächst der Abstand von 1,2 auf 4,7 m — der Kopf bleibt in der Mitte, der Ausschnitt wird weit.
 
-Dazu spricht **er selbst**, in der Sprechtafel, und man blättert weiter:
+**Er hält zwischendurch inne.** `Stand_Up1` ist eine durchlaufende Bewegung: jemand steht auf,
+fertig. Wer nach Stunden im Schutt aufwacht, tut das nicht am Stück. Zwei **Haltepunkte**, an
+denen der Clip stehenbleibt, plus ein Grundtempo unter eins — aus acht Sekunden Animation wird
+eine halbe Minute Aufstehen. Das Tempo rechnet sich aus der echten Cliplänge; ein neues Rig
+muss nicht neu eingestellt werden.
 
-> **DER NAMENLOSE:** „…hh. Mein Schädel."
->
-> „Öl im Mund. Rost in der Nase. Und ich lieg in irgendeiner Brühe."
->
-> „Wie komm ich hier runter? … Nichts. Da ist nichts."
->
-> „Wer legt einen Mann auf eine Müllkippe und lässt ihn liegen?"
->
-> „Erst mal was zum Festhalten. Dann sehen wir weiter."
+**Er ist beleuchtet.** Der Prolog beginnt um 18:36, und die Schrottgrube hat 66°-Wände: In
+einem Krater ist tief stehendes Licht genau das, was *nicht* ankommt. Der Grubenboden bekam nur
+Umgebungslicht, die Figur war eine Silhouette ohne Gesicht — im Augenblick, in dem man ihr am
+nächsten ist. Deshalb hat die Szene ein eigenes Licht: warm, tief, von der Seite, wie die letzte
+Sonne über dem Kraterrand. Es geht am Ende mit der Kamerafahrt unter.
 
-Vorher lief das über die Meldungszeile oben — hinter den Werten, nach vier Sekunden weg, und
-formuliert von einem Erzähler („Dein Schädel dröhnt"), also von einer Stimme, die im ganzen
-restlichen Spiel nicht mehr vorkommt. Die Sprechtafel gab es längst, sie stand nur den
-Auftraggebern zur Verfügung.
+**Er redet, und die Tafel läuft von selbst weiter.** Vierzehn Zeilen, jede so lange stehend,
+wie sie zu lesen braucht; ein Tipp überspringt die Restzeit. Erst der Körper, dann der Ort,
+dann die Frage nach ihm selbst — und die bleibt offen:
 
-Solange Text auf der Tafel steht, **blättert** ein Tipp — er bricht nicht die Fahrt ab.
-Andersherum wäre der erste Tipp im Spiel gleichzeitig das Überspringen des Anfangs.
+> **DER NAMENLOSE:** „…hh."
+> „Mein Schädel. Als hätte mir jemand einen Kessel drübergezogen und draufgeschlagen."
+> „Öl im Mund. Rost in der Nase. Und irgendwas Klebriges im Haar."
+> „…das ist Blut. Meins, nehm ich an."
+> „Wo bin ich hier? Blech. Fässer. Ein halber Zug."
+> „Eine Kippe. Ich lieg auf einer Müllkippe, in einer Pfütze aus irgendwas."
+> „Wie komm ich hierher? Denk nach. Irgendwas."
+> „Nichts. Kein Weg, kein Gesicht, kein gestern."
+> „Wer bringt einen Mann auf eine Halde und lässt ihn liegen? Und wofür?"
+> „Wie heiße ich eigentlich."
+> „…"
+> „Auch das noch nicht. Gut. Später."
+> „Wasser. Ich brauch Wasser, und was zu essen, und was zum Festhalten."
+> „Und dann rede ich mit dem Ersten, der mir über den Weg läuft."
+
+Dass die Frage nach dem Namen unbeantwortet stehenbleibt, ist der ganze Aufbau der Geschichte
+in einem Satz.
 
 Die **Lache**, auf der er liegt, zeigt den Himmel — abends kupfern, nachts blaugrau. Ohne das
 war sie ein schwarzes Loch, das die Figur verschluckte: `metallic` ohne Himmelsreflexion ist
-schwarz, und der Grubengrund liegt im Schatten der 66°-Wand. Jetzt liegt der Held als Silhouette
-auf einem kupfernen Spiegel.
+schwarz, und der Grubengrund liegt im Schatten der Wand.
 
 **2. Leere Hände.** Wer den Schuss-Knopf drückt, bekommt „🚫 Leere Hände. Such dir etwas."
 Das ist der erste Lehrsatz des Spiels und braucht keinen Text darüber hinaus.
