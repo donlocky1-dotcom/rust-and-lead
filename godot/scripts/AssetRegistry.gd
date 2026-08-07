@@ -495,7 +495,7 @@ static func find_clip(ap: AnimationPlayer, kind: String) -> String:
 ## Spielt die Rolle (`"walk"`, `"idle"`, …) auf dem Modell ab. Läuft der Clip schon, passiert
 ## nichts — der Aufruf darf also gefahrlos jeden Frame kommen. `false`, wenn das Modell die
 ## Rolle nicht kennt (dann bleibt es einfach unanimiert stehen; nichts bricht).
-static func play_clip(root: Node, kind: String, loop: bool = true) -> bool:
+static func play_clip(root: Node, kind: String, loop: bool = true, ab_sek: float = 0.0) -> bool:
 	var ap: AnimationPlayer = animation_player(root)
 	if ap == null:
 		return false
@@ -514,7 +514,33 @@ static func play_clip(root: Node, kind: String, loop: bool = true) -> bool:
 	if anim != null:
 		anim.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
 	ap.play(clip)
+	# In den Clip HINEINSPRINGEN. Gebraucht fuer lange Einmal-Clips, von denen nur das Ende
+	# interessiert: `Stand_Up1` dauert 8,3 s, und die ersten Sekunden davon liegt die Figur
+	# bloss da. Wer die ganze Laenge zeigen will, laesst `ab_sek` auf null.
+	if ab_sek > 0.0:
+		ap.seek(minf(ab_sek, ap.current_animation_length), true)
 	return true
+
+## Wie lange dauert ein Clip? 0.0, wenn es ihn nicht gibt.
+##
+## Gebraucht, wo eine Kamerafahrt zur Animation passen soll statt umgekehrt — die Laenge
+## abzufragen ist ehrlicher, als sie im Code noch einmal hinzuschreiben und beim naechsten
+## Austausch des Rigs falsch zu haben.
+static func clip_length(root: Node, kind: String) -> float:
+	var ap: AnimationPlayer = animation_player(root)
+	if ap == null:
+		return 0.0
+	var clip: String = ""
+	if root.has_meta("asset_name"):
+		clip = String(CLIP_OVERRIDES.get(String(root.get_meta("asset_name")), {}).get(kind, ""))
+		if clip != "" and not ap.has_animation(clip):
+			clip = ""
+	if clip == "":
+		clip = find_clip(ap, kind)
+	if clip == "" or not ap.has_animation(clip):
+		return 0.0
+	return ap.get_animation(clip).length
+
 
 ## Haelt die Animation an und stellt die erste Pose des laufenden Clips her.
 ##

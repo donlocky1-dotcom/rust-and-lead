@@ -321,6 +321,13 @@ func _setup_ui(art: String) -> void:
 		# die Grube dabei ist, ist genau die Frage, die dieses Bild beantworten soll.
 		GameState.hour = DayCycle.START_HOUR
 		GameState.prolog_done = false
+		# LEERE HAENDE — das ist der Zustand, in dem der Prolog anfaengt, und der Zustand, in
+		# dem `_update_hud` schon einmal abgestuerzt ist (`AmmoData.pool_for("")`). Wird er hier
+		# nicht hergestellt, prueft dieses Bild ihn auch nicht.
+		GameState.weapons = []
+		GameState.equip.erase("weapon")
+		ow._weapon_id = ""
+		ow._sync_weapon()
 		ow._apply_daytime()
 		ow._apply_night_lights()
 		var grube: Vector3 = ow._start_spawn()

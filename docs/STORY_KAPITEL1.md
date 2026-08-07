@@ -4,8 +4,9 @@ Was hier steht, ist der **Fluss**: wo man aufwacht, was man findet, mit wem man 
 man geschickt wird. Die Zahlen und Tabellen dahinter stehen im MASTER_GDD (§3 Kampagne,
 §4.3 NPCs, §5 Mini-Quests); dieses Blatt ist die Reihenfolge.
 
-Stand: der Prolog steht mechanisch (Start in der Grube, leere Hände, Truhe, Fußspur, Pferd).
-Die **Dialoge** sind hier als Text formuliert und noch nicht im `QuestManager` verdrahtet.
+Stand: Der Prolog **läuft** — Aufwachen, erste Sätze, leere Hände, Truhe, Pferd, Fußspur,
+Nachtwerden, Anflug auf Rustwater, Abschluss beim Betreten der Stadt. Was fehlt, ist das
+**Gespräch**: Die Dialoge sind hier als Text formuliert und noch nicht als Daten verdrahtet.
 
 ---
 
@@ -20,15 +21,34 @@ Kosmetik, sondern der Bauplan des Prologs: Der Held erwacht in der Dämmerung, u
 Richtung Rustwater geht, wird es Nacht. Zu Fuß dauert der Kilometer vier Minuten — acht
 Spielstunden, Ankunft gegen **01:40**. Im Sattel reicht es gerade für die Dämmerung.
 
-**1. Aufwachen.** Kamerafahrt von oben auf die Figur, dann in die Spielkamera. Erste Meldung:
+**1. Aufwachen.** Fünf Sekunden. Die Figur stemmt sich hoch (`Stand_Up1`), während die Kamera
+aus 16 m Höhe in die Spielhaltung herunterkommt. Von oben, weil man am Grund einer Grube liegt:
+Eine Einstellung zeigt, wo man ist — mitten im Schutt, allein, ohne Weg nach draußen im Bild.
 
-> *Dein Schädel dröhnt. Öl im Mund, Rost in der Nase. Du weißt nicht, wie du hierhergekommen
-> bist — und, jetzt wo du darüber nachdenkst: auch nicht, wer dich hergebracht hat.*
+Der Clip dauert 8,3 s, gezeigt wird das **Ende**. Die ersten Sekunden liegt die Figur nur da;
+das ist als Animation richtig und als Spielanfang eine Zumutung. Wie weit hineingesprungen wird,
+rechnet der Code aus der tatsächlichen Clip-Länge — beim nächsten Rig stimmt es wieder.
+
+Dazu die ersten Sätze, in drei Schüben statt als Wand:
+
+> *Dein Schädel dröhnt. Öl im Mund, Rost in der Nase.*
+>
+> *Du weißt nicht, wie du hierhergekommen bist. Und, jetzt wo du darüber nachdenkst: auch nicht,
+> wer dich hergebracht hat.*
+>
+> *🔦 Irgendwo hier liegt eine Truhe. Danach: der Weg nach Rustwater.*
+
+Die **Lache**, auf der er liegt, zeigt den Himmel — abends kupfern, nachts blaugrau. Ohne das
+war sie ein schwarzes Loch, das die Figur verschluckte: `metallic` ohne Himmelsreflexion ist
+schwarz, und der Grubengrund liegt im Schatten der 66°-Wand. Jetzt liegt der Held als Silhouette
+auf einem kupfernen Spiegel.
 
 **2. Leere Hände.** Wer den Schuss-Knopf drückt, bekommt „🚫 Leere Hände. Such dir etwas."
 Das ist der erste Lehrsatz des Spiels und braucht keinen Text darüber hinaus.
 
-**3. Die Truhe.** Steht am Grund der Grube, in Sichtweite. Darin liegt der **Blei-Karabiner** —
+**3. Die Truhe.** Steht am **Rand der Lache**, in Richtung des Lokomotivenwracks — nicht in der
+Mitte: Dort liegt der Held, und die Truhe stand buchstäblich auf ihm. Die Richtung kommt aus der
+Szene, wer das Wrack im Editor verschiebt, nimmt die Truhe mit. Darin liegt der **Blei-Karabiner** —
 garantiert, nicht ausgewürfelt. Der Anfang einer Geschichte darf nicht auswürfeln, ob sie
 stattfindet. Dazu Gold, Munition, ein Ausrüstungsteil.
 
@@ -127,9 +147,8 @@ Der Prolog steht mechanisch. Was ihn zur **Erzählung** macht, fehlt noch:
 | | Was | Aufwand |
 |---|---|---|
 | 1 | **Dialoge als Daten.** Bisher liefert `OverworldView._npc_line()` je NPC einen Satz aus einer `if`-Kette. Für eine Story braucht es mehrseitige Gespräche mit Zustand („erstes Mal", „Quest läuft", „abgabebereit") — also eine `DialogData`-Tabelle wie `QuestManager.QUESTS`, und die Sprechtafel blättert durch. | mittel |
-| 2 | **Skriptierte Momente.** Aufwachen, Truhe, Ankunft in Rustwater sollen etwas AUSLÖSEN. Braucht einen kleinen Auslöser-Mechanismus: „wenn Bedingung, dann einmalig Kamerafahrt + Text". | mittel |
-| 3 | **`prolog_done` setzen** beim Betreten von Rustwater, und die Erstbegegnung mit Mabel erzwingen (Marker über ihrem Kopf, Fußspur zu ihr statt zum Quest-Ort). | klein |
-| 4 | **Aufwach-Sequenz** — die Figur liegt und steht auf. Braucht einen Clip (`Stand_Up1` ist im Spieler-Rig vorhanden!) und eine Kamerafahrt. | klein |
+| 2 | **Weitere skriptierte Momente.** Der Mechanismus steht (`_play_flight` für die Kamera, `_play_beats` für den Text, beides an Aufwachen und Ankunft schon verdrahtet). Was fehlt, sind die übrigen Auslöser — vor allem die Truhe. | klein |
+| 3 | **Erstbegegnung mit Mabel erzwingen** — Marker über ihrem Kopf, Fußspur zu ihr statt zum Quest-Ort. (`prolog_done` wird inzwischen gesetzt.) | klein |
 | 5 | **Codex/Erinnerung** — die Kinetoskop-Walzen (§8.3) sind im Backend fertig, aber im Prolog noch nicht angefasst. Die erste Walze gehört in die Grube. | klein |
 
 Reihenfolge-Vorschlag: **1 → 3 → 4 → 2 → 5.** Ohne (1) ist alles andere Text in einer
@@ -150,5 +169,8 @@ Sekunde an — damit ist jede Beute wertlos und die vier Schadensarten (§6.1) h
 | Säure-Sprüher | Alchemie | Doc / Labor-Ausbau | Kap. 3 |
 | Dampf-Brenner | Thermik | Mine, Boss-Beute | Kap. 3–4 |
 
-Der Umschalter (`[Tab]`) läuft nur durch Gefundenes. Ohne Waffe: kein Schuss, und die Meldung
-sagt warum.
+**Es gibt keinen Umschalter mehr.** `[Tab]` schaltete früher durch eine feste Liste von fünf
+Gattungen — eine zweite Wahrheit neben dem Inventar, die nichts von Seltenheiten und Werten
+wusste. Angelegt wird im **Beutel**, wie jedes andere Ausrüstungsteil; `[Tab]` öffnet ihn.
+
+Ohne Waffe: kein Schuss, kein Munitionszähler, und die Meldung sagt warum.

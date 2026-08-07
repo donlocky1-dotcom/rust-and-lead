@@ -329,12 +329,28 @@ func _process_beats(delta: float) -> void:
 ##
 ## Die alte Begrüßung („Willkommen im Krater — 5000 m Kante zu Kante") war ein Handbuch. Ein
 ## Spiel, das mit seinen eigenen Maßen anfängt, hat noch nicht angefangen.
+## Wie lange das Aufwachen dauert — und warum nicht so lange wie der Clip.
+##
+## `Stand_Up1` dauert **8,27 s**. Die ersten Sekunden davon liegt die Figur nur da; das ist als
+## Animation richtig und als Spielanfang eine Zumutung. Gezeigt wird deshalb das ENDE: Der Clip
+## springt so weit hinein, dass er zusammen mit der Kamerafahrt aufhoert — man sieht das
+## Hochstemmen, das Aufknien, das Aufstehen, und dann hat man die Steuerung.
+##
+## Die Zahl steht nicht doppelt da: Wie weit gesprungen wird, rechnet `_erwachen` aus der
+## tatsaechlichen Clip-Laenge. Wer das Rig austauscht, bekommt automatisch den passenden
+## Einsprung statt einer Figur, die zu frueh steht.
 const WACH_HOCH_M: float = 16.0
-const WACH_SEK: float = 3.4
+const WACH_SEK: float = 5.0
+## Solange > 0, gehoert die Figur der Aufwach-Animation: `_process_movement` fasst den Clip
+## nicht an. Ohne das ueberschriebe „idle" ihn im ersten Bild nach der Kamerafahrt, und der
+## Held schnellte aus dem Liegen in den Stand.
+var _wach_left: float = 0.0
 func _erwachen() -> void:
 	if _cam == null or _player == null:
 		return
-	AssetRegistry.play_clip(_player_model, "standup")
+	var laenge: float = AssetRegistry.clip_length(_player_model, "standup")
+	AssetRegistry.play_clip(_player_model, "standup", false, maxf(laenge - WACH_SEK, 0.0))
+	_wach_left = WACH_SEK
 	# Die Fahrt beginnt über der Figur; `_play_flight` merkt sich die Kamera, wie sie JETZT
 	# steht, also wird sie vorher dorthin gesetzt.
 	var kopf: Vector3 = _player.position + Vector3(0.0, 1.0, 0.0)
@@ -2986,6 +3002,26 @@ func _fill_crater(f: Dictionary, pool: Array, rng: RandomNumberGenerator) -> voi
 ## Lokomotivenwrack dagegen laeuft man nicht durch. Die Grenze steht als Zahl da, damit man sie
 ## verschieben kann, ohne die Regel zu suchen.
 const PIT_BLOCK_H_M: float = 1.5
+## Das Lokomotivenwrack in einer gefuellten Grube — Weltposition, `Vector3.INF` wenn keins da ist.
+##
+## Gesucht wird am Modellnamen, nicht an einer Knotenbenennung: Beim Backen heissen die Teile
+## `000_locomotive`, von Hand gestellte heissen, wie sie jemand genannt hat. Die Herkunftsdatei
+## bleibt in beiden Faellen dieselbe.
+var _pit_wrack: Vector3 = Vector3.INF
+static func _finde_wrack(node: Node3D, welt: Transform3D) -> Vector3:
+	for child in node.get_children():
+		if not (child is Node3D):
+			continue
+		var c: Node3D = child as Node3D
+		var w: Transform3D = welt * c.transform
+		if TownCollision.asset_name(c).findn("locomotive") >= 0:
+			return w.origin
+		var tiefer: Vector3 = _finde_wrack(c, w)
+		if tiefer != Vector3.INF:
+			return tiefer
+	return Vector3.INF
+
+
 func _load_pit(id: String) -> void:
 	var packed: PackedScene = load(pit_scene_path(id)) as PackedScene
 	if packed == null:
@@ -3001,6 +3037,8 @@ func _load_pit(id: String) -> void:
 			grube.position = Vector3(m.x, 0.0, m.z)
 			break
 	add_child(grube)
+	# Das groesste Teil merken: An ihm haengt, wo die Truhe steht (siehe `_chest_spot`).
+	_pit_wrack = _finde_wrack(grube, grube.transform)
 	# Die Lache bleibt Sache des Codes, nicht der Bearbeitungsszene: Sie haengt an der Form des
 	# Kraters (tiefster Punkt, Radius) und nicht am Geschmack dessen, der die Halde fuellt.
 	for f in WorldManager.TERRAIN:
@@ -3757,7 +3795,28 @@ func _build_chests() -> void:
 	for id in WorldManager.POIS.keys():
 		if String(id) == "rustwater":
 			continue
-		_spawn_chest_at(WorldManager.poi_scene_position(String(id)))
+		_spawn_chest_at(_chest_spot(String(id)))
+
+
+## Wo die Truhe eines Ortes steht.
+##
+## Normalerweise in seiner Mitte. In der SCHROTTGRUBE nicht: Dort ist die Mitte der Platz, auf
+## dem der Held liegt — die Truhe stand also buchstaeblich auf ihm, und im ersten Bild des
+## Spiels sah man einen Kasten statt einer Figur.
+##
+## Sie rueckt deshalb an den Rand der Lache, in Richtung des Lokomotivenwracks: Das ist das
+## groesste Ding in der Grube und das, worauf der Blick beim Aufwachen ohnehin faellt. Die
+## Richtung kommt aus der SZENE (`_pit_wrack`), nicht aus einer Zahl — wer das Wrack im Editor
+## verschiebt, nimmt die Truhe mit.
+const CHEST_RIM_M: float = 0.7
+func _chest_spot(id: String) -> Vector3:
+	var mitte: Vector3 = WorldManager.poi_scene_position(id)
+	if id != "schrott_minen" or _pit_wrack == Vector3.INF:
+		return mitte
+	var hin := Vector3(_pit_wrack.x - mitte.x, 0.0, _pit_wrack.z - mitte.z)
+	if hin.length() < 1.0:
+		return mitte
+	return mitte + hin.normalized() * (PUDDLE_R_M + CHEST_RIM_M)
 
 
 func _spawn_chest_at(raw: Vector3) -> void:
@@ -4739,6 +4798,13 @@ func _process_movement(delta: float) -> void:
 	# Fahrt endete dort, wo sie vor acht Sekunden stand — gut dreissig Meter hinter ihr.
 	if _in_cine() or _in_flight():
 		return
+	if _wach_left > 0.0:
+		# Aufstehen laeuft noch. Steuern darf man schon (die Kamerafahrt ist vorbei), aber der
+		# Clip bleibt, bis er fertig ist — es sei denn, man laeuft wirklich los.
+		_wach_left -= delta
+		if _move_vector().length() < 0.05:
+			return
+		_wach_left = 0.0
 	var mv: Vector2 = _move_vector()
 	var moving: bool = mv.length() >= 0.05
 	# Animation folgt der Bewegung, sobald ein animiertes Modell da ist. Kennt das Modell den
@@ -4822,7 +4888,7 @@ func _begin_reload() -> void:
 	if not AmmoData.can_reload(_weapon_id):
 		if _dry_cd <= 0.0:
 			_dry_cd = 1.5
-			_say("🔫 %s aus — Waffe wechseln [Tab]"
+			_say("🔫 %s aus — im Beutel eine andere anlegen"
 				% String(AmmoData.POOLS[AmmoData.pool_for(_weapon_id)]["name"]), 1.5)
 		return
 	_reload_total = PlayerStats.reload_sec(_weapon_id)
@@ -5401,7 +5467,12 @@ func _update_hud() -> void:
 	var q: String = _active_quest_line()
 	if q != "":
 		_hud.text += "\n📜 " + q
-	if _ammo_lbl != null:
+	if _ammo_lbl != null and _weapon_id == "":
+		# Leere Haende: Es gibt kein Magazin, also auch keinen Zaehler. Ein „0/0" waere die
+		# Behauptung, hier fehle Munition — es fehlt aber die WAFFE, und das steht schon oben.
+		_ammo_lbl.text = "✋ —"
+		_ammo_lbl.add_theme_color_override("font_color", Color(0.62, 0.60, 0.56))
+	elif _ammo_lbl != null:
 		var pool: String = AmmoData.pool_for(_weapon_id)
 		var mag: int = AmmoData.in_mag(_weapon_id)
 		var col := Color(0.92, 0.90, 0.84)

@@ -22,7 +22,29 @@ const ORDER: Array = ["muni", "kristall"]
 ## gut, solange der Karabiner die einzige kinetische Waffe war, und wurde in dem Moment falsch,
 ## in dem die Gatling dazukam: Eine Kurbelkanone mit Messingläufen bekam Energiekristalle.
 static func pool_for(weapon_id: String) -> String:
+	if not kennt(weapon_id):
+		return ORDER[0]
 	return "muni" if String(CombatData.WEAPONS[weapon_id]["type"]) == CombatData.KINETIC else "kristall"
+
+
+## Kennt die Waffentabelle diese Kennung?
+##
+## `""` heisst **leere Haende**, und das ist seit dem Prolog ein regulaerer Spielzustand: Der
+## Held erwacht ohne alles auf der Kippe und findet den Karabiner erst in der Truhe. Vorher
+## trug er von der ersten Sekunde an alle fuenf Waffen — deshalb konnte hier nie eine unbekannte
+## Kennung ankommen, und deshalb griff jede Funktion direkt in die Tabelle.
+##
+## Genau das hat den Prolog beim ersten echten Spielen zerlegt: `_update_hud` fragte im ERSTEN
+## Bild nach der Munition der Waffe, die es noch nicht gab, und riss `_process` mit — samt
+## Bewegungskreuz und jeder Eingabe. Ein Spiel, das mit leeren Haenden anfaengt, muss diese
+## Frage beantworten koennen, ohne stehenzubleiben.
+##
+## Beantwortet wird sie mit „nichts": kein Magazin, kein Nachladen, kein Schuss. Der Vorrat
+## selbst bleibt ansprechbar (man kann Munition einsammeln, bevor man eine Waffe hat) — deshalb
+## faellt `pool_for` auf den ersten Pool zurueck, statt einen leeren Namen zu liefern, an dem
+## `POOLS[...]` als naechstes zerbraeche.
+static func kennt(weapon_id: String) -> bool:
+	return weapon_id != "" and CombatData.WEAPONS.has(weapon_id)
 
 
 ## Vorratsgrenze eines Pools — inklusive des Perks „Munitionsgurt" (+25 je Rang).
@@ -38,6 +60,8 @@ static func cap(pool: String) -> int:
 ## am Stueck, danach 4,5 Sekunden wehrlos.
 
 static func mag_size(weapon_id: String) -> int:
+	if not kennt(weapon_id):
+		return 0
 	return int(CombatData.WEAPONS[weapon_id].get("mag", 1))
 
 
@@ -111,6 +135,8 @@ static func add(pool: String, count: int) -> int:
 ## Einen Schuss abbuchen — aus dem MAGAZIN, nicht aus dem Vorrat.
 ## `false` = Magazin leer, es muss nachgeladen werden.
 static func consume(weapon_id: String) -> bool:
+	if not kennt(weapon_id):
+		return false
 	var have: int = in_mag(weapon_id)
 	if have <= 0:
 		return false
