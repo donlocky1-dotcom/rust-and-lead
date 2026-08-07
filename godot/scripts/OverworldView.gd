@@ -3279,26 +3279,70 @@ func _build_trail() -> void:
 ## Zwischenziel vor Endziel: Liegt der Sumpf im Weg, führt die Spur erst um ihn herum. Sonst
 ## zöge das Spiel eine leuchtende Linie mitten durch die Todeszone — und der Spieler folgte ihr,
 ## weil das Spiel sie gezeichnet hat.
+## Wohin die Fussspur zeigt.
+##
+## Im PROLOG an die Geschichte, danach an die verfolgte Quest. Vorher gab es waehrend des
+## ganzen Prologs GAR KEINE Spur: Der Wegweiser haengt an `tracked_quest`, und die erste Quest
+## bekommt man erst in Rustwater — also genau dann, wenn man den Weg schon gefunden hat.
 func _trail_goal() -> Vector3:
-	var qid: String = QuestManager.tracked_quest()
-	if qid == "":
-		return Vector3.INF
-	var ziel: String = QuestManager.quest_target(qid)
-	if ziel == "" or not WorldManager.has_poi(ziel):
-		return Vector3.INF
+	var szene_ziel: Vector3 = Vector3.INF
+	if not GameState.prolog_done:
+		szene_ziel = _prolog_ziel()
+	if szene_ziel == Vector3.INF:
+		var qid: String = QuestManager.tracked_quest()
+		if qid == "":
+			return Vector3.INF
+		var ziel: String = QuestManager.quest_target(qid)
+		if ziel == "" or not WorldManager.has_poi(ziel):
+			return Vector3.INF
+		szene_ziel = WorldManager.poi_scene_position(ziel)
 	var hier: Vector2 = WorldManager.scene_to_world(_player.position)
-	var dort: Vector2 = WorldManager.poi_position(ziel)
+	var dort: Vector2 = WorldManager.scene_to_world(szene_ziel)
 	var umweg: Vector2 = WorldManager.swamp_detour(hier, dort)
 	if umweg != Vector2.INF:
 		return WorldManager.world_to_scene(umweg)
 	# Die Mauer zuletzt: Sie ist das naechstliegende Hindernis, der Sumpf das weiter entfernte.
 	# Erst um die Todeszone herum, dann durchs Tor.
-	var szene_ziel: Vector3 = WorldManager.poi_scene_position(ziel)
 	var tor: Vector2 = _gate_detour(Vector2(_player.position.x, _player.position.z),
 		Vector2(szene_ziel.x, szene_ziel.z))
 	if tor != Vector2.INF:
 		return Vector3(tor.x, WorldManager.height_at(tor.x, tor.y), tor.y)
 	return szene_ziel
+
+
+## Das Ziel des Prologs: erst auf den Ausguck, dann in die Stadt.
+##
+## Der Ausguck zuerst, weil die Geschichte so laeuft — er weiss nicht, wo er ist, und sucht sich
+## den hoechsten Punkt. Die Spur macht daraus eine Handlung: Sie zeigt auf den Fels, nicht ins
+## Leere, und er geht ihr nach.
+##
+## Und sie zeigt auf den **Fuss der Rampe**, solange er noch draussen ist. Der Fels ist rundum
+## 77° steil; eine Spur, die geradewegs auf den Gipfel weist, fuehrt gegen eine Wand — dasselbe
+## Problem wie bei der Palisade, wo sie vor der Mauer endete statt durchs Tor zu gehen. Erst
+## wenn er am Fels steht, zeigt sie hinauf.
+const AUSGUCK_FUSS_M: float = 4.0
+func _prolog_ziel() -> Vector3:
+	if _player == null:
+		return Vector3.INF
+	if GameState.saw_vista:
+		# Oben war er. Jetzt zaehlt die Stadt — den Rest (Palisade, Tor) macht `_trail_goal`.
+		return WorldManager.poi_scene_position("rustwater")
+	var f: Dictionary = _feature("ausguck")
+	if f.is_empty():
+		return Vector3.INF
+	var mitte: Vector3 = WorldManager.feature_center(f)
+	var reich: float = WorldManager.feature_reach(f)
+	var d: float = Vector2(_player.position.x - mitte.x, _player.position.z - mitte.z).length()
+	if d <= reich + AUSGUCK_FUSS_M:
+		# Am Fels: hinauf. Ueber die Rampe kommt er von selbst, sie ist die einzige Seite, die
+		# die Steigungsgrenze durchlaesst.
+		return Vector3(mitte.x, WorldManager.height_at(mitte.x, mitte.z), mitte.z)
+	# Noch draussen: zum Fuss der Rampe. `ramp_deg` zaehlt wie ueberall im Gelaende — 0° ist
+	# Osten, und Norden ist −z, deshalb das Minus beim Sinus.
+	var w: float = deg_to_rad(float(f.get("ramp_deg", 0.0)))
+	var fx: float = mitte.x + cos(w) * (reich + AUSGUCK_FUSS_M)
+	var fz: float = mitte.z - sin(w) * (reich + AUSGUCK_FUSS_M)
+	return Vector3(fx, WorldManager.height_at(fx, fz), fz)
 
 
 ## Hoehe, auf der ein FLACHER Marker liegen muss, damit man ihn sieht.

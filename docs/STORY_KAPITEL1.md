@@ -94,8 +94,17 @@ erscheint **🐎 Aufsitzen** in der Aktionsleiste (oder `[E]`): **dreifaches Tem
 dem Sattel.** Der Weg in die Stadt ist gut einen Kilometer weit; zu Fuß sind das vier Minuten,
 im Sattel gut eine.
 
-**5. Der Weg.** Die Fußspur führt aus der Grube nach Rustwater — und, seit die Palisade steht,
-**durch das Tor** statt gegen die Mauer.
+**5. Der Weg.** Die Fußspur führt aus der Grube **zuerst auf den Ausguck**, danach nach
+Rustwater — und dort, seit die Palisade steht, **durch das Tor** statt gegen die Mauer.
+
+Vorher gab es während des ganzen Prologs *gar keine* Spur: Der Wegweiser hing an der verfolgten
+Quest, und die erste Quest bekommt man in Rustwater — also genau dann, wenn man den Weg schon
+gefunden hat.
+
+Solange er noch draußen ist, zeigt sie auf den **Fuß der Rampe**, nicht auf den Gipfel. Der Fels
+ist rundum 77° steil; eine Spur, die geradewegs nach oben weist, führt gegen eine Wand —
+dasselbe Problem wie bei der Palisade, wo sie vor der Mauer endete statt durchs Tor zu gehen.
+Erst wenn er am Fels steht, zeigt sie hinauf.
 
 **5b. Der Ausguck.** Auf halbem Weg (276 m von der Grube, 255 m vor der Stadt) ragt ein
 **15 m hoher Fels** aus dem Sand: flaches Plateau, ringsum steile Kante, auf der Grubenseite ein

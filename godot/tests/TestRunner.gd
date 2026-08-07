@@ -1770,6 +1770,36 @@ func _test_prolog() -> void:
 	_check("Und im Weitwinkel (%.0f° gegen %.0f° im Spiel)" % [OW2.VISTA_FOV, OW2.CAM_FOV],
 		OW2.VISTA_FOV > OW2.CAM_FOV * 1.3)
 
+	# 6c. Die Fussspur fuehrt im Prolog zum Ausguck — vorher gab es waehrend des ganzen Prologs
+	#     GAR KEINE Spur, weil der Wegweiser an `tracked_quest` hing und die erste Quest erst
+	#     in Rustwater vergeben wird. Also genau dann, wenn man den Weg schon gefunden hat.
+	_check("Die Spur kennt ein Prolog-Ziel", quelle.contains("func _prolog_ziel"))
+	_check("Und es haengt am Ausguck", quelle.contains('_feature("ausguck")'))
+	# Sie zeigt auf den FUSS DER RAMPE, solange man draussen ist: Der Fels ist rundum 77° steil,
+	# eine Spur geradewegs zum Gipfel fuehrt gegen eine Wand. Nachgerechnet: Der Punkt, auf den
+	# sie zeigt, muss in der Rampenrichtung liegen — nicht in Richtung der Klippe.
+	var w_ramp: float = deg_to_rad(float(aus["ramp_deg"]))
+	var reich2: float = WorldManager.feature_reach(aus)
+	var fuss := Vector3(a_mitte.x + cos(w_ramp) * (reich2 + 4.0), 0.0,
+		a_mitte.z - sin(w_ramp) * (reich2 + 4.0))
+	# Von dort kommt man hinauf: die Steigung zum Gipfel bleibt unter der Grenze.
+	var schritt2: float = 0.5
+	var steilste2: float = 0.0
+	var nach := Vector2(a_mitte.x - fuss.x, a_mitte.z - fuss.z)
+	var laenge2: float = nach.length()
+	nach = nach.normalized()
+	for i in int(laenge2 / schritt2):
+		var p1 := Vector2(fuss.x, fuss.z) + nach * (float(i) * schritt2)
+		var p2 := p1 + nach * schritt2
+		steilste2 = maxf(steilste2, (WorldManager.height_at(p2.x, p2.y)
+			- WorldManager.height_at(p1.x, p1.y)) / schritt2)
+	_check("Vom Fuss der Rampe kommt man hinauf (%.0f°)" % rad_to_deg(atan(steilste2)),
+		steilste2 < OW2.MAX_STEIGUNG)
+	# Und der Fuss liegt WIRKLICH unten, nicht schon auf halber Hoehe.
+	_check("Der Fuss der Rampe liegt am Boden (%.1f m)"
+		% WorldManager.height_at(fuss.x, fuss.z),
+		WorldManager.height_at(fuss.x, fuss.z) < 3.0)
+
 	# 7. Die Startschalter, ohne die man den Prolog nach dem ersten Start nie wiedersieht —
 	#    das Spiel speichert automatisch, es gibt also kein „noch nicht gespeichert".
 	_check("Es gibt einen Schalter fuer ein neues Spiel", OW.ARG_NEU == "--neu")
