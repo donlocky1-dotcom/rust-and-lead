@@ -691,6 +691,27 @@ const VISTA_SEK_RUNDE: float = 6.6
 const VISTA_SEK_WEIT: float = 3.2
 const VISTA_SEK_TAL: float = 3.0
 const VISTA_SEK_HEIM: float = 1.8
+
+## Steht er WIRKLICH oben?
+##
+## Der erste Auslöser fragte nur den waagerechten Abstand zur Felsmitte ab. Auf der Rampe ist
+## man dort aber erst auf halber Höhe: Bei 9 m Abstand zur Mitte steht man 8,5 m über dem Sand
+## und noch sieben Meter unter dem Gipfel. Die Fahrt fing an, die Kamera kreiste auf Gipfelhöhe
+## um einen Punkt weiter unten — und lief dabei durch den Berg.
+##
+## Waagerecht UND senkrecht, und der senkrechte Teil ist der entscheidende: Die Höhe ist das,
+## was „oben" bedeutet. Zwei Meter Spielraum, weil die aufgesetzten Buckel den Standplatz um
+## etwa anderthalb Meter wellen — auf den Zentimeter genau wäre der Auslöser eine Falle.
+const VISTA_GIPFEL_TOL_M: float = 2.0
+const VISTA_PLATEAU_ZUGABE_M: float = 3.0
+func _auf_ausguck(f: Dictionary) -> bool:
+	var mitte: Vector3 = WorldManager.feature_center(f)
+	var flach := Vector2(_player.position.x - mitte.x, _player.position.z - mitte.z)
+	if flach.length() > float(f["radius"]) * float(f["floor"]) + VISTA_PLATEAU_ZUGABE_M:
+		return false
+	var gipfel: float = WorldManager.height_at(mitte.x, mitte.z)
+	var hier: float = WorldManager.height_at(_player.position.x, _player.position.z)
+	return hier >= gipfel - VISTA_GIPFEL_TOL_M
 func _maybe_vista() -> void:
 	if GameState.saw_vista or GameState.prolog_done or _player == null:
 		return
@@ -699,12 +720,10 @@ func _maybe_vista() -> void:
 	var f: Dictionary = _feature("ausguck")
 	if f.is_empty():
 		return
-	var mitte: Vector3 = WorldManager.feature_center(f)
-	var flach := Vector2(_player.position.x - mitte.x, _player.position.z - mitte.z)
-	# Oben auf dem Standplatz — der ist schmal, also darf der Radius grosszuegig sein.
-	if flach.length() > float(f["radius"]) * 0.34:
+	if not _auf_ausguck(f):
 		return
 	GameState.saw_vista = true
+	var mitte: Vector3 = WorldManager.feature_center(f)
 	var p: Vector3 = _player.position
 	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
 	var zur_stadt := Vector3(stadt.x - p.x, 0.0, stadt.z - p.z).normalized()

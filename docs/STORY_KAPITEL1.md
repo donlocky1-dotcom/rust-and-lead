@@ -148,6 +148,13 @@ jetzt gab es keine, man lief die 66°-Wand der Schrottgrube hoch wie eine Fliege
 war reine Deko. Gesperrt wird nur *bergauf*; wer von der Kante springt, hat sich dafür
 entschieden.
 
+**Sie startet erst ganz oben.** Der erste Auslöser fragte nur den *waagerechten* Abstand zur
+Felsmitte ab — auf der Rampe steht man dort aber erst auf halber Höhe: 8,2 m über dem Sand und
+knapp sieben Meter unter dem Gipfel. Die Fahrt fing an, die Kamera kreiste auf Gipfelhöhe um
+einen Punkt weiter unten und lief dabei durch den Berg. Jetzt zählt die **Höhe**: innerhalb von
+zwei Metern unter dem Gipfel, und die zwei Meter, weil die aufgesetzten Buckel den Standplatz
+um etwa anderthalb Meter wellen.
+
 Oben übernimmt die Kamera ein zweites Mal — **15 Sekunden im Weitwinkel** (78° statt 50°):
 
 1. Zurück und hoch, hinter ihm (2,6 s)

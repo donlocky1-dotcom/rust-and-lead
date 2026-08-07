@@ -1819,6 +1819,31 @@ func _test_prolog() -> void:
 	_check("Es gibt eine Steigungsgrenze (%.0f°)" % rad_to_deg(atan(OW2.MAX_STEIGUNG)),
 		OW2.MAX_STEIGUNG > 0.5 and OW2.MAX_STEIGUNG < 2.0)
 	_check("Die Rundsicht laeuft nur einmal", quelle.contains("GameState.saw_vista = true"))
+	# Sie darf erst OBEN starten. Der erste Ausloeser fragte nur den waagerechten Abstand ab —
+	# auf der Rampe steht man dort erst auf halber Hoehe, die Kamera kreiste auf Gipfelhoehe um
+	# einen Punkt weiter unten und lief dabei durch den Berg.
+	var gipfel: float = WorldManager.height_at(a_mitte.x, a_mitte.z)
+	var w_r: float = deg_to_rad(float(aus["ramp_deg"]))
+	# Der ALTE Ausloeser: waagerecht innerhalb von 34 % des Radius — also am AEUSSERSTEN Rand
+	# dieses Kreises, denn dort feuert er zuerst, wenn man den Berg hinaufsteigt.
+	var alt_d: float = float(aus["radius"]) * 0.34
+	var zu_frueh: float = WorldManager.height_at(a_mitte.x + cos(w_r) * alt_d,
+		a_mitte.z - sin(w_r) * alt_d)
+	# Der NEUE: die groesste Entfernung zur Mitte, bei der die Hoehe noch reicht.
+	var gerade_recht: float = -1.0
+	for i in range(1, 60):
+		var dd: float = float(i) * 0.5
+		var hh: float = WorldManager.height_at(a_mitte.x + cos(w_r) * dd,
+			a_mitte.z - sin(w_r) * dd)
+		if hh >= gipfel - OW2.VISTA_GIPFEL_TOL_M:
+			gerade_recht = dd
+	_check("Der alte Ausloeser feuerte weit unter dem Gipfel (%.1f m von %.1f m)"
+		% [zu_frueh, gipfel], zu_frueh < gipfel - 5.0)
+	_check("Der neue erst am Gipfel (ab %.0f m Abstand zur Mitte)" % gerade_recht,
+		gerade_recht > 0.0 and gerade_recht <= 3.0)
+	# Und die Kamera kreist auf Gipfelhoehe: Wenn sie unten anfinge, ginge sie durch den Fels.
+	_check("Die Umrundung setzt ueber dem Standplatz an (%.1f m)" % OW2.VISTA_NAH_H,
+		OW2.VISTA_NAH_H > 0.0)
 	_check("Und im Weitwinkel (%.0f° gegen %.0f° im Spiel)" % [OW2.VISTA_FOV, OW2.CAM_FOV],
 		OW2.VISTA_FOV > OW2.CAM_FOV * 1.3)
 
