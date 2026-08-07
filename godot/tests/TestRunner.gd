@@ -70,7 +70,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_poi_walkable": 22,
 	"_test_town_walkable": 17,
 	"_test_enemy_attacks": 20,
-	"_test_daycycle": 153,
+	"_test_daycycle": 162,
 	"_test_dialog": 22,
 	"_test_memory_manager": 29,
 	"_test_encounter_manager": 24,
@@ -1879,7 +1879,29 @@ func _test_prolog() -> void:
 	_check("Es gibt einen leuchtenden Ring", quelle.contains("_marke_ring")
 		and quelle.contains("_build_vista_marke"))
 	_check("Und die Fussspur fuehrt hinein", quelle.contains("_vista_spot()"))
+	# Er verschwindet auch wieder — mitsamt Beschriftung. Die Schrift war zuerst ein GESCHWISTER
+	# des Rings, und `_process_marke` gab nur den Ring frei: Danach stand ein "◎ Aussicht" ueber
+	# leerem Fels. Sie haengt jetzt UNTER `_marke`, also raeumt derselbe `queue_free()` sie mit ab.
+	_check("Der Ring wird nach der Rundsicht abgeraeumt",
+		quelle.contains("if GameState.saw_vista:") and quelle.contains("_marke.queue_free()"))
+	_check("Und die Beschriftung haengt an ihm, nicht daneben",
+		quelle.contains("l.reparent(_marke, true)"))
+	# Gepulst wird der Unterknoten mit den Scheiben. Liefe die Schleife ueber ALLE Kinder von
+	# `_marke`, traefe sie seit dem Umhaengen auch das Label3D — und `(c as MeshInstance3D)` waere
+	# dort null. Ein Zugriff auf null bricht `_process` ab, und zwar in jedem Bild.
+	_check("Das Pulsieren fasst nur die Scheiben an",
+		quelle.contains("for c in puls.get_children():")
+		and not quelle.contains("for c in _marke.get_children():"))
 	# Der Ring liegt an der Kante Richtung Rustwater — gemessen, nicht gesetzt.
+	#
+	# Wie schmal der Grat oben ist, hat erst die Messung gezeigt — und dabei einen Fehlschluss
+	# ausgeraeumt, der zwischendurch als Loesung im Code stand. Weil der Standplatz beim ersten
+	# Anlauf nur 2,6 m vor dem Gipfelpunkt landete, sah das nach einer RINNE aus: Die Kerbung
+	# schneidet Spalten in die Kuppe, und eine Messung auf einem einzelnen Strahl bleibt an der
+	# ersten haengen. Ein Faecher aus fuenf Strahlen sollte darueber hinweglaufen — er verschob
+	# den Punkt um keinen Zentimeter. Die Rustwater-Seite ist keine Rinne, sondern eine Schulter,
+	# die sofort weggeht: Grat dicht an der Mitte, vier Meter weiter schon vier Meter tiefer.
+	# Fuer den Blick ist das genau richtig; nur der Ring muss klein sein und weit genug zurueck.
 	var stadt3: Vector3 = WorldManager.poi_scene_position("rustwater")
 	var hin3 := Vector3(stadt3.x - a_mitte.x, 0.0, stadt3.z - a_mitte.z).normalized()
 	var gipfel3: float = WorldManager.height_at(a_mitte.x, a_mitte.z)
@@ -1888,20 +1910,53 @@ func _test_prolog() -> void:
 	while dk < float(aus["radius"]):
 		dk += 0.25
 		var q3: Vector3 = a_mitte + hin3 * dk
-		if WorldManager.height_at(q3.x, q3.z) < gipfel3 - 1.2:
+		if WorldManager.height_at(q3.x, q3.z) < gipfel3 - OW2.VISTA_KANTE_TOL_M:
 			break
 		kante = q3
-	var spot3: Vector3 = kante - hin3 * 1.2
+	# Zurueckgesetzt wird um GENAU den Ringradius — daran haengt die naechste Pruefung.
+	var spot3: Vector3 = kante - hin3 * OW2.VISTA_RING_R_M
 	var hoehe_spot: float = WorldManager.height_at(spot3.x, spot3.z)
+	var ring_ab_mitte: float = Vector2(spot3.x - a_mitte.x, spot3.z - a_mitte.z).length()
 	_check("Der Ring liegt oben (%.1f m von %.1f m)" % [hoehe_spot, gipfel3],
 		hoehe_spot > gipfel3 - 2.0)
-	_check("Und vorn an der Kante, nicht in der Mitte (%.1f m vom Gipfel)"
-		% Vector2(spot3.x - a_mitte.x, spot3.z - a_mitte.z).length(),
-		Vector2(spot3.x - a_mitte.x, spot3.z - a_mitte.z).length() > 1.5)
-	# Dahinter faellt es ab: Wer im Ring steht, steht wirklich VORNE.
-	var davor: Vector3 = spot3 + hin3 * 4.0
-	_check("Dahinter faellt der Fels ab (%.1f m)" % WorldManager.height_at(davor.x, davor.z),
-		WorldManager.height_at(davor.x, davor.z) < hoehe_spot - 1.0)
+	# Er liegt GANZ auf dem Fels. Vorher war er 2,2 m gross und nur 1,2 m zurueckgesetzt: Sein
+	# vorderer Bogen stand einen Meter jenseits der Abbruchkante und damit vier Meter ueber dem
+	# Hang — im Bild ein Reifen, der zur Haelfte in der Luft haengt.
+	var vorderkante: float = WorldManager.height_at(
+		spot3.x + hin3.x * OW2.VISTA_RING_R_M, spot3.z + hin3.z * OW2.VISTA_RING_R_M)
+	_check("Der ganze Reif liegt auf dem Fels (%.1f m am vorderen Rand, Gipfel %.1f m)"
+		% [vorderkante, gipfel3], vorderkante > gipfel3 - OW2.VISTA_KANTE_TOL_M - 0.5)
+	# Und trotzdem steht man vorn: Gleich hinter dem Ring geht es hinunter.
+	var davor: Vector3 = spot3 + hin3 * (OW2.VISTA_RING_R_M + 2.5)
+	_check("Gleich dahinter faellt der Fels ab (%.1f m gegen %.1f m im Ring)"
+		% [WorldManager.height_at(davor.x, davor.z), hoehe_spot],
+		WorldManager.height_at(davor.x, davor.z) < hoehe_spot - 1.5)
+	_check("Der Standplatz liegt vor dem Gipfelpunkt, nicht darauf (%.1f m)" % ring_ab_mitte,
+		ring_ab_mitte > 0.5)
+	# Einmal gerechnet, nicht in jedem Bild: `_maybe_vista()` fragt pro Frame, `_trail_goal()`
+	# auch, und die Schleife tastet den halben Felsradius in 25-cm-Schritten ab.
+	_check("Der Standplatz wird gemerkt", quelle.contains("_vista_spot_cache"))
+	# Und der Reif liegt AUF dem Boden, statt durch die Figur zu gehen — dritter Anlauf, und
+	# diesmal einer, der die Ursache trifft statt eines Symptoms. Ohne Tiefentest lag er ueber
+	# allem: Die Figur trug ihn im Bild wie einen Hula-Hoop um die Huefte. Mit Tiefentest
+	# verschwand er ganz — nachgemessen sass er korrekt 35 cm ueber einem Boden auf 14,71 m und
+	# war trotzdem nicht zu sehen, weil ein starrer Torus auf einer Ebene liegt und der Ausguck
+	# keine hat: Der Fels wellt sich ueber zwei Meter um mehr, als der Reif dick war.
+	#
+	# Also kein Fertigkoerper, sondern ein Band aus Dreiecken, dessen Ecken einzeln per
+	# `height_at()` auf den Boden gesetzt werden. Das schmiegt sich an jede Beule, der Tiefentest
+	# kann anbleiben, und die Figur verdeckt es richtig herum.
+	_check("Der Reif folgt dem Boden statt auf einer Ebene zu liegen",
+		quelle.contains("WorldManager.height_at(x, z) + MARKE_LUFT_M"))
+	_check("Er braucht dafuer keinen abgeschalteten Tiefentest",
+		not quelle.contains("mat.no_depth_test = true"))
+	# Und er ist breit genug, um ueber hellem Sand additiv noch zu leuchten. Bei 12 cm war er
+	# rechnerisch da und im Bild nicht.
+	_check("Und ist breit genug, um gesehen zu werden (%.2f m)" % OW2.MARKE_BAND_M,
+		OW2.MARKE_BAND_M >= 0.3)
+	# Die Groesse pulst nicht mehr: Die Ecken stehen jetzt in WELTkoordinaten, eine Skalierung um
+	# den Knotenursprung schoebe den Ring ueber die halbe Karte.
+	_check("Gepulst wird nur die Helligkeit", not quelle.contains("puls.scale ="))
 
 	# Der Weg dahin, in zwei verworfenen Anlaeufen: erst der waagerechte Abstand zur Felsmitte
 	# (auf der Rampe ist man dort acht Meter zu tief), dann zusaetzlich die Hoehe (besser, aber

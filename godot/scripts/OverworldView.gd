@@ -692,16 +692,6 @@ const VISTA_SEK_WEIT: float = 3.2
 const VISTA_SEK_TAL: float = 3.0
 const VISTA_SEK_HEIM: float = 1.8
 
-## Steht er WIRKLICH oben?
-##
-## Der erste Auslöser fragte nur den waagerechten Abstand zur Felsmitte ab. Auf der Rampe ist
-## man dort aber erst auf halber Höhe: Bei 9 m Abstand zur Mitte steht man 8,5 m über dem Sand
-## und noch sieben Meter unter dem Gipfel. Die Fahrt fing an, die Kamera kreiste auf Gipfelhöhe
-## um einen Punkt weiter unten — und lief dabei durch den Berg.
-##
-## Waagerecht UND senkrecht, und der senkrechte Teil ist der entscheidende: Die Höhe ist das,
-## was „oben" bedeutet. Zwei Meter Spielraum, weil die aufgesetzten Buckel den Standplatz um
-## etwa anderthalb Meter wellen — auf den Zentimeter genau wäre der Auslöser eine Falle.
 ## Der Standplatz an der VORDERKANTE — dort, wo man hinsoll.
 ##
 ## Zwei Anläufe vorher, beide aus derselben Sorte Fehler: Erst der waagerechte Abstand zur
@@ -715,9 +705,25 @@ const VISTA_SEK_HEIM: float = 1.8
 ##
 ## Der Punkt wird GEMESSEN, nicht gesetzt: vom Gipfel aus Richtung Rustwater nach außen, bis
 ## der Boden abfällt. Das ist die Kante — und sie wandert mit, wenn jemand den Fels umbaut.
+##
+## Die Messung sagt: Der Grat liegt dicht an der Mitte. Schon 2,6 m vor dem Gipfelpunkt fällt es
+## ab, vier Meter weiter steht man auf 10,9 m statt auf 15,0 m. Die Rustwater-Seite ist keine
+## Terrasse mit Kante, sondern eine Schulter, die sofort weggeht — was für den Blick genau
+## richtig ist und für den Ring eine Einschränkung: Er muss klein sein und weit genug zurück
+## liegen, sonst hängt sein vorderer Bogen vier Meter über dem Hang in der Luft.
+##
+## Deshalb wird um GENAU den Ringradius zurückgesetzt. Dann berührt der vordere Rand des Rings
+## die Abbruchkante und der Rest liegt auf. Wer drinsteht, steht anderthalb Meter vor dem
+## Abgrund — näher geht nicht, ohne zu fallen.
 const VISTA_KANTE_TOL_M: float = 1.2
-const VISTA_RING_R_M: float = 2.2
+const VISTA_RING_R_M: float = 1.8
+var _vista_spot_cache: Vector3 = Vector3.ZERO
 func _vista_spot() -> Vector3:
+	# Gerechnet wird das EINMAL. `_maybe_vista()` fragt in jedem Bild, `_trail_goal()` auch, und
+	# die Schleife tastet den halben Felsradius in 25-cm-Schritten ab — der Fels bewegt sich
+	# dabei nie.
+	if _vista_spot_cache != Vector3.ZERO:
+		return _vista_spot_cache
 	var f: Dictionary = _feature("ausguck")
 	if f.is_empty():
 		return Vector3.INF
@@ -725,25 +731,32 @@ func _vista_spot() -> Vector3:
 	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
 	var hin := Vector3(stadt.x - mitte.x, 0.0, stadt.z - mitte.z).normalized()
 	var gipfel: float = WorldManager.height_at(mitte.x, mitte.z)
-	var best := Vector3(mitte.x, gipfel, mitte.z)
+	var kante: Vector3 = mitte
 	var d: float = 0.0
 	while d < float(f["radius"]):
 		d += 0.25
 		var q: Vector3 = mitte + hin * d
-		var h: float = WorldManager.height_at(q.x, q.z)
-		if h < gipfel - VISTA_KANTE_TOL_M:
+		if WorldManager.height_at(q.x, q.z) < gipfel - VISTA_KANTE_TOL_M:
 			break
-		best = Vector3(q.x, h, q.z)
-	# Ein gutes Stück von der Abbruchkante zurück: Man soll davor stehen, nicht darauf.
-	return best - hin * 1.2
+		kante = q
+	var spot: Vector3 = kante - hin * VISTA_RING_R_M
+	_vista_spot_cache = Vector3(spot.x, WorldManager.height_at(spot.x, spot.z), spot.z)
+	return _vista_spot_cache
 
 
+## Steht er im Ring? Das ist die ganze Bedingung.
+##
+## Waagerecht gemessen und ohne Höhenprüfung — die braucht es nicht mehr, seit der Punkt an der
+## Kante liegt: Dorthin kommt man nur über die Kuppe. Der Parameter bleibt in der Signatur,
+## damit die Aufrufstelle das Feature weiterhin einmal nachschlägt statt zweimal.
 func _auf_ausguck(_f: Dictionary) -> bool:
 	var spot: Vector3 = _vista_spot()
 	if spot == Vector3.INF or _player == null:
 		return false
 	return Vector2(_player.position.x - spot.x, _player.position.z - spot.z).length() \
 		<= VISTA_RING_R_M
+
+
 func _maybe_vista() -> void:
 	if GameState.saw_vista or GameState.prolog_done or _player == null:
 		return
@@ -820,37 +833,80 @@ func _feature(id: String) -> Dictionary:
 ## Bewegung sagt „das gehört zu dir".
 const MARKE_FARBE: Color = Color(1.0, 0.80, 0.38)
 const MARKE_PULS_HZ: float = 0.55
+## Wie breit das Band ist und wie hoch es über dem Fels liegt. Der erste Reif war 12 cm schmal
+## und verschwand additiv über hellem Sand fast vollständig; 45 cm liest man aus jeder Entfernung.
+const MARKE_BAND_M: float = 0.45
+const MARKE_LUFT_M: float = 0.06
 var _marke: Node3D = null
+## Ein Ring, der dem Fels FOLGT.
+##
+## Drei Anläufe, und die ersten beiden scheiterten am selben Punkt: Ein starrer Torus liegt auf
+## einer Ebene, der Ausguck hat aber keine. Ohne Tiefentest lag der Reif deshalb über allem — im
+## Bild trug die Figur ihn wie einen Hula-Hoop um die Hüfte, ein Kreis, den der Spieler nicht
+## verdeckt, wenn er darin steht, liest sich als Bedienelement und nicht als Ort. Mit Tiefentest
+## verschwand er ganz: Der Fels wellt sich über zwei Meter um mehr, als der Reif dick war.
+##
+## Also kein Fertigkörper, sondern ein **Band aus Dreiecken, dessen Ecken einzeln auf dem Boden
+## sitzen** (`height_at()` + 6 cm). Es schmiegt sich an jede Beule, der Tiefentest kann anbleiben,
+## und die Figur verdeckt es korrekt, sobald sie davorsteht.
 func _marke_ring(pos: Vector3, radius: float) -> Node3D:
 	var n := Node3D.new()
+	var puls := Node3D.new()
+	puls.name = "Puls"
+	n.add_child(puls)
+	# Additiv und unbeleuchtet: Der Ring soll glühen, nicht angestrahlt werden — auch mittags,
+	# wenn der Fels heller ist als die Farbe selbst.
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = MARKE_FARBE
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	# Der Ring liegt auf unebenem Fels. Ohne das verschwindet die halbe Scheibe im Boden.
-	mat.no_depth_test = true
-	var ring := MeshInstance3D.new()
-	var t := TorusMesh.new()
-	t.inner_radius = radius * 0.86
-	t.outer_radius = radius
-	ring.mesh = t
-	ring.material_override = mat
-	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	n.add_child(ring)
-	# Eine schwache Scheibe darin — der blosse Umriss liest sich aus der Spielkamera als Loch.
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var band := SurfaceTool.new()
+	band.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg: int = 48
+	for i in seg:
+		var w0: float = TAU * float(i) / float(seg)
+		var w1: float = TAU * float(i + 1) / float(seg)
+		var ecken: Array = []
+		for w in [w0, w1]:
+			for r in [radius - MARKE_BAND_M, radius]:
+				var x: float = pos.x + cos(w) * r
+				var z: float = pos.z + sin(w) * r
+				# Ortsfest gerechnet, damit der Knoten selbst auf (0,0,0) stehen kann und die
+				# Höhen unverändert bleiben, wenn `_process_marke` ihn skaliert.
+				ecken.append(Vector3(x, WorldManager.height_at(x, z) + MARKE_LUFT_M, z))
+		for idx in [0, 1, 3, 0, 3, 2]:
+			band.add_vertex(ecken[idx])
+	band.generate_normals()
+	var reif := MeshInstance3D.new()
+	reif.mesh = band.commit()
+	reif.material_override = mat
+	reif.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	puls.add_child(reif)
+	# Eine schwache Scheibe darin — der bloße Umriss liest sich aus der Spielkamera als Loch.
+	var scheibe := SurfaceTool.new()
+	scheibe.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i2 in seg:
+		var v0: float = TAU * float(i2) / float(seg)
+		var v1: float = TAU * float(i2 + 1) / float(seg)
+		var mitte := Vector3(pos.x, WorldManager.height_at(pos.x, pos.z) + MARKE_LUFT_M, pos.z)
+		var r2: float = radius - MARKE_BAND_M
+		var p0 := Vector3(pos.x + cos(v0) * r2, 0.0, pos.z + sin(v0) * r2)
+		var p1 := Vector3(pos.x + cos(v1) * r2, 0.0, pos.z + sin(v1) * r2)
+		p0.y = WorldManager.height_at(p0.x, p0.z) + MARKE_LUFT_M
+		p1.y = WorldManager.height_at(p1.x, p1.z) + MARKE_LUFT_M
+		scheibe.add_vertex(mitte)
+		scheibe.add_vertex(p1)
+		scheibe.add_vertex(p0)
+	scheibe.generate_normals()
 	var innen := MeshInstance3D.new()
-	var c := CylinderMesh.new()
-	c.top_radius = radius * 0.86
-	c.bottom_radius = radius * 0.86
-	c.height = 0.02
-	innen.mesh = c
+	innen.mesh = scheibe.commit()
 	var m2: StandardMaterial3D = mat.duplicate()
 	m2.albedo_color = Color(MARKE_FARBE.r, MARKE_FARBE.g, MARKE_FARBE.b, 0.16)
 	innen.material_override = m2
 	innen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	n.add_child(innen)
-	n.position = pos + Vector3(0.0, 0.12, 0.0)
+	puls.add_child(innen)
 	add_child(n)
 	return n
 
@@ -863,7 +919,11 @@ func _build_vista_marke() -> void:
 	if spot == Vector3.INF:
 		return
 	_marke = _marke_ring(spot, VISTA_RING_R_M)
-	_label(spot + Vector3(0.0, 1.9, 0.0), "◎ Aussicht", MARKE_FARBE, LBL_FIGUR, 120.0)
+	# Die Schrift UNTER den Ring haengen, nicht neben ihn: Sie soll mit ihm verschwinden. Als
+	# Geschwister blieb ein „◎ Aussicht" ueber leerem Fels stehen, nachdem die Rundsicht lief.
+	var l: Label3D = _label(spot + Vector3(0.0, 1.9, 0.0), "◎ Aussicht", MARKE_FARBE,
+		LBL_FIGUR, 120.0)
+	l.reparent(_marke, true)
 
 
 func _process_marke(_delta: float) -> void:
@@ -873,12 +933,20 @@ func _process_marke(_delta: float) -> void:
 		_marke.queue_free()
 		_marke = null
 		return
-	# Atmen: Groesse und Helligkeit zusammen, sonst wirkt es wie ein Wackelkontakt.
+	# Nur die Helligkeit atmet, nicht die Größe.
+	#
+	# Der Reif hat vorher zwischen 0,94 und 1,06 gepulst. Das ging, solange er ein Fertigkörper
+	# an einer Knotenposition war; seit seine Ecken einzeln auf dem Boden sitzen, stehen sie in
+	# WELTkoordinaten — eine Skalierung um den Knotenursprung schöbe den Ring über die halbe
+	# Karte. Und ein Ring, der sich an den Fels schmiegt, soll ohnehin nicht wachsen: Er würde
+	# bei jedem Schlag ein Stück über die Kante rutschen.
+	var puls: Node3D = _marke.get_node_or_null("Puls") as Node3D
+	if puls == null:
+		return
 	var t: float = sin(_flacker_t * TAU * MARKE_PULS_HZ) * 0.5 + 0.5
-	_marke.scale = Vector3.ONE * lerpf(0.94, 1.06, t)
-	for c in _marke.get_children():
+	for c in puls.get_children():
 		var m: StandardMaterial3D = (c as MeshInstance3D).material_override
-		m.albedo_color.a = lerpf(0.55, 1.0, t) * (1.0 if c.get_index() == 0 else 0.24)
+		m.albedo_color.a = lerpf(0.45, 1.0, t) * (1.0 if c.get_index() == 0 else 0.24)
 
 
 ## Geroell auf dem Ausguck.

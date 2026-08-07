@@ -148,12 +148,36 @@ jetzt gab es keine, man lief die 66°-Wand der Schrottgrube hoch wie eine Fliege
 war reine Deko. Gesperrt wird nur *bergauf*; wer von der Kante springt, hat sich dafür
 entschieden.
 
-**Sie startet erst ganz oben.** Der erste Auslöser fragte nur den *waagerechten* Abstand zur
-Felsmitte ab — auf der Rampe steht man dort aber erst auf halber Höhe: 8,2 m über dem Sand und
-knapp sieben Meter unter dem Gipfel. Die Fahrt fing an, die Kamera kreiste auf Gipfelhöhe um
-einen Punkt weiter unten und lief dabei durch den Berg. Jetzt zählt die **Höhe**: innerhalb von
-zwei Metern unter dem Gipfel, und die zwei Meter, weil die aufgesetzten Buckel den Standplatz
-um etwa anderthalb Meter wellen.
+**Sie startet erst ganz vorn — und man sieht, wo.** Zwei Auslöser wurden verworfen, beide aus
+derselben Sorte Fehler. Der erste fragte nur den *waagerechten* Abstand zur Felsmitte ab: Auf der
+Rampe steht man dort erst auf halber Höhe (8,2 m über dem Sand, knapp sieben Meter unter dem
+Gipfel), die Fahrt fing an, und die Kamera kreiste auf Gipfelhöhe um einen Punkt weiter unten —
+also durch den Berg. Der zweite zählte zusätzlich die Höhe. Besser, aber immer noch geraten: Das
+Plateau ist breit, und *oben* heißt nicht *vorn*.
+
+Falsch war nicht die Formel, sondern der Ansatz. **Ein Auslöser, den der Spieler nicht sehen
+kann, zwingt ihn zu raten, wo „richtig" liegt** — und wenn er danebensteht, gibt er sich selbst
+die Schuld. Also steht dort jetzt ein **leuchtender Ring**, die Fußspur läuft hinein, und die
+Bedingung lautet: *Stehst du drin?* Mehr nicht. Der Ring atmet langsam, damit er als Ziel gelesen
+wird und nicht als Verzierung, und verschwindet mitsamt Beschriftung, sobald die Rundsicht einmal
+gelaufen ist.
+
+Wo er liegt, wird **gemessen**, nicht eingetragen: vom Gipfel Richtung Rustwater nach außen, bis
+der Boden um mehr als 1,2 m abfällt — das ist die Abbruchkante —, dann um genau den Ringradius
+zurück. Damit berührt der vordere Bogen die Kante und der Rest liegt auf. Wer drinsteht, steht
+**1,8 m vor dem Abgrund**: 14,7 m hoch bei einem 15,0 m hohen Fels, und zweieinhalb Meter weiter
+geht es auf 10,3 m hinunter. Weil der Punkt gemessen wird, wandert er mit, wenn jemand den Fels
+umbaut.
+
+> Zwei Zwischenlösungen, die sich nicht bewährt haben, stehen hier als Warnung. **Erstens:** Weil
+> der Standplatz nur 2,6 m vor dem Gipfelpunkt landete, sah das nach einer *Rinne* aus — die
+> Kerbung schneidet Spalten in die Kuppe, und ein einzelner Messstrahl bleibt an der ersten
+> hängen. Ein Fächer aus fünf Strahlen sollte darüber hinweglaufen und verschob den Punkt um
+> keinen Zentimeter: Die Rustwater-Seite ist keine Rinne, sondern eine Schulter, die sofort
+> weggeht. **Zweitens:** Der Ring hatte zuerst keinen Tiefentest, damit er auf welligem Fels
+> nicht halb versinkt. Im Bild trug die Figur ihn dann wie einen Hula-Hoop um die Hüfte — ein
+> Kreis, den der Spieler nicht verdeckt, wenn er darin steht, liest sich als Bedienelement und
+> nicht als Ort. Beides war am Screenshot in einer Minute zu sehen und an der Formel gar nicht.
 
 Oben übernimmt die Kamera ein zweites Mal — **15 Sekunden im Weitwinkel** (78° statt 50°):
 
@@ -188,7 +212,7 @@ Torfackeln sind einzeln zu erkennen, und der Sand vor der Palisade glüht.
 |---|---|---|---|
 | 1 | **In seine Sicht** — auf Augenhöhe, Blick auf die Stadt | 2,8 s | steht |
 | 2 | **Anflug** — über Wüste und Palisade hinauf auf Turmhöhe, in einem Zug | 2,8 s | ~34 m/s |
-| 3 | **Um die Palisade** — 250°, Blick nach innen, von 24 auf 40 m steigend | 8,4 s | ~30 m/s |
+| 3 | **Um die Palisade** — 230°, Blick nach innen, von 24 auf 40 m steigend | 8,4 s | 27°/s |
 | 4 | **Zurück, Blick auf der Stadt** | 1,2 s | schnell |
 | 5 | **Einschwenken** in die Ausgangshaltung | 0,8 s | — |
 
@@ -196,6 +220,15 @@ Torfackeln sind einzeln zu erkennen, und der Sand vor der Palisade glüht.
 ihr Tempo sein soll: Der Anflug legt 95 m in 2,8 s zurück — das bleibt der schnelle Teil. Die
 Umrundung bekommt mehr als die Hälfte der Fahrt und wirkt dadurch ruhig, obwohl sie sich dauernd
 bewegt.
+
+**Gemessen wird der Schwenk, nicht die Bahn.** Solange die Fahrt den Wasserturm auf 27 m Abstand
+umkreiste, hieß „langsam in m/s" auch „langsam im Bild". Um die Palisade herum liegt die Kamera
+64 m draußen, und dort ergibt derselbe Bogen in derselben Zeit zwangsläufig die doppelte
+Bahngeschwindigkeit, obwohl das Motiv genauso schnell vorbeizieht — ein Maß, das sich mit dem
+Radius ändert, sagt nichts über den Bildeindruck. Wahrgenommen wird die **Winkelgeschwindigkeit**:
+Über etwa 30°/s verwischt eine Establishing-Fahrt, darunter hat das Auge Zeit mitzugehen. Bei
+250° lag sie mit 29,8°/s genau auf dieser Grenze; 230° bringen sie auf 27°/s und zeigen den Ort
+immer noch von allen Seiten.
 
 Erst waren es acht Sekunden, und das war zu schnell: 45°/s ist kein Herumfahren mehr, das ist
 ein Schwenk. Verdoppelt wurde die **ganze** Fahrt, nicht nur die Umrundung — was hier zählt, ist

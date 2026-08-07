@@ -126,8 +126,13 @@ func _ready() -> void:
 		berg + Vector3(0.0, 5.0, 0.0)])
 	_views.append(["ausguck_oben", berg + Vector3(0.0, 3.0, 0.0) - zur_stadt * 8.0,
 		rw + Vector3(0.0, 6.0, 0.0)])
-	# Und der Ring an der Kante, aus der Richtung, aus der man ankommt.
+	# Und der Ring an der Kante, aus der Richtung, aus der man ankommt — sowie senkrecht von
+	# oben. Das zweite Bild klingt nach Luxus und ist es nicht: Aus der Spielerperspektive
+	# laesst sich an einem flachen Ring auf schraegem Fels weder Groesse noch Rundheit ablesen.
+	# Beim ersten Anlauf sah er von hinten aus wie ein aufrechter Bilderrahmen, und ohne den
+	# Blick von oben waere unklar geblieben, ob das an der Form liegt oder an der Perspektive.
 	_views.append(["ausguck_marke", null, "marke"])
+	_views.append(["ausguck_marke_oben", null, "markeoben"])
 	# Die Rundsicht oben auf dem Fels, an vier Stellen. Gleiche Bauweise wie `flug_`/`wach_`.
 	for anteil in ["0.16", "0.42", "0.68", "0.90"]:
 		_views.append(["vista_" + anteil, null, "vista_" + anteil])
@@ -346,6 +351,12 @@ func _setup_ui(art: String) -> void:
 		GameState.saw_vista = false
 		ow._apply_daytime()
 		ow._apply_night_lights()
+		# Den Ring NACHTRÄGLICH bauen. `_build_vista_marke()` laeuft beim Aufbau der Welt und
+		# steigt aus, wenn der Prolog schon vorbei ist — und beim Start dieses Werkzeugs ist er
+		# das. Die Flaggen oben kommen zu spaet, also hier noch einmal anstossen; sonst zeigt
+		# ausgerechnet das Bild, das den Ring pruefen soll, keinen.
+		if ow._marke == null:
+			ow._build_vista_marke()
 		var rwm: Vector3 = WorldManager.poi_scene_position("rustwater")
 		var ring: Vector3 = ow._vista_spot()
 		var hin: Vector3 = Vector3(rwm.x - ring.x, 0.0, rwm.z - ring.z).normalized()
@@ -356,6 +367,35 @@ func _setup_ui(art: String) -> void:
 		ow._player.rotation.y = atan2(-hin.x, -hin.z)
 		_cam.position = steh - hin * 7.0 + Vector3(0.0, 4.4, 0.0)
 		_cam.look_at(ring + Vector3(0.0, 0.6, 0.0), Vector3.UP)
+		_cam.current = true
+		# Die Zahlen mit ins Protokoll. Als der Ring einmal unsichtbar war, sah das Bild wie ein
+		# Platzierungsfehler aus — die Ausgabe zeigte einen korrekt gesetzten Knoten 35 cm ueber
+		# einem Boden auf 14,71 m, und damit war klar, dass es an der FORM lag und nicht am Ort.
+		print("· Ring bei %.1f m ueber Boden %.1f m, Knoten: %s" % [ring.y,
+			WorldManager.height_at(ring.x, ring.z),
+			"da" if ow._marke != null else "FEHLT"])
+		if ow._marke != null:
+			var pl: Node3D = ow._marke.get_node("Puls")
+			var mi: MeshInstance3D = pl.get_child(0) as MeshInstance3D
+			print("· Reif-AABB pos=%s groesse=%s" % [mi.get_aabb().position, mi.get_aabb().size])
+	elif art == "markeoben":
+		# Senkrecht von oben auf den Ring: Nur so sieht man, ob er RUND ist und wie gross.
+		ow.set_process(true)
+		ow._end_flight()
+		ow._end_cine()
+		ow._close_character()
+		GameState.hour = DayCycle.START_HOUR
+		GameState.prolog_done = false
+		GameState.saw_vista = false
+		ow._apply_daytime()
+		ow._apply_night_lights()
+		if ow._marke == null:
+			ow._build_vista_marke()
+		var ro: Vector3 = ow._vista_spot()
+		ow._player.position = ro - Vector3(0.0, 0.0, 6.0)
+		_cam.position = ro + Vector3(0.0, 12.0, 0.01)
+		_cam.look_at(ro, Vector3.UP)
+		_cam.fov = 55.0
 		_cam.current = true
 	elif art.begins_with("vista_"):
 		# Oben auf dem Fels. Der Aufstieg wird uebersprungen — die Figur wird auf das Plateau
