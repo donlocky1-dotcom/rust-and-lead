@@ -759,7 +759,9 @@ func _feature(id: String) -> Dictionary:
 ## etwas abbricht (an der Kante) und dort, wo es liegen bleibt (am Fuss); die glatte Flanke
 ## dazwischen bleibt frei. Das ist derselbe Gedanke wie beim Fels-Anstrich ueber die Hoehe —
 ## die Form entscheidet, nicht eine Liste von Koordinaten.
-const AUSGUCK_STEINE: int = 90
+## 90 waren im Bild nicht zu sehen — auf einer Flanke von 30 m Radius sind das drei Steine je
+## hundert Quadratmeter, und bei halber Modellgroesse verschwinden sie im Sandrauschen.
+const AUSGUCK_STEINE: int = 300
 func _dress_ausguck() -> void:
 	var f: Dictionary = _feature("ausguck")
 	if f.is_empty():
@@ -778,15 +780,20 @@ func _dress_ausguck() -> void:
 			continue   # draussen im Sand liegt kein Felsschutt
 		# Steilheit an dieser Stelle: die Neigung der Gelaendenormalen.
 		var steil: float = 1.0 - WorldManager.normal_at(x, z).y
-		# An der Kante Broecken, am Fuss Findlinge, auf der glatten Flanke nichts.
+		# Drei Lagen statt zwei: Auf den ABSAETZEN der Terrassen (flach, aber hoch oben) liegen
+		# Broecken, die von der Stufe darueber gefallen sind; an den Stufen selbst haengt
+		# Geroell; am Fuss sammeln sich Findlinge. Ohne die erste Lage bleiben die Baender
+		# nackt, und genau sie sieht man aus der Kamerafahrt.
 		var art: String = ""
-		if steil > 0.30:
+		if steil > 0.22:
 			art = "rock_small"
-		elif y < 4.0 and rng.randf() < 0.55:
+		elif y > 5.0 and rng.randf() < 0.45:
+			art = "rock_small"
+		elif y < 4.5 and rng.randf() < 0.60:
 			art = "rock_boulder"
 		if art == "":
 			continue
-		var hoehe: float = AssetRegistry.height_of(art) * rng.randf_range(0.35, 1.05)
+		var hoehe: float = AssetRegistry.height_of(art) * rng.randf_range(0.55, 1.6)
 		var n: Node3D = AssetRegistry.instantiate(art, hoehe)
 		if n == null:
 			continue

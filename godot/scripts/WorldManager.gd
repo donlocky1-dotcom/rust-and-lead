@@ -107,6 +107,8 @@ const TERRAIN: Array = [
 	{ "id": "ausguck", "kind": "crater", "x": 228, "y": 372, "scrap": false,
 		"radius": 27.0, "depth": -15.0, "rim": 0.0, "rim_width": 0.10, "kerb": 0.20, "fels": true, "step": 0.6,
 		"floor": 0.16, "ramp_deg": 135.0, "ramp_span": 54.0,
+		# Vier Gesteinsbaender mit flachen Absaetzen dazwischen — siehe `_terrassen`.
+		"stufen": 4.0, "terrasse": 0.72,
 		# Aufgesetzte Buckel: [Versatz x, Versatz z, Radius, Hoehe] in Metern vom Mittelpunkt.
 		# Sie machen aus der einen Kuppe eine Stufenform mit Absaetzen und einem Nebengipfel.
 		#
@@ -248,7 +250,8 @@ static func _feature_height(f: Dictionary, off: Vector2) -> float:
 	if t > 1.0:
 		var s: float = sin(PI * (t - 1.0) / w)
 		return float(f["rim"]) * s * s
-	var boden: float = _floor_share(f, off)
+	var k_rampe: float = _rampen_anteil(f, off)
+	var boden: float = float(f.get("floor", 0.0)) * (1.0 - k_rampe)
 	var buckel: float = _buckel_height(f, off)
 	if t <= boden:
 		return -float(f["depth"]) + buckel
@@ -264,7 +267,11 @@ static func _feature_height(f: Dictionary, off: Vector2) -> float:
 	# der Anhöhe) und flacht nach unten ab — die Kante ist eine Kante, und am Fuß legt sich der
 	# Sand an. Das ist die Silhouette einer Tafelberg-Kuppe, und die erkennt man als Stein.
 	if bool(f.get("fels", false)):
-		return -float(f["depth"]) * pow(1.0 - u, 1.8) + buckel * (1.0 - u)
+		# Terrassiert — ausser im Aufstieg: Eine Treppe dort waere ein Weg, den die
+		# Steigungsgrenze sperrt, und der Fels haette keinen Zugang mehr.
+		var q: float = _terrassen(pow(1.0 - u, 1.8), float(f.get("stufen", 4.0)),
+			float(f.get("terrasse", 0.0)) * (1.0 - k_rampe))
+		return -float(f["depth"]) * q + buckel * (1.0 - u)
 	return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, u)) + buckel * (1.0 - u)
 
 
@@ -346,18 +353,45 @@ static func _kerbung(f: Dictionary, off: Vector2) -> float:
 
 
 static func _floor_share(f: Dictionary, off: Vector2) -> float:
-	var boden: float = float(f.get("floor", 0.0))
-	if boden <= 0.0 or off.length_squared() < 0.000001:
-		return boden
+	return float(f.get("floor", 0.0)) * (1.0 - _rampen_anteil(f, off))
+
+
+## Wie stark liegt dieser Punkt IM Rampensektor? 0 = gar nicht, 1 = mittendrin.
+##
+## Steht getrennt, weil zwei Dinge davon abhaengen: der flache Grund (der in der Rampe
+## verschwindet) und die Terrassierung (die dort NICHT stattfinden darf — eine Treppe im
+## Aufstieg waere ein Aufstieg, den die Steigungsgrenze sperrt).
+static func _rampen_anteil(f: Dictionary, off: Vector2) -> float:
+	if off.length_squared() < 0.000001:
+		return 0.0
 	var halb: float = deg_to_rad(float(f.get("ramp_span", 0.0))) * 0.5
 	if halb <= 0.0:
-		return boden
+		return 0.0
 	var ziel: float = deg_to_rad(float(f.get("ramp_deg", 0.0)))
 	# Winkel des Punktes. `off` ist (x, z); Norden ist −z, deshalb das Minus.
 	var ang: float = atan2(-off.y, off.x)
 	var d: float = absf(wrapf(ang - ziel, -PI, PI))
-	var k: float = 1.0 - smoothstep(0.0, 1.0, clampf(d / halb, 0.0, 1.0))
-	return boden * (1.0 - k)
+	return 1.0 - smoothstep(0.0, 1.0, clampf(d / halb, 0.0, 1.0))
+
+
+## Terrassen: aus einer glatten Flanke werden Baender mit flachen Absaetzen und steilen Stufen.
+##
+## Das ist der Unterschied zwischen einem Erdhaufen und geschichtetem Gestein. Ein Fels bricht
+## nicht als glatte Kurve ab, sondern in Baendern — weiche Schichten waschen aus, harte bleiben
+## als Vorsprung stehen. Im Bild ist das der Grund, warum man Fels ueberhaupt als Fels erkennt:
+## die waagerechten Kanten, an denen sich Licht und Schatten trennen.
+##
+## `staerke` blendet zwischen der glatten Kurve und der Treppe. Ganz auf 1 waere es eine
+## Hochzeitstorte; 0,7 laesst die Grundform durch und legt die Baender darueber.
+static func _terrassen(q: float, stufen: float, staerke: float) -> float:
+	if staerke <= 0.001 or stufen < 1.0:
+		return q
+	var sx: float = clampf(q, 0.0, 1.0) * stufen
+	var i: float = floor(sx)
+	# Absatz (flach) bis 0,62, dann die Stufe (steil). Genau umgekehrt zur Intuition: Der
+	# flache Teil ist das BREITE Band, die Stufe der schmale Absturz dazwischen.
+	var stufig: float = (i + smoothstep(0.62, 1.0, sx - i)) / stufen
+	return lerpf(q, stufig, staerke)
 
 
 ## Normale des Bodens — aus der Formel abgeleitet statt aus Nachbardreiecken gemittelt.
