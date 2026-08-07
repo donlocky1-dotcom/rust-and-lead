@@ -93,6 +93,7 @@ const FAST_TRAVEL: Array = WorldManager.RAIL_STATIONS
 
 const UiAssets = preload("res://scripts/UiAssets.gd")
 
+const DialogData = preload("res://scripts/DialogData.gd")
 const DialogBox = preload("res://scripts/DialogBox.gd")
 
 const DayCycle = preload("res://scripts/DayCycle.gd")
@@ -3098,6 +3099,15 @@ func _add_action(text: String, action: Callable) -> void:
 
 ## Ein Gespraech. Vorher lief das AUTOMATISCH beim Vorbeilaufen — man wurde angequatscht, statt
 ## zu entscheiden. Jetzt braucht es den Knopf (oder [E]).
+## Jemanden ansprechen.
+##
+## Baut die Rede als LISTE von Zeilen und uebergibt sie am Stueck. Vorher stand in jedem Zweig
+## ein eigener Aufruf mit einem einzelnen Satz — damit war ein Gespraech mit mehr als einem Satz
+## nicht darstellbar, egal was in der Tabelle stand.
+##
+## Die Reihenfolge ist immer dieselbe: erst die Begruessung (nur beim ersten Mal), dann das
+## Anliegen, dann die Sachlage (Quest-Titel, Fortschritt, Belohnung) als eigene Seite. Die
+## Sachlage gehoert nicht in die Rede: Niemand sagt „Kopfgeld: Wegelagerer, 0 von 8".
 func _talk_to(giver: String) -> void:
 	var npc: Dictionary = {}
 	for n in _npcs:
@@ -3105,9 +3115,16 @@ func _talk_to(giver: String) -> void:
 			npc = n
 	if npc.is_empty():
 		return
+	var zeilen: Array = []
+	# Die Begruessung kommt DAVOR, nicht STATT: Wer Mabel zum ersten Mal trifft und dabei einen
+	# Auftrag bekommt, hoert beides.
+	if not bool(GameState.met.get(giver, false)):
+		zeilen.append_array(_dialog_zeilen(giver, "erst"))
+		GameState.met[giver] = true
 	var qid: String = _quest_for_giver(giver)
 	if qid == "":
-		_talk(npc, giver, _npc_line(giver, "idle"))
+		zeilen.append_array(_dialog_zeilen(giver, "idle"))
+		_talk_lines(npc, giver, zeilen)
 		return
 	var def: Dictionary = QuestManager.QUESTS[qid]
 	var title: String = String(def["title"])
@@ -3124,22 +3141,25 @@ func _talk_to(giver: String) -> void:
 				var d: int = roundi(_player.position.distance_to(
 					WorldManager.poi_scene_position(ziel)))
 				wohin = "\n🧭 %s — %d m. Der Spur folgen." % [String(WorldManager.poi(ziel)["name"]), d]
-			_talk(npc, giver, "%s\n\n📜 „%s“ — %s%s"
-				% [_npc_line(giver, "offer"), title, goal, wohin])
+			zeilen.append_array(_dialog_zeilen(giver, "offer"))
+			zeilen.append("📜 „%s“ — %s%s" % [title, goal, wohin])
+			_talk_lines(npc, giver, zeilen)
 		else:
 			_say("🔒 „%s“ ist noch nicht verfügbar." % title, 2.5)
 	elif QuestManager.is_quest_complete(qid):
 		var gold_before: int = GameState.gold
 		if QuestManager.complete_quest(qid):
-			_talk(npc, giver, "%s\n\n✅ „%s“ — +%d Gold"
-				% [_npc_line(giver, "done"), title, GameState.gold - gold_before])
+			zeilen.append_array(_dialog_zeilen(giver, "done"))
+			zeilen.append("✅ „%s“ — +%d Gold" % [title, GameState.gold - gold_before])
+			_talk_lines(npc, giver, zeilen)
 			sfx_equip()
 		else:
 			_say("Hm — die Abgabe wurde abgelehnt.", 2.5)
 	else:
 		var p: Dictionary = QuestManager.check_quest_progress(qid)
-		_talk(npc, giver, "%s\n\n📜 „%s“: %d/%d"
-			% [_npc_line(giver, "wait"), title, int(p["current"]), int(p["target"])])
+		zeilen.append_array(_dialog_zeilen(giver, "wait"))
+		zeilen.append("📜 „%s“: %d/%d" % [title, int(p["current"]), int(p["target"])])
+		_talk_lines(npc, giver, zeilen)
 
 
 ## Ein Gespraech zeigen: Sprechtafel unten, Nahaufnahme dazu, beide drehen sich zueinander.
@@ -3154,9 +3174,31 @@ func _talk_to(giver: String) -> void:
 ## `CLOSEUP_SEC` abgelaufen ist.
 const CLOSEUP_SEC: float = 5.5
 func _talk(npc: Dictionary, giver: String, text: String) -> void:
-	if _dialog != null:
-		_dialog.show_line(String(npc["name"]), text, giver)
-	_play_closeup(npc["node"] as Node3D, CLOSEUP_SEC)
+	_talk_lines(npc, giver, [text])
+
+
+## Ein mehrseitiges Gespraech: Sprechtafel unten, Nahaufnahme dazu, beide so lange wie der Text.
+##
+## Die Aufnahme richtet sich nach der REDE, nicht nach einer festen Zahl. `CLOSEUP_SEC` war 5,5
+## Sekunden — richtig fuer einen Satz, und fuer vier Saetze genau die Haelfte zu kurz: Die
+## Kamera sprang zurueck, waehrend Mabel noch redete.
+func _talk_lines(npc: Dictionary, giver: String, zeilen: Array) -> void:
+	if zeilen.is_empty():
+		zeilen = ["„…“"]
+	_play_closeup(npc["node"] as Node3D, maxf(speech_gesamt(zeilen), CLOSEUP_SEC))
+	_play_speech(String(npc["name"]), giver, zeilen)
+
+
+## Zeilen aus der Tabelle, mit Rueckfall auf den alten Einzelsatz.
+##
+## `_npc_line` bleibt als Netz darunter: Wer eine Person in `TOWN_NPCS` eintraegt und die
+## Dialogtabelle vergisst, bekommt einen Satz statt eines stummen Gespraechs.
+func _dialog_zeilen(giver: String, anlass: String) -> Array:
+	var z: Array = DialogData.lines(giver, anlass, GameState.is_revealed)
+	if not z.is_empty():
+		return z
+	var einzeln: String = _npc_line(giver, anlass)
+	return [] if einzeln == "„…“" else [einzeln]
 
 
 ## Die Stimmen aus der Story-Bibel (GDD §4). Nach dem Reveal reden alle drei anders mit einem —
@@ -3296,6 +3338,12 @@ func _trail_goal() -> Vector3:
 	var szene_ziel: Vector3 = Vector3.INF
 	if not GameState.prolog_done:
 		szene_ziel = _prolog_ziel()
+	elif not bool(GameState.met.get("mabel", false)):
+		# In der Stadt angekommen, aber noch mit niemandem geredet. Die Spur fuehrt zu Mabel —
+		# ohne das steht man in einer Stadt mit drei Namensschildern und keinem Grund, eines
+		# davon anzusprechen. Sie ist die Erste, weil die ganze Kette in Akt I an ihr haengt
+		# (GDD §3: Mabel → Silas → Doc → Mabel).
+		szene_ziel = _npc_pos("mabel")
 	if szene_ziel == Vector3.INF:
 		var qid: String = QuestManager.tracked_quest()
 		if qid == "":
@@ -3316,6 +3364,14 @@ func _trail_goal() -> Vector3:
 	if tor != Vector2.INF:
 		return Vector3(tor.x, WorldManager.height_at(tor.x, tor.y), tor.y)
 	return szene_ziel
+
+
+## Wo jemand steht ({} = kennt ihn nicht).
+func _npc_pos(giver: String) -> Vector3:
+	for n in _npcs:
+		if String(n["giver"]) == giver:
+			return n["pos"]
+	return Vector3.INF
 
 
 ## Das Ziel des Prologs: erst auf den Ausguck, dann in die Stadt.

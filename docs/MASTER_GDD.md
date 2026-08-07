@@ -826,6 +826,18 @@ nächste Kapitel.
   Schweigen." Botschafter & Quest-Geber der Schmuggler-Kette. Basis mit Hehler (`store`),
   Truhe (`stash`), Wett-Station.
 
+**Was sie sagen, steht in `DialogData.gd`** — eine Tabelle `Person → Anlass → Liste von
+Zeilen`, keine `if`-Kette. Fünf Anlässe: `erst` (das allererste Treffen), `offer`, `wait`,
+`done`, `idle`. `erst` ersetzt nichts, sondern kommt DAVOR: Wer Mabel zum ersten Mal trifft und
+dabei einen Auftrag bekommt, hört erst die Begrüßung und dann den Auftrag.
+
+Nach dem Reveal gilt `<anlass>_enthuellt`, **falls vorhanden** — der Rückfall auf den normalen
+Text ist Absicht. Eine Tabelle, die für jede Zeile beide Fassungen verlangt, wird nie gefüllt.
+
+Getrennt vom `QuestManager`, weil nicht jedes Gespräch an einem Auftrag hängt: Der QuestManager
+weiß, WAS zu tun ist, die Dialogtabelle, WIE jemand redet. Wer beides vermischt, kann keine
+Person schreiben, die nichts zu vergeben hat — und das sind die interessanten.
+
 **NPC-Interaktion (technisch):** World-Space-`Label3D` über dem Mesh; Annäherung zeigt den
 Interaktions-Prompt; Dialog mit strengem Anti-Doppeltipp-Debouncer; Quest-Marker über dem
 Kopf (⚙️ verfügbar, ⏳ aktiv, ❗ abgabebereit, 🤝 Gilde beitretbar).

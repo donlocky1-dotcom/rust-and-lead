@@ -115,6 +115,14 @@ var saw_wake: bool = false
 ## Stand er schon oben auf dem Ausguck? Die Rundsicht laeuft einmal.
 var saw_vista: bool = false
 
+## Wen man schon einmal angesprochen hat — `giver` → true.
+##
+## Steuert die `erst`-Zeilen in `DialogData`: Eine Begruessung, die man jedes Mal hoert, ist
+## keine Begruessung. Eigenes Feld und nicht aus dem Questzustand abgeleitet, weil man auch mit
+## Leuten reden kann, die nichts zu vergeben haben — und die begruessen einen trotzdem nur
+## einmal.
+var met: Dictionary = {}
+
 ## Tageszeit in Stunden (0–24). Laeuft in Echtzeit weiter und steht im Spielstand — wer abends
 ## aufhoert, faengt abends wieder an.
 var hour: float = DayCycle.START_HOUR

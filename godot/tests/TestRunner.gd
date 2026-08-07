@@ -4,6 +4,7 @@ const DialogBox = preload("res://scripts/DialogBox.gd")
 const PaperDoll = preload("res://scripts/PaperDoll.gd")
 const TownCollision = preload("res://scripts/TownCollision.gd")
 const DayCycle = preload("res://scripts/DayCycle.gd")
+const DialogData = preload("res://scripts/DialogData.gd")
 ## TestRunner — abhängigkeitsfreie headless Test-Suite für das gesamte Backend.
 ##
 ## Ausführen (kein GUT-Addon nötig):  godot --headless --path godot
@@ -1598,6 +1599,7 @@ func _test_daycycle() -> void:
 	_test_orbit()
 	# 11. Der Prolog: Aufwachen, erste Saetze, Abschluss.
 	_test_prolog()
+	_test_dialoge()
 
 
 ## Der Anfang: Erwachen in der Grube, die ersten Saetze, das Ende des Prologs.
@@ -1607,6 +1609,56 @@ func _test_daycycle() -> void:
 ## die erste Truhe den Karabiner GARANTIERT liefert (der Anfang einer Geschichte darf nicht
 ## auswuerfeln, ob sie stattfindet), und dass die Textfolge in der richtigen Reihenfolge
 ## abgearbeitet wird.
+## Die Dialogtabelle.
+##
+## Geprueft wird, was eine Tabelle kaputtmachen kann, ohne dass es jemand merkt: eine Person
+## ohne Zeilen, ein Anlass ohne Zeilen, eine leere Zeile mittendrin — und dass jede Person, die
+## im Spiel steht, auch etwas zu sagen hat.
+func _test_dialoge() -> void:
+	print("· Dialoge")
+	var noetig: Array = ["erst", "offer", "wait", "done", "idle"]
+	for giver in ["mabel", "silas", "doc"]:
+		_check("%s steht in der Dialogtabelle" % giver, DialogData.kennt(giver))
+		for anlass in noetig:
+			var z: Array = DialogData.lines(giver, anlass)
+			_check("%s hat Zeilen fuer %s (%d)" % [giver, anlass, z.size()], not z.is_empty())
+			var leer: bool = false
+			for zeile in z:
+				if String(zeile).strip_edges() == "":
+					leer = true
+			_check("… und keine davon ist leer", not leer)
+	# Die Begruessung ist mehr als ein Satz — sonst haette sich der ganze Umbau nicht gelohnt.
+	_check("Mabels erste Begegnung ist ein Gespraech (%d Zeilen)"
+		% DialogData.lines("mabel", "erst").size(),
+		DialogData.lines("mabel", "erst").size() >= 3)
+	# Nach dem Reveal reden sie anders — aber nur, wo es eine Variante gibt.
+	_check("Nach dem Reveal klingt Mabel anders",
+		DialogData.lines("mabel", "idle", true) != DialogData.lines("mabel", "idle", false))
+	_check("Ohne eigene Variante bleibt es beim normalen Text",
+		DialogData.lines("silas", "wait", true) == DialogData.lines("silas", "wait", false))
+	_check("Wen die Tabelle nicht kennt, liefert nichts", DialogData.lines("niemand", "idle").is_empty())
+	# Jede Person mit Quests im Spiel muss auch reden koennen.
+	var ohne: String = ""
+	for qid in QuestManager.QUESTS:
+		var g: String = String(QuestManager.QUESTS[qid].get("giver", ""))
+		if g != "" and not DialogData.kennt(g):
+			ohne = g
+	_check("Jeder Auftraggeber hat Zeilen", ohne == "", "%s fehlt" % ohne)
+	# Und die Erstbegegnung laeuft nur EINMAL: `GameState.met` faehrt durch den Spielstand.
+	var vorher: Dictionary = GameState.met.duplicate()
+	GameState.met = {}
+	_check("Beim ersten Mal ist niemand bekannt", not bool(GameState.met.get("mabel", false)))
+	GameState.met["mabel"] = true
+	_check("Danach schon", bool(GameState.met.get("mabel", false)))
+	_check("Und es steht im Spielstand", SaveManager.to_json().contains("\"met\""))
+	GameState.met = vorher
+	var quelle2: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
+	_check("Die Spur fuehrt in der Stadt zuerst zu Mabel",
+		quelle2.contains('_npc_pos("mabel")'))
+	_check("Und die Nahaufnahme dauert so lange wie die Rede",
+		quelle2.contains("speech_gesamt(zeilen)"))
+
+
 func _test_prolog() -> void:
 	print("· Prolog")
 	# 1. Ohne Spielstand faengt es auf der Kippe an, mit `prolog_done` in der Stadt.

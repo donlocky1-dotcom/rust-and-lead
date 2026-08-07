@@ -4,7 +4,7 @@ Was hier steht, ist der **Fluss**: wo man aufwacht, was man findet, mit wem man 
 man geschickt wird. Die Zahlen und Tabellen dahinter stehen im MASTER_GDD (§3 Kampagne,
 §4.3 NPCs, §5 Mini-Quests); dieses Blatt ist die Reihenfolge.
 
-Stand: Der Prolog **läuft** — Aufwachen, erste Sätze, leere Hände, Truhe, Pferd, Fußspur,
+Stand: Der Prolog **läuft**, und die **Dialoge sind Daten** (`DialogData.gd`) — Aufwachen, erste Sätze, leere Hände, Truhe, Pferd, Fußspur,
 Nachtwerden, Anflug auf Rustwater, Abschluss beim Betreten der Stadt. Was fehlt, ist das
 **Gespräch**: Die Dialoge sind hier als Text formuliert und noch nicht als Daten verdrahtet.
 
@@ -287,7 +287,9 @@ Der Prolog steht mechanisch. Was ihn zur **Erzählung** macht, fehlt noch:
 
 | | Was | Aufwand |
 |---|---|---|
-| 1 | **Dialoge als Daten.** Bisher liefert `OverworldView._npc_line()` je NPC einen Satz aus einer `if`-Kette. Für eine Story braucht es mehrseitige Gespräche mit Zustand („erstes Mal", „Quest läuft", „abgabebereit") — also eine `DialogData`-Tabelle wie `QuestManager.QUESTS`, und die Sprechtafel blättert durch. | mittel |
+| ~~1~~ | ~~**Dialoge als Daten.**~~ **Erledigt** — `DialogData.gd`, sechs Personen, fünf Anlässe, eigene Zeilen nach dem Reveal. |  |
+| ~~3~~ | ~~**Erstbegegnung mit Mabel erzwingen**~~ **Erledigt** — die Fußspur führt in der Stadt zu ihr, bis man mit ihr geredet hat. |  |
+| 1 | **Alte Dialoge als Daten (Rest).** Bisher liefert `OverworldView._npc_line()` je NPC einen Satz aus einer `if`-Kette. Für eine Story braucht es mehrseitige Gespräche mit Zustand („erstes Mal", „Quest läuft", „abgabebereit") — also eine `DialogData`-Tabelle wie `QuestManager.QUESTS`, und die Sprechtafel blättert durch. | mittel |
 | 2 | **Weitere skriptierte Momente.** Der Mechanismus steht (`_play_flight` für die Kamera, `_play_beats` für den Text, beides an Aufwachen und Ankunft schon verdrahtet). Was fehlt, sind die übrigen Auslöser — vor allem die Truhe. | klein |
 | 3 | **Erstbegegnung mit Mabel erzwingen** — Marker über ihrem Kopf, Fußspur zu ihr statt zum Quest-Ort. (`prolog_done` wird inzwischen gesetzt.) | klein |
 | 5 | **Codex/Erinnerung** — die Kinetoskop-Walzen (§8.3) sind im Backend fertig, aber im Prolog noch nicht angefasst. Die erste Walze gehört in die Grube. | klein |
