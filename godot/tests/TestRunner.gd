@@ -70,7 +70,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_poi_walkable": 22,
 	"_test_town_walkable": 17,
 	"_test_enemy_attacks": 20,
-	"_test_daycycle": 197,
+	"_test_daycycle": 204,
 	"_test_dialog": 22,
 	"_test_memory_manager": 29,
 	"_test_encounter_manager": 24,
@@ -2085,6 +2085,26 @@ func _test_prolog() -> void:
 		quelle.contains("if not ResourceLoader.exists(VORSPANN_PFAD):"))
 	_check("Die Videodatei ist da und ist Theora",
 		FileAccess.file_exists("res://assets/video/intro_muellkippe.ogv"))
+	# 6e. Der Ton. Die Dateien sind SYNTHETISCH erzeugt (`tools/sfx/make_sfx.py`) — deshalb
+	# gehoert der Erzeuger mit ins Projekt und nicht nur sein Ergebnis: Wer den Charakter aendern
+	# will, dreht an einer Zahl und laesst ihn neu laufen, statt ein Archiv zu durchsuchen.
+	for ton in ["karabiner_schuss_nacht", "karabiner_schuss_tag", "karabiner_repetieren"]:
+		_check("Es gibt %s.ogg" % ton,
+			FileAccess.file_exists("res://assets/audio/%s.ogg" % String(ton)))
+	# Zwei Fassungen des Schusses, weil der Prolog im Abendrot beginnt und in der Nacht endet:
+	# Nachts traegt kuehle Luft weiter, die Nachtfassung hat mehr Rueckwuerfe und laeuft laenger
+	# aus. Umgeschaltet wird nach `DayCycle`, nicht nach einer von Hand gesetzten Uhrzeit.
+	_check("Der Schuss kennt Tag und Nacht",
+		quelle.contains("DayCycle.daylight(GameState.hour) < 0.35"))
+	# Repetiert wird NACH dem Knall, nicht gleichzeitig — sonst klingt es wie ein Automat.
+	_check("Und danach wird repetiert (%.2f s)" % OW2.SFX_REPETIER_VERZUG,
+		OW2.SFX_REPETIER_VERZUG > 0.1 and OW2.SFX_REPETIER_VERZUG < 0.5)
+	# Der Ton haengt am SCHUSS, nicht am Treffer: Ein Fehlschuss knallt genauso.
+	_check("Auch ein Fehlschuss knallt",
+		quelle.contains("_spawn_tracer(aim)\n\t# Der Ton haengt am SCHUSS"))
+	# Und er kommt AUS DER WELT, nicht aus der Tonspur: Die Kamera wandert im Prolog 34 m weg.
+	_check("Der Schuss klingt aus der Entfernung leiser",
+		quelle.contains("AudioStreamPlayer3D.new()"))
 	_check("Waehrend einer Kamerafahrt stehen auch die Beine still",
 		quelle.contains('if _wach_left <= 0.0:\n\t\t\tAssetRegistry.play_clip(_player_model, "idle")'))
 	# Und die Fussspur fuehrt auch wirklich ueber die Kuppe, statt quer ueber die Flanke zu zeigen.

@@ -1167,6 +1167,7 @@ func _ready() -> void:
 	_build_npcs()
 	_build_trail()
 	_build_horse()
+	_build_sfx()
 	_build_moon()
 	_spawn_pack()
 	_build_chests()
@@ -5918,6 +5919,7 @@ func _process(delta: float) -> void:
 	_process_facing(delta)
 	_process_camera(delta)
 	_process_combat(delta)
+	_process_sfx(delta)
 	_process_enemies(delta)
 	_process_hazards(delta)
 	_process_spawns(delta)
@@ -6156,6 +6158,9 @@ func _process_combat(delta: float) -> void:
 	# sonst wirkt er wie ein verschluckter Treffer.
 	var aim: Vector3 = _player.position + Vector3(to.x, 0.0, to.z).rotated(Vector3.UP, deg_to_rad(dev_deg))
 	_spawn_tracer(aim)
+	# Der Ton haengt am SCHUSS, nicht am Treffer: Ein Fehlschuss knallt genauso, und alles
+	# andere waere eine Trefferanzeige ueber den Ton.
+	_schuss_ton()
 	if not hit:
 		return
 	var target: CombatTarget = e["target"]
@@ -6818,3 +6823,75 @@ func _process_vorspann(delta: float) -> void:
 ## Laeuft gerade der Vorspann? Solange sperrt er alles andere — Bewegung, Kamera, Ausloeser.
 func _im_vorspann() -> bool:
 	return _vorspann != null and is_instance_valid(_vorspann)
+
+# ── Ton ───────────────────────────────────────────────────────────────────────
+## Die Waffengeraeusche.
+##
+## Sie sind SYNTHETISCH erzeugt (`tools/sfx/make_sfx.py`), nicht gesammelt. Ein Aufnahme-Archiv
+## bringt Lizenzfragen mit, die das ganze Projekt betreffen, und liefert trotzdem selten genau
+## den Charakter, den eine Szene braucht. Hier war der Charakter die Vorgabe — peitschend —,
+## und der laesst sich bauen.
+##
+## Zwei Fassungen des Schusses: Der Prolog beginnt im Abendrot und endet tief in der Nacht, und
+## nachts traegt kuehle Luft weiter. Die Nachtfassung hat sechs einzelne Rueckwuerfe von den
+## Kraterwaenden statt vier und laeuft 2,6 s statt 1,7 aus. Umgeschaltet wird nach `DayCycle`,
+## nicht nach Uhrzeit von Hand.
+const SFX_SCHUSS_NACHT: String = "res://assets/audio/karabiner_schuss_nacht.ogg"
+const SFX_SCHUSS_TAG: String = "res://assets/audio/karabiner_schuss_tag.ogg"
+const SFX_REPETIEREN: String = "res://assets/audio/karabiner_repetieren.ogg"
+## Wie lange nach dem Schuss repetiert wird. Nicht gleichzeitig: Erst der Knall, dann faehrt der
+## Verschluss. 0,22 s ist die Pause, die ein Mensch dafuer braucht — kuerzer klingt nach Automat,
+## laenger nach Ladehemmung.
+const SFX_REPETIER_VERZUG: float = 0.22
+var _sfx_schuss: AudioStreamPlayer3D = null
+var _sfx_repetieren: AudioStreamPlayer3D = null
+var _repetier_t: float = -1.0
+
+
+## Die Spieler baumeln AN DER FIGUR, nicht in der Welt: Godot rechnet die Entfernung zur
+## Hoerposition selbst aus, und die Kamera wandert im Prolog weit weg. Ein Schuss, der in einer
+## Kamerafahrt aus 34 m Abstand genauso laut ist wie aus zwei Metern, klingt wie eine Tonspur
+## und nicht wie ein Ereignis in der Welt.
+func _build_sfx() -> void:
+	if _player == null:
+		return
+	_sfx_schuss = AudioStreamPlayer3D.new()
+	_sfx_schuss.unit_size = 26.0
+	_sfx_schuss.max_distance = 320.0
+	_player.add_child(_sfx_schuss)
+	_sfx_repetieren = AudioStreamPlayer3D.new()
+	# Das Repetieren ist ein Geraeusch AN DER WAFFE, kein Schall ueber die Ebene: Es soll nah
+	# und trocken bleiben, egal wie weit die Kamera weg ist.
+	_sfx_repetieren.unit_size = 4.0
+	_sfx_repetieren.max_distance = 40.0
+	_sfx_repetieren.volume_db = -4.0
+	_player.add_child(_sfx_repetieren)
+
+
+func _spiel_ton(spieler: AudioStreamPlayer3D, pfad: String, hoehe: float = 0.0) -> void:
+	if spieler == null or not is_instance_valid(spieler):
+		return
+	if not ResourceLoader.exists(pfad):
+		return
+	spieler.stream = load(pfad) as AudioStream
+	# Kleine Tonhoehenstreuung pro Schuss. Ohne sie hoert man beim dritten Mal, dass es
+	# dieselbe Datei ist — und ab da klingt jede weitere Salve wie ein Metronom.
+	spieler.pitch_scale = 1.0 + hoehe
+	spieler.play()
+
+
+## Ein Schuss: Knall jetzt, Repetieren gleich darauf.
+func _schuss_ton() -> void:
+	var nacht: bool = DayCycle.daylight(GameState.hour) < 0.35
+	_spiel_ton(_sfx_schuss, SFX_SCHUSS_NACHT if nacht else SFX_SCHUSS_TAG,
+		randf_range(-0.04, 0.04))
+	_repetier_t = SFX_REPETIER_VERZUG
+
+
+func _process_sfx(delta: float) -> void:
+	if _repetier_t < 0.0:
+		return
+	_repetier_t -= delta
+	if _repetier_t <= 0.0:
+		_repetier_t = -1.0
+		_spiel_ton(_sfx_repetieren, SFX_REPETIEREN, randf_range(-0.06, 0.06))
