@@ -686,11 +686,21 @@ const VISTA_NAH_H: float = 2.0
 const VISTA_WEIT_M: float = 44.0
 const VISTA_WEIT_H: float = 15.0
 const VISTA_GRAD: float = 250.0
-const VISTA_SEK_AUF: float = 2.6
-const VISTA_SEK_RUNDE: float = 6.6
-const VISTA_SEK_WEIT: float = 3.2
-const VISTA_SEK_TAL: float = 3.0
-const VISTA_SEK_HEIM: float = 1.8
+## Die Zeiten der Rundsicht — durchweg gestreckt.
+##
+## Sie war zu schnell, und der Grund steht in der Umrundung: 230° in 6,6 s sind **35°/s**. Fuer
+## die Stadtfahrt gilt seit langem 30°/s als Grenze, ab der eine Establishing-Fahrt schmiert
+## statt zu zeigen — hier lag sie darueber, und das ausgerechnet bei einem Kreis mit 8,5 m
+## Radius, wo der Vordergrund noch viel schneller durchs Bild zieht als bei 64 m um die
+## Palisade. 11,0 s bringen sie auf 21°/s.
+##
+## Gestreckt wird die GANZE Fahrt und nicht nur die Umrundung: Was zaehlt, ist das Verhaeltnis
+## der Etappen zueinander. Wer nur eine davon dehnt, verschiebt die Betonung, statt Zeit zu geben.
+const VISTA_SEK_AUF: float = 3.4
+const VISTA_SEK_RUNDE: float = 11.0
+const VISTA_SEK_WEIT: float = 4.2
+const VISTA_SEK_TAL: float = 4.0
+const VISTA_SEK_HEIM: float = 2.4
 
 ## Der Standplatz: der HÖCHSTE Punkt auf der rechten Kuppe.
 ##
@@ -870,6 +880,8 @@ const MARKE_PULS_HZ: float = 0.55
 ## ging der Reif in seine eigene Füllung über. 32 cm liest man aus jeder Entfernung und lässt
 ## den Platz in der Mitte noch als Platz erkennen.
 const MARKE_BAND_M: float = 0.32
+## Die schmale, dunklere Innenkante, die dem Band Tiefe gibt statt die Mitte zu fuellen.
+const MARKE_KANTE_M: float = 0.14
 const MARKE_LUFT_M: float = 0.06
 var _marke: Node3D = null
 ## Ein Ring, der dem Fels FOLGT.
@@ -918,31 +930,36 @@ func _marke_ring(pos: Vector3, radius: float) -> Node3D:
 	reif.material_override = mat
 	reif.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	puls.add_child(reif)
-	# Eine SEHR schwache Scheibe darin — der bloße Umriss liest sich aus der Spielkamera als Loch.
+	# KEINE Fuellscheibe mehr.
 	#
-	# Sie stand zuerst auf 0,16 Alpha und wurde im Betrieb noch auf 0,24 hochgezogen. Additiv über
-	# hellem Fels war das Ergebnis kein Ring mehr, sondern ein gelber Fleck: Band und Füllung
-	# gingen ineinander über, und was den Platz markieren sollte, sah aus wie ein Lichtkegel.
-	# 0,07 reicht, damit die Mitte nicht als Loch liest, und bleibt hinter dem Band zurück.
-	var scheibe := SurfaceTool.new()
-	scheibe.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Sie stand zuerst auf 0,16 Alpha, wurde im Betrieb auf 0,24 hochgezogen und dann auf 0,07
+	# gedrosselt — und war in jeder dieser Fassungen falsch. Additiv ueber hellem Fels addiert
+	# sich eine Flaeche zu einer Flaeche: Das Ergebnis war kein Ring mit einem Platz darin,
+	# sondern eine leuchtende Scheibe. Die Begruendung dafuer („der blosse Umriss liest sich als
+	# Loch") stimmt fuer einen duennen Strich; ein 32 cm breites Band ist keiner.
+	#
+	# Was den Kreis stattdessen lesbar macht, ist eine INNENKANTE: ein zweiter, schmalerer und
+	# dunklerer Reif dicht am inneren Rand. Er gibt dem Band eine Tiefe, statt die Mitte zu
+	# fuellen.
+	var kante := SurfaceTool.new()
+	kante.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var r_i: float = radius - MARKE_BAND_M
 	for i2 in seg:
 		var v0: float = TAU * float(i2) / float(seg)
 		var v1: float = TAU * float(i2 + 1) / float(seg)
-		var mitte := Vector3(pos.x, WorldManager.height_at(pos.x, pos.z) + MARKE_LUFT_M, pos.z)
-		var r2: float = radius - MARKE_BAND_M
-		var p0 := Vector3(pos.x + cos(v0) * r2, 0.0, pos.z + sin(v0) * r2)
-		var p1 := Vector3(pos.x + cos(v1) * r2, 0.0, pos.z + sin(v1) * r2)
-		p0.y = WorldManager.height_at(p0.x, p0.z) + MARKE_LUFT_M
-		p1.y = WorldManager.height_at(p1.x, p1.z) + MARKE_LUFT_M
-		scheibe.add_vertex(mitte)
-		scheibe.add_vertex(p1)
-		scheibe.add_vertex(p0)
-	scheibe.generate_normals()
+		var ecken2: Array = []
+		for v in [v0, v1]:
+			for r2 in [r_i - MARKE_KANTE_M, r_i]:
+				var kx: float = pos.x + cos(v) * r2
+				var kz: float = pos.z + sin(v) * r2
+				ecken2.append(Vector3(kx, WorldManager.height_at(kx, kz) + MARKE_LUFT_M, kz))
+		for idx2 in [0, 1, 3, 0, 3, 2]:
+			kante.add_vertex(ecken2[idx2])
+	kante.generate_normals()
 	var innen := MeshInstance3D.new()
-	innen.mesh = scheibe.commit()
+	innen.mesh = kante.commit()
 	var m2: StandardMaterial3D = mat.duplicate()
-	m2.albedo_color = Color(MARKE_FARBE.r, MARKE_FARBE.g, MARKE_FARBE.b, 0.07)
+	m2.albedo_color = Color(MARKE_FARBE.r * 0.55, MARKE_FARBE.g * 0.42, MARKE_FARBE.b * 0.20, 1.0)
 	innen.material_override = m2
 	innen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	puls.add_child(innen)
@@ -985,7 +1002,7 @@ func _process_marke(_delta: float) -> void:
 	var t: float = sin(_flacker_t * TAU * MARKE_PULS_HZ) * 0.5 + 0.5
 	for c in puls.get_children():
 		var m: StandardMaterial3D = (c as MeshInstance3D).material_override
-		m.albedo_color.a = lerpf(0.45, 1.0, t) * (1.0 if c.get_index() == 0 else 0.09)
+		m.albedo_color.a = lerpf(0.45, 1.0, t) * (1.0 if c.get_index() == 0 else 0.7)
 
 
 ## Geroell auf dem Ausguck.
@@ -1304,12 +1321,24 @@ func _solid_pillar(center: Vector3, radius: float) -> void:
 ## 1,0 ist die Tangente von 45°. Eine Duenenflanke (30°) laeuft man hoch, eine Kraterwand (57°
 ## im Mittel) nicht.
 const MAX_STEIGUNG: float = 1.0
+## Auf welcher Basislaenge die Steigung gemessen wird.
+##
+## Vorher wurde der EINZELSCHRITT gemessen, und der ist winzig: 4,7 m/s bei 60 Bildern sind 7,8 cm.
+## Auf acht Zentimetern entscheidet nicht der Hang, sondern die Koernung — die aufgesetzten Buckel
+## wellen den Fels um anderthalb Meter, und ein einzelner Kiesel darin ueberschreitet 45°, obwohl
+## der Weg drumherum bequem ist. Das war das Haengenbleiben: nicht eine zu steile Flanke, sondern
+## ein zu kurzes Massband.
+##
+## 0,7 m ist gut ein Schritt. Auf dieser Laenge misst man den HANG und nicht seine Oberflaeche.
+const STEIGUNG_BASIS_M: float = 0.7
 func _zu_steil(von: Vector3, nach: Vector3) -> bool:
-	var weit: float = Vector2(nach.x - von.x, nach.z - von.z).length()
-	if weit < 0.001:
+	var d := Vector2(nach.x - von.x, nach.z - von.z)
+	if d.length() < 0.001:
 		return false
-	var hoch: float = WorldManager.height_at(nach.x, nach.z) - WorldManager.height_at(von.x, von.z)
-	return hoch / weit > MAX_STEIGUNG
+	var vor: Vector2 = d.normalized() * STEIGUNG_BASIS_M
+	var hoch: float = WorldManager.height_at(von.x + vor.x, von.z + vor.y) \
+		- WorldManager.height_at(von.x, von.z)
+	return hoch / STEIGUNG_BASIS_M > MAX_STEIGUNG
 
 
 func _blocked(p: Vector3) -> bool:
@@ -3721,7 +3750,17 @@ func _process_trail(_delta: float) -> void:
 	if _trail.is_empty() or _player == null:
 		return
 	var ziel: Vector3 = _trail_goal()
-	var sichtbar: bool = ziel != Vector3.INF and not _overlay_open()
+	# WAEHREND DES ERWACHENS keine Spur.
+	#
+	# Die Figur liegt in der Lache und sagt sechzehn Zeilen lang, dass sie nicht weiss, wo sie
+	# ist — und vor ihr leuchtete bereits ein Weg. Damit war der Monolog eine Ansage an jemanden,
+	# der die Antwort schon hat, und die drei Schlusszeilen („Da drueben ragt was aus dem Sand")
+	# verloren ihren Sinn: Die Spur ist SEINE Entscheidung, sie darf nicht vor ihr da sein.
+	#
+	# Auch die Kamerafahrten sperren sie. Eine Fussspur ist ein Hinweis fuer den Spieler am
+	# Steuer; solange die Kamera anderswo ist, gibt es niemanden, dem sie etwas sagt.
+	var sichtbar: bool = ziel != Vector3.INF and not _overlay_open() \
+		and _wach_left <= 0.0 and not _in_flight() and not _in_cine()
 	if sichtbar:
 		var flach := Vector3(ziel.x - _player.position.x, 0.0, ziel.z - _player.position.z)
 		if flach.length() < TRAIL_ARRIVED_M:
@@ -4357,6 +4396,20 @@ func _equip_weapon_model() -> void:
 	var b: Basis = Basis(Vector3.RIGHT, deg_to_rad(SHOULDER_TILT_DEG)) * Basis(Vector3.UP, -PI * 0.5)
 	weapon.transform = Transform3D(b,
 		SHOULDER_POS + Vector3(0.0, 0.0, -SHOULDER_FORWARD_M)) * fitted
+	# UNSICHTBAR, bis eine Waffe gefuehrt wird.
+	#
+	# Das Modell wird beim Aufbau der Welt einmal erzeugt und danach nur noch ein- und
+	# ausgeblendet — das ist richtig, spart eine Instanziierung im Spiel. Nur stand die
+	# Sichtbarkeit bis jetzt auf dem Vorgabewert `true`, und `_refresh_weapon()` korrigierte das
+	# erst beim ersten Waffenwechsel. Im Prolog gibt es keinen: Die Figur faengt mit leeren
+	# Haenden an, findet den Karabiner erst in der Truhe — und trug ihn die ganze Zeit an der
+	# Schulter.
+	#
+	# Beim Aufwachen war es noch auffaelliger. Die Waffe haengt an einem festen Punkt im
+	# SPIELERKNOTEN, nicht an einem Knochen; waehrend die Figur am Boden liegt und sich
+	# aufrichtet, bleibt der Knoten stehen. Der Karabiner schwebte also dort in der Luft, wo die
+	# Schulter waere, wenn sie schon staende.
+	weapon.visible = _weapon_id != "" and AssetRegistry.has_model("weapon_" + _weapon_id)
 	_weapon_model = weapon
 	_weapon_ruhe = weapon.transform
 	# Die Muendung wird GEMESSEN, nicht eingetragen: das Ende der laengsten Achse des Modells.
@@ -5876,16 +5929,38 @@ func _process_movement(delta: float) -> void:
 	# dort nichts anfühlt wie eine Wand. Achsenweise nachgeben, damit man an einer Hausecke
 	# entlanggleitet statt hängenzubleiben.
 	if not WorldManager.is_walkable(to_rel) or _blocked(next) or _zu_steil(_player.position, next):
-		var slide_x: Vector3 = Vector3(next.x, 0.0, _player.position.z)
-		var slide_z: Vector3 = Vector3(_player.position.x, 0.0, next.z)
-		if WorldManager.is_walkable(WorldManager.scene_to_world(slide_x)) and not _blocked(slide_x) \
-				and not _zu_steil(_player.position, slide_x):
-			next = slide_x
-		elif WorldManager.is_walkable(WorldManager.scene_to_world(slide_z)) and not _blocked(slide_z) \
-				and not _zu_steil(_player.position, slide_z):
-			next = slide_z
-		else:
-			return   # in eine Ecke gelaufen — Position halten
+		# Erst SCHRAEG zum Hang ausweichen, dann achsenweise.
+		#
+		# Das achsenweise Nachgeben ist fuer Hausecken gebaut und dort richtig: Waende stehen in
+		# der Welt achsenparallel, also gleitet man an ihnen entlang. Ein Berg hat keine Achsen.
+		# Wer gegen eine zu steile Stelle laeuft, bekam beide Achsenkandidaten ebenfalls als zu
+		# steil zurueck und blieb stehen — obwohl zwanzig Grad daneben ein bequemer Weg lag.
+		#
+		# Genau so geht man einen Hang auch wirklich hinauf: nicht in der Falllinie, sondern
+		# schraeg. Die Ablenkung waechst in Stufen, damit die naechstbeste Richtung gewinnt und
+		# die Figur nicht unnoetig quer laeuft.
+		var gefunden: bool = false
+		for grad in [22.0, -22.0, 45.0, -45.0, 68.0, -68.0]:
+			var abgelenkt: Vector2 = Vector2(step.x, step.z).rotated(deg_to_rad(grad))
+			var kand: Vector3 = _player.position + Vector3(abgelenkt.x, 0.0, abgelenkt.y)
+			kand.x = clampf(kand.x, 2.0, WorldManager.WORLD_METERS - 2.0)
+			kand.z = clampf(kand.z, -(WorldManager.WORLD_METERS - 2.0), -2.0)
+			if WorldManager.is_walkable(WorldManager.scene_to_world(kand)) \
+					and not _blocked(kand) and not _zu_steil(_player.position, kand):
+				next = kand
+				gefunden = true
+				break
+		if not gefunden:
+			var slide_x: Vector3 = Vector3(next.x, 0.0, _player.position.z)
+			var slide_z: Vector3 = Vector3(_player.position.x, 0.0, next.z)
+			if WorldManager.is_walkable(WorldManager.scene_to_world(slide_x)) and not _blocked(slide_x) \
+					and not _zu_steil(_player.position, slide_x):
+				next = slide_x
+			elif WorldManager.is_walkable(WorldManager.scene_to_world(slide_z)) and not _blocked(slide_z) \
+					and not _zu_steil(_player.position, slide_z):
+				next = slide_z
+			else:
+				return   # in eine Ecke gelaufen — Position halten
 		step = next - _player.position
 	# Die Figur folgt dem Gelaende. Ohne diese Zeile liefe sie auf y = 0 durch jede Senke
 	# hindurch — die Vertiefung waere blosse Kulisse.

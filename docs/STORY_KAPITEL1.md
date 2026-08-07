@@ -81,6 +81,18 @@ orientieren muss, und er sagt selbst, wohin — auf den Fels. Danach zeigt die F
 dorthin. Ohne diese Zeilen wäre die Spur eine Anweisung von außen; mit ihnen ist sie sein
 eigener Entschluss.
 
+**Und erst danach.** Die Spur lag zunächst schon da, während er sechzehn Zeilen lang sagt, dass
+er nicht weiß, wo er ist — der Weg war vor der Entscheidung da, die ihn erklärt. Sie wartet
+jetzt das Erwachen ab, und ebenso jede Kamerafahrt: Ein Hinweis für den Spieler am Steuer ist
+sinnlos, solange die Kamera anderswo ist.
+
+**Die Hände sind auch wirklich leer.** Das Waffenmodell wird beim Aufbau der Welt einmal erzeugt
+und danach nur ein- und ausgeblendet — nur stand die Sichtbarkeit auf dem Vorgabewert *sichtbar*,
+und im Prolog gibt es keinen Waffenwechsel, der das korrigiert hätte. Der Karabiner hing also von
+Anfang an an der Schulter. Beim Aufwachen fiel es besonders auf: Die Waffe hängt an einem festen
+Punkt im Spielerknoten, nicht an einem Knochen, und während die Figur am Boden liegt, bleibt der
+Knoten stehen — sie schwebte dort in der Luft, wo die Schulter wäre, wenn sie schon stände.
+
 Die **Lache**, auf der er liegt, zeigt den Himmel — abends kupfern, nachts blaugrau. Ohne das
 war sie ein schwarzes Loch, das die Figur verschluckte: `metallic` ohne Himmelsreflexion ist
 schwarz, und der Grubengrund liegt im Schatten der Wand.
@@ -125,6 +137,27 @@ wirksam, und was man beim Hochlaufen sah, waren zwei Felswände links und rechts
 dazwischen. Mit **96°** geht man eine breite Flanke hinauf. Die Steigung in der Mitte ändert
 sich dadurch nicht — dort ist der Rampenanteil in beiden Fällen 1 —, nur die Breite, auf der
 sie gilt.
+
+**Und man bleibt nicht mehr hängen.** Das ist eine andere Frage als *„ist der Hang begehbar"* —
+gemessen war er das die ganze Zeit. Zwei Dinge zusammen sperrten den Weg:
+
+* **Das Maßband war zu kurz.** Gemessen wurde der Einzelschritt eines Bildes: 4,7 m/s bei
+  60 Bildern sind 7,8 cm. Auf acht Zentimetern entscheidet nicht der Hang, sondern die Körnung —
+  die aufgesetzten Buckel wellen den Fels um anderthalb Meter, und ein Kiesel darin überschreitet
+  45°, obwohl der Weg drumherum bequem ist. Gemessen wird jetzt auf **0,7 m**, gut eine
+  Schrittlänge.
+* **Ausgewichen wurde nur achsenweise.** Das ist für Hausecken gebaut und dort richtig: Wände
+  stehen achsenparallel, also gleitet man an ihnen entlang. Ein Berg hat keine Achsen — wer gegen
+  eine zu steile Stelle lief, bekam beide Achsenkandidaten ebenfalls als zu steil zurück und
+  blieb stehen, obwohl zwanzig Grad daneben ein bequemer Weg lag. Jetzt wird erst **schräg zum
+  Hang** ausgewichen (22°, 45°, 68° nach beiden Seiten), dann achsenweise. Genau so geht man
+  einen Hang auch wirklich hinauf: nicht in der Falllinie.
+
+Nachgemessen wird das, indem der Marsch vom Rampenfuß in den Ring **simuliert** wird — die
+Steigung einer einzelnen Stelle sagt darüber nichts. Ergebnis: Mit der alten Regel bleibt die
+Figur unterwegs stecken und kommt nie an; mit der neuen erreicht sie den Ring ohne eine einzige
+Stockung. Und die Simulation sagt auch, dass **keine der beiden Änderungen allein reicht** —
+weder das längere Maßband noch das schräge Ausweichen für sich bringt sie hinauf.
 
 **Ein Fels, kein Hügel** — der Unterschied steckt in drei Dingen:
 
@@ -205,13 +238,27 @@ wandert der Punkt mit, wenn jemand den Fels umbaut.
 > Kreis, den der Spieler nicht verdeckt, wenn er darin steht, liest sich als Bedienelement und
 > nicht als Ort. Beides war am Screenshot in einer Minute zu sehen und an der Formel gar nicht.
 
-Oben übernimmt die Kamera ein zweites Mal — **15 Sekunden im Weitwinkel** (78° statt 50°):
+**Und drittens: keine Füllscheibe.** In der Mitte des Rings lag eine schwache Scheibe, damit der
+bloße Umriss sich nicht „als Loch liest". Sie stand in drei Fassungen (0,16 / 0,24 / 0,07 Alpha)
+und war in jeder falsch — additiv über hellem Fels addiert sich eine Fläche zu einer Fläche, und
+heraus kam eine leuchtende Scheibe statt eines Kreises. Die Begründung stimmt für einen dünnen
+Strich; ein 32 cm breites Band ist keiner. Lesbar wird es durch eine schmale, dunklere
+**Innenkante** dicht am inneren Rand: Die gibt dem Band Tiefe, statt die Mitte zu füllen.
 
-1. Zurück und hoch, hinter ihm (2,6 s)
-2. **Um ihn herum**, 230°, von 3,5 auf 17 m steigend (7,4 s) — er bleibt in der Mitte, der ganze
+Oben übernimmt die Kamera ein zweites Mal — **25 Sekunden im Weitwinkel** (78° statt 50°):
+
+1. Zurück und hoch, hinter ihm (3,4 s)
+2. **Um ihn herum**, 230°, von 3,5 auf 17 m steigend (11,0 s) — er bleibt in der Mitte, der ganze
    Horizont dreht sich hinter ihm
-3. Schwenk über seine Schulter **hinunter ins Tal auf Rustwater** (3,2 s)
-4. Zurück in die Ausgangshaltung (1,8 s)
+3. Schwenk über seine Schulter **hinunter ins Tal auf Rustwater** (4,2 s)
+4. Blick ins Tal (4,0 s), zurück in die Ausgangshaltung (2,4 s)
+
+Sie war zu schnell, und der Grund steckt in der Umrundung: 230° in 6,6 s sind **35°/s**. Für die
+Stadtfahrt gilt seit langem 30°/s als Grenze, ab der eine Establishing-Fahrt schmiert statt zu
+zeigen — hier lag sie darüber, und das ausgerechnet auf einem Kreis von 8,5 m Radius, wo der
+Vordergrund viel schneller durchs Bild zieht als bei 64 m um die Palisade. 11,0 s bringen sie auf
+21°/s. Gestreckt wurde die ganze Fahrt und nicht nur die Umrundung: Was zählt, ist das Verhältnis
+der Etappen zueinander.
 
 > **DER NAMENLOSE:** „Von hier oben sieht man wenigstens etwas."
 > „Wüste. Wüste. Und noch mal Wüste."

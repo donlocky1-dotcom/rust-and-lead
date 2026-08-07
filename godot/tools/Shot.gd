@@ -170,6 +170,11 @@ func _ready() -> void:
 
 ## Ausgangslage fuer ein Oberflaechen-Bild. Eine leere Puppe und ein leerer Beutel zeigen
 ## nichts von dem, worauf es ankommt — also erst Beute erzeugen, dann anlegen, dann knipsen.
+## Liegt ein Bildpunkt im sichtbaren Rahmen?
+func _im_bild(p: Vector2) -> bool:
+	return p.x >= 0.0 and p.x <= 1280.0 and p.y >= 0.0 and p.y <= 720.0
+
+
 func _setup_ui(art: String) -> void:
 	var ow: OverworldView = _welt as OverworldView
 	if ow == null:
@@ -527,6 +532,18 @@ func _setup_ui(art: String) -> void:
 		if ff[0].distance_to(ff[1]) > 0.05:
 			_cam.look_at(ff[1], Vector3.UP)
 		_cam.current = true
+		# WO im Bild die Figur und der Ort landen — als Zahl, nicht nach Augenmass.
+		#
+		# Die letzten Sekunden sollen "Figur im Vordergrund, Rustwater am Horizont" zeigen, und
+		# das faellt nachts in einem Bild aus Silhouetten schlicht nicht zu erkennen: Auf dem
+		# Sand stehen ausserdem Gegner, die genauso aussehen. Gemessen ist es eindeutig — 640/360
+		# ist die Bildmitte, alles ausserhalb 0…1280 / 0…720 steht nicht im Bild.
+		var s_fig: Vector2 = _cam.unproject_position(
+			ow._player.position + Vector3(0.0, 1.0, 0.0))
+		var s_ort: Vector2 = _cam.unproject_position(rwf + Vector3(0.0, 7.0, 0.0))
+		print("· %s — Figur bei %.0f/%.0f%s, Rustwater bei %.0f/%.0f%s" % [art,
+			s_fig.x, s_fig.y, "" if _im_bild(s_fig) else "  (AUSSERHALB)",
+			s_ort.x, s_ort.y, "" if _im_bild(s_ort) else "  (AUSSERHALB)"])
 	elif art == "nachtstadt" or art == "nachtschmiede":
 		# Die Nachtbeleuchtung im Zusammenhang. Ein Bild vom Saloon allein beantwortet nicht die
 		# Frage, die zaehlt: Ergibt die Stadt nachts eine LESBARE Silhouette — Torfackeln als

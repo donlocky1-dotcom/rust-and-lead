@@ -70,7 +70,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_poi_walkable": 22,
 	"_test_town_walkable": 17,
 	"_test_enemy_attacks": 20,
-	"_test_daycycle": 169,
+	"_test_daycycle": 180,
 	"_test_dialog": 22,
 	"_test_memory_manager": 29,
 	"_test_encounter_manager": 24,
@@ -1995,6 +1995,69 @@ func _test_prolog() -> void:
 			r_letzte = r_ph
 	_check("Ueber die Kuppe kommt man in den Ring (steilster Schritt %.0f°)"
 		% rad_to_deg(atan(r_steilste)), r_steilste < OW2.MAX_STEIGUNG)
+	# UND MAN BLEIBT NICHT HAENGEN. Das ist eine andere Frage als „ist der Hang begehbar" — und
+	# genau die, an der es im Spiel scheiterte.
+	#
+	# Gemessen wurde bisher der EINZELSCHRITT eines Bildes: 4,7 m/s bei 60 Bildern sind 7,8 cm.
+	# Auf acht Zentimetern entscheidet nicht der Hang, sondern die Koernung — die aufgesetzten
+	# Buckel wellen den Fels um anderthalb Meter, und ein Kiesel darin ueberschreitet 45°, obwohl
+	# der Weg drumherum bequem ist. Der Test dafuer zaehlt beides ab: wie viele der 7,8-cm-
+	# Schritte auf der Rampe mit dem kurzen Massband gesperrt gewesen waeren, und wie viele mit
+	# dem langen. Der erste Wert ist der Grund fuers Ruckeln.
+	# Zuerst der Befund: Auf der MITTELLINIE der Rampe blockiert auch die alte Regel nichts. Die
+	# erste Vermutung — das kurze Massband stolpert ueber die Koernung — traegt dort also nicht.
+	# Wer aus der Grube kommt, laeuft aber nicht die Mittellinie, sondern schraeg auf den Fels zu
+	# und dann quer zur Kuppe. Also wird gelaufen statt gerechnet.
+	_check("Die Steigung wird auf Schrittlaenge gemessen (%.2f m)" % OW2.STEIGUNG_BASIS_M,
+		OW2.STEIGUNG_BASIS_M >= 0.5)
+	var m_alt: Array = _marsch(r_fuss, spot3, 0.0, false)
+	var m_neu: Array = _marsch(r_fuss, spot3, OW2.STEIGUNG_BASIS_M, true)
+	_check("Mit der neuen Regel kommt man vom Rampenfuss in den Ring (%d Stockungen)"
+		% int(m_neu[1]), bool(m_neu[0]))
+	# Und der Vergleich sagt, ob die Aenderung ueberhaupt etwas bewirkt hat. Faellt er gleich
+	# aus, steht hier die falsche Erklaerung fuer ein echtes Problem — dann muss weiter gesucht
+	# werden, statt sich auf eine Zahl zu verlassen, die nichts misst.
+	_check("Die alte Regel blieb dabei stecken (erreicht: %s, Stockungen %d)"
+		% ["ja" if bool(m_alt[0]) else "nein", int(m_alt[1])],
+		not bool(m_alt[0]) or int(m_alt[1]) > 0)
+	# Und welche der beiden Aenderungen es war. Die Frage ist nicht akademisch: Waere es allein
+	# das laengere Massband, koennte man das Ausweichen wieder ausbauen — und umgekehrt.
+	var m_nur_basis: Array = _marsch(r_fuss, spot3, OW2.STEIGUNG_BASIS_M, false)
+	var m_nur_schraeg: Array = _marsch(r_fuss, spot3, 0.0, true)
+	_check("Das laengere Massband allein reicht %s"
+		% ("aus" if bool(m_nur_basis[0]) else "NICHT"), true)
+	_check("Das schraege Ausweichen allein reicht %s"
+		% ("aus" if bool(m_nur_schraeg[0]) else "NICHT"), true)
+	# Und wenn doch einmal etwas sperrt, weicht die Figur SCHRAEG aus statt stehenzubleiben. Das
+	# achsenweise Nachgeben ist fuer Hausecken gebaut; ein Berg hat keine Achsen, und beide
+	# Achsenkandidaten waren dort ebenfalls zu steil.
+	_check("Gegen einen Hang wird schraeg ausgewichen",
+		quelle.contains("for grad in [22.0, -22.0, 45.0, -45.0, 68.0, -68.0]:"))
+	# Der Leuchtkreis ist ein KREIS. Die Fuellscheibe darin stand in drei Fassungen (0,16 / 0,24 /
+	# 0,07 Alpha) und war in jeder falsch: Additiv ueber hellem Fels addiert sich eine Flaeche zu
+	# einer Flaeche, und heraus kam eine leuchtende Scheibe. Lesbar wird das Band durch eine
+	# schmale, dunklere INNENKANTE — Tiefe statt Fuellung.
+	_check("Der Ring hat keine Fuellscheibe mehr",
+		not quelle.contains("c.bottom_radius = radius * 0.86")
+		and not quelle.contains("MARKE_FARBE.b, 0.07"))
+	_check("Sondern eine Innenkante (%.2f m)" % OW2.MARKE_KANTE_M,
+		OW2.MARKE_KANTE_M > 0.0 and OW2.MARKE_KANTE_M < OW2.MARKE_BAND_M)
+	# Die Rundsicht schwenkt ruhig — dieselbe Grenze wie bei der Stadtfahrt. Bei 6,6 s waren es
+	# 35°/s, und zwar auf einem Kreis von 8,5 m Radius, wo der Vordergrund noch viel schneller
+	# durchs Bild zieht als bei 64 m um die Palisade.
+	var v_grad: float = OW2.VISTA_GRAD / OW2.VISTA_SEK_RUNDE
+	_check("Die Rundsicht schwenkt ruhig (%.0f °/s)" % v_grad, v_grad < 30.0)
+	# Die Waffe ist am Anfang nicht da. Sie wird beim Aufbau der Welt einmal erzeugt und nur noch
+	# ein- und ausgeblendet — nur stand die Sichtbarkeit auf dem Vorgabewert `true`, und im
+	# Prolog gibt es keinen Waffenwechsel, der das korrigiert haette. Beim Aufwachen schwebte der
+	# Karabiner dort in der Luft, wo die Schulter waere, wenn sie schon staende.
+	_check("Der Karabiner haengt erst am Spieler, wenn er ihn hat",
+		quelle.contains('weapon.visible = _weapon_id != "" and AssetRegistry.has_model('))
+	# Und die Fussspur kommt erst nach dem Monolog. Vorher lag sie schon da, waehrend die Figur
+	# sechzehn Zeilen lang sagt, dass sie nicht weiss, wo sie ist — der Weg war vor der
+	# Entscheidung da, die ihn erklaert.
+	_check("Die Fussspur wartet den Monolog ab",
+		quelle.contains("and _wach_left <= 0.0 and not _in_flight() and not _in_cine()"))
 	# Und die Fussspur fuehrt auch wirklich ueber die Kuppe, statt quer ueber die Flanke zu zeigen.
 	_check("Und die Fussspur nimmt den Umweg ueber die Kuppe",
 		quelle.contains("AUSGUCK_OBEN_M"))
@@ -4081,3 +4144,48 @@ func _rail_network_connected() -> bool:
 				seen[other] = true
 				queue.append(other)
 	return seen.size() == WorldManager.RAIL_STATIONS.size()
+
+## Einen Fussmarsch simulieren und zaehlen, wie oft er haengenbleibt.
+##
+## Das ist der einzige ehrliche Weg, „man bleibt haengen" zu pruefen. Die Steigung EINER Stelle
+## sagt nichts darueber: Der Hang kann ueberall begehbar sein und die Figur trotzdem feststecken,
+## weil die Ausweichregel in der Situation nichts findet. Also wird gelaufen.
+##
+## `basis_m` ist die Laenge des Massbands fuer die Steigung (0 = Einzelschritt wie frueher),
+## `schraeg` schaltet das Ausweichen quer zum Hang zu. Zurueck kommt [erreicht, Stockungen].
+func _marsch(von: Vector3, nach: Vector3, basis_m: float, schraeg: bool) -> Array:
+	var schritt: float = WorldManager.PLAYER_SPEED_MS / 60.0
+	var max_stg: float = load("res://scripts/OverworldView.gd").MAX_STEIGUNG
+	var p: Vector2 = Vector2(von.x, von.z)
+	var ziel := Vector2(nach.x, nach.z)
+	var stockungen: int = 0
+	var erreicht: bool = false
+	for _i in 3000:
+		if p.distance_to(ziel) < 1.0:
+			erreicht = true
+			break
+		var richt: Vector2 = (ziel - p).normalized() * schritt
+		var kandidaten: Array = [richt]
+		if schraeg:
+			for grad in [22.0, -22.0, 45.0, -45.0, 68.0, -68.0]:
+				kandidaten.append(richt.rotated(deg_to_rad(grad)))
+		kandidaten.append(Vector2(richt.x, 0.0))
+		kandidaten.append(Vector2(0.0, richt.y))
+		var gegangen: bool = false
+		for k in kandidaten:
+			if k.length() < 0.0001:
+				continue
+			var basis: float = basis_m if basis_m > 0.0 else k.length()
+			var q: Vector2 = p + k.normalized() * basis
+			var steig: float = (WorldManager.height_at(q.x, q.y)
+				- WorldManager.height_at(p.x, p.y)) / basis
+			if steig <= max_stg:
+				p += k
+				gegangen = true
+				break
+		if not gegangen:
+			stockungen += 1
+			# Wie im Spiel: Position halten. Ohne Ausweg bleibt sie stehen, bis der Spieler
+			# selbst eine andere Richtung drueckt — deshalb hier abbrechen.
+			break
+	return [erreicht, stockungen]
