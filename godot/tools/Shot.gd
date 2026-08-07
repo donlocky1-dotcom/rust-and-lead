@@ -126,6 +126,8 @@ func _ready() -> void:
 		berg + Vector3(0.0, 5.0, 0.0)])
 	_views.append(["ausguck_oben", berg + Vector3(0.0, 3.0, 0.0) - zur_stadt * 8.0,
 		rw + Vector3(0.0, 6.0, 0.0)])
+	# Und der Ring an der Kante, aus der Richtung, aus der man ankommt.
+	_views.append(["ausguck_marke", null, "marke"])
 	# Die Rundsicht oben auf dem Fels, an vier Stellen. Gleiche Bauweise wie `flug_`/`wach_`.
 	for anteil in ["0.16", "0.42", "0.68", "0.90"]:
 		_views.append(["vista_" + anteil, null, "vista_" + anteil])
@@ -323,6 +325,37 @@ func _setup_ui(art: String) -> void:
 		# Stadtplatz aus schraeg darauf, damit Fassade UND Vorplatz im Bild sind.
 		_cam.position = rw2 + Vector3(6.0, 5.0, 17.0)
 		_cam.look_at(rw2 + Vector3(-11.0, 2.0, 0.0), Vector3.UP)
+		_cam.current = true
+	elif art == "marke":
+		# Der leuchtende Ring an der Vorderkante des Felsens — die Stelle, in die man treten
+		# muss, damit die Rundsicht anspringt. Zweimal hat diese Fahrt zu frueh gestartet, weil
+		# der Ausloeser eine RECHNUNG war (erst waagerechter Abstand zur Kuppe, dann Abstand
+		# plus Hoehe) und der Spieler die Rechnung nicht sehen konnte. Ein Ring, auf den die
+		# Fussspur zulaeuft, macht die Bedingung sichtbar: Man steht drin oder man steht nicht
+		# drin.
+		#
+		# Die Kamera steht dahinter und schaut ueber den Ring hinweg nach Rustwater — genau die
+		# Blickrichtung, aus der man ankommt. Damit beantwortet das Bild beides: Liegt der Ring
+		# wirklich VORN an der Kante, und sieht man von dort die Stadt?
+		ow.set_process(true)
+		ow._end_flight()
+		ow._end_cine()
+		ow._close_character()
+		GameState.hour = DayCycle.START_HOUR
+		GameState.prolog_done = false
+		GameState.saw_vista = false
+		ow._apply_daytime()
+		ow._apply_night_lights()
+		var rwm: Vector3 = WorldManager.poi_scene_position("rustwater")
+		var ring: Vector3 = ow._vista_spot()
+		var hin: Vector3 = Vector3(rwm.x - ring.x, 0.0, rwm.z - ring.z).normalized()
+		# Die Figur einen Schritt VOR dem Ring — so, wie sie ankommt, noch nicht ausgeloest.
+		var steh: Vector3 = ring - hin * 3.4
+		steh.y = WorldManager.height_at(steh.x, steh.z)
+		ow._player.position = steh
+		ow._player.rotation.y = atan2(-hin.x, -hin.z)
+		_cam.position = steh - hin * 7.0 + Vector3(0.0, 4.4, 0.0)
+		_cam.look_at(ring + Vector3(0.0, 0.6, 0.0), Vector3.UP)
 		_cam.current = true
 	elif art.begins_with("vista_"):
 		# Oben auf dem Fels. Der Aufstieg wird uebersprungen — die Figur wird auf das Plateau

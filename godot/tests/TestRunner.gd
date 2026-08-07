@@ -18,61 +18,110 @@ var _passed: int = 0
 var _failed: int = 0
 var _scratch: Array = []   # Wegwerf-Objekte der Tests; am Ende gesammelt freigegeben
 
+## Wie viele Pruefungen jede Testfunktion MINDESTENS liefern muss.
+##
+## Das ist kein Selbstzweck, sondern die Antwort auf einen Fehler, der diese Suite zweimal
+## stillschweigend halbiert hat: Ein Laufzeitfehler in GDScript — etwa ein Zugriff auf eine
+## Konstante, die es nicht mehr gibt — bricht die laufende Funktion sofort ab. Godot schreibt
+## einen SCRIPT ERROR nach stderr, aber der Rest der Funktion laeuft nie, `_failed` bleibt bei
+## null, und die Zusammenfassung meldet froehlich „0 fehlgeschlagen". Aufgefallen ist es nur,
+## weil die Gesamtzahl von 988 auf 976 gefallen war — also durch Hingucken, und das ist keine
+## Absicherung.
+##
+## Deshalb wird jede Funktion einzeln gewogen: Liefert sie weniger Pruefungen als hier
+## eingetragen, ist sie abgebrochen, und der Lauf ist rot. Wer Tests ERGAENZT, traegt die neue
+## Zahl hier nach — die Suite sagt am Ende genau, welche.
+##
+## Verschachtelte Aufrufe (`_test_daycycle` ruft `_test_prolog` auf) zaehlen beim Aufrufer mit.
+## Das ist gewollt: Bricht die innere Funktion ab, sinkt die Summe des Aufrufers, und genau die
+## wird hier geprueft.
+const TEST_UMFANG: Dictionary = {
+	"_test_combat_engine": 19,
+	"_test_quest_manager": 20,
+	"_test_tycoon_manager": 13,
+	"_test_grid_inventory": 17,
+	"_test_world_manager": 35,
+	"_test_world_scale": 9,
+	"_test_walkable_zones": 21,
+	"_test_minimap": 21,
+	"_test_fire_control": 10,
+	"_test_wall_classification": 15,
+	"_test_workshop": 21,
+	"_test_ammo": 12,
+	"_test_reload": 18,
+	"_test_weapons": 13,
+	"_test_terrain": 25,
+	"_test_winding": 4,
+	"_test_inventory_grid": 16,
+	"_test_paperdoll": 13,
+	"_test_fog": 12,
+	"_test_swamp": 85,
+	"_test_dunes": 7,
+	"_test_props": 36,
+	"_test_station": 8,
+	"_test_camera_zoom": 13,
+	"_test_hud_layout": 8,
+	"_test_bag": 21,
+	"_test_asset_registry": 38,
+	"_test_overworld_loot_flow": 6,
+	"_test_overworld_quest_flow": 12,
+	"_test_quest_wayfinding": 50,
+	"_test_closeup": 13,
+	"_test_poi_walkable": 22,
+	"_test_town_walkable": 17,
+	"_test_enemy_attacks": 20,
+	"_test_daycycle": 153,
+	"_test_dialog": 22,
+	"_test_memory_manager": 29,
+	"_test_encounter_manager": 24,
+	"_test_progression_manager": 34,
+	"_test_rift_manager": 17,
+	"_test_save_manager": 17,
+	"_test_equip_manager": 16,
+	"_test_player_stats": 15,
+}
+
 
 func _ready() -> void:
 	print("──────────────────────────────────────────────")
 	print("  Rust & Lead — Backend Test-Suite")
 	print("──────────────────────────────────────────────")
-	_test_combat_engine()
-	_test_quest_manager()
-	_test_tycoon_manager()
-	_test_grid_inventory()
-	_test_world_manager()
-	_test_world_scale()
-	_test_walkable_zones()
-	_test_minimap()
-	_test_fire_control()
-	_test_wall_classification()
-	_test_workshop()
-	_test_ammo()
-	_test_reload()
-	_test_weapons()
-	_test_terrain()
-	_test_winding()
-	_test_inventory_grid()
-	_test_paperdoll()
-	_test_fog()
-	_test_swamp()
-	_test_dunes()
-	_test_props()
-	_test_station()
-	_test_camera_zoom()
-	_test_hud_layout()
-	_test_bag()
-	_test_asset_registry()
-	_test_overworld_loot_flow()
-	_test_overworld_quest_flow()
-	_test_quest_wayfinding()
-	_test_closeup()
-	_test_poi_walkable()
-	_test_town_walkable()
-	_test_enemy_attacks()
-	_test_daycycle()
-	_test_dialog()
-	_test_memory_manager()
-	_test_encounter_manager()
-	_test_progression_manager()
-	_test_rift_manager()
-	_test_save_manager()
-	_test_equip_manager()
-	_test_player_stats()
+	# Gemessen wird pro Funktion, damit ein Abbruch nicht in der Gesamtzahl untergeht.
+	var zu_klein: Array[String] = []
+	var gemessen: Dictionary = {}
+	for name in TEST_UMFANG:
+		var vorher: int = _passed + _failed
+		call(name)
+		var geliefert: int = _passed + _failed - vorher
+		gemessen[name] = geliefert
+		if geliefert < int(TEST_UMFANG[name]):
+			zu_klein.append("%s: %d statt >=%d" % [name, geliefert, int(TEST_UMFANG[name])])
 	for obj in _scratch:
 		if is_instance_valid(obj):
 			obj.free()
 	_scratch.clear()
+	# Der Umfangs-Test steht bewusst NACH allen anderen und zaehlt selbst als Pruefung: So sieht
+	# man in der Zusammenfassung, dass er gelaufen ist.
+	_check("Alle %d Testfunktionen sind vollstaendig durchgelaufen" % TEST_UMFANG.size(),
+		zu_klein.is_empty(), "abgebrochen — " + ", ".join(zu_klein)
+			+ " (stderr nach SCRIPT ERROR durchsuchen)")
+	if not zu_klein.is_empty():
+		printerr("  Eine Funktion, die weniger Pruefungen liefert als eingetragen, ist an einem")
+		printerr("  Laufzeitfehler abgebrochen. Der Aufruf selbst meldet das nicht — der Fehler")
+		printerr("  steht weiter oben in stderr als SCRIPT ERROR.")
 	print("──────────────────────────────────────────────")
 	print("  Ergebnis: %d bestanden, %d fehlgeschlagen" % [_passed, _failed])
 	print("──────────────────────────────────────────────")
+	if _failed == 0:
+		# Damit das Nachtragen nach neuen Tests keine Sucharbeit ist.
+		var gewachsen: Array[String] = []
+		for name in gemessen:
+			if int(gemessen[name]) > int(TEST_UMFANG[name]):
+				gewachsen.append('"%s": %d,' % [name, int(gemessen[name])])
+		if not gewachsen.is_empty():
+			print("  Hinweis — diese Funktionen sind gewachsen, TEST_UMFANG darf nach:")
+			for z in gewachsen:
+				print("    ", z)
 	get_tree().call_deferred("quit", 1 if _failed > 0 else 0)
 
 
@@ -1824,23 +1873,54 @@ func _test_prolog() -> void:
 	# einen Punkt weiter unten und lief dabei durch den Berg.
 	var gipfel: float = WorldManager.height_at(a_mitte.x, a_mitte.z)
 	var w_r: float = deg_to_rad(float(aus["ramp_deg"]))
-	# Der ALTE Ausloeser: waagerecht innerhalb von 34 % des Radius — also am AEUSSERSTEN Rand
-	# dieses Kreises, denn dort feuert er zuerst, wenn man den Berg hinaufsteigt.
+	# Der Ausloeser ist jetzt ein SICHTBARER Ring an der Vorderkante, kein gerechnetes Fenster.
+	# Zwei Anlaeufe vorher scheiterten am selben Ansatz: Ein Ausloeser, den man nicht sieht, muss
+	# raten, wo "richtig" ist.
+	_check("Es gibt einen leuchtenden Ring", quelle.contains("_marke_ring")
+		and quelle.contains("_build_vista_marke"))
+	_check("Und die Fussspur fuehrt hinein", quelle.contains("_vista_spot()"))
+	# Der Ring liegt an der Kante Richtung Rustwater — gemessen, nicht gesetzt.
+	var stadt3: Vector3 = WorldManager.poi_scene_position("rustwater")
+	var hin3 := Vector3(stadt3.x - a_mitte.x, 0.0, stadt3.z - a_mitte.z).normalized()
+	var gipfel3: float = WorldManager.height_at(a_mitte.x, a_mitte.z)
+	var kante: Vector3 = a_mitte
+	var dk: float = 0.0
+	while dk < float(aus["radius"]):
+		dk += 0.25
+		var q3: Vector3 = a_mitte + hin3 * dk
+		if WorldManager.height_at(q3.x, q3.z) < gipfel3 - 1.2:
+			break
+		kante = q3
+	var spot3: Vector3 = kante - hin3 * 1.2
+	var hoehe_spot: float = WorldManager.height_at(spot3.x, spot3.z)
+	_check("Der Ring liegt oben (%.1f m von %.1f m)" % [hoehe_spot, gipfel3],
+		hoehe_spot > gipfel3 - 2.0)
+	_check("Und vorn an der Kante, nicht in der Mitte (%.1f m vom Gipfel)"
+		% Vector2(spot3.x - a_mitte.x, spot3.z - a_mitte.z).length(),
+		Vector2(spot3.x - a_mitte.x, spot3.z - a_mitte.z).length() > 1.5)
+	# Dahinter faellt es ab: Wer im Ring steht, steht wirklich VORNE.
+	var davor: Vector3 = spot3 + hin3 * 4.0
+	_check("Dahinter faellt der Fels ab (%.1f m)" % WorldManager.height_at(davor.x, davor.z),
+		WorldManager.height_at(davor.x, davor.z) < hoehe_spot - 1.0)
+
+	# Der Weg dahin, in zwei verworfenen Anlaeufen: erst der waagerechte Abstand zur Felsmitte
+	# (auf der Rampe ist man dort acht Meter zu tief), dann zusaetzlich die Hoehe (besser, aber
+	# immer noch geraten). Beide Male war nicht die Formel falsch, sondern der Ansatz — ein
+	# Ausloeser, den man nicht SIEHT, muss raten, wo "richtig" ist. Was davon bleibt, ist die
+	# Zahl, an der man es messen kann:
 	var alt_d: float = float(aus["radius"]) * 0.34
 	var zu_frueh: float = WorldManager.height_at(a_mitte.x + cos(w_r) * alt_d,
 		a_mitte.z - sin(w_r) * alt_d)
-	# Der NEUE: die groesste Entfernung zur Mitte, bei der die Hoehe noch reicht.
-	var gerade_recht: float = -1.0
-	for i in range(1, 60):
-		var dd: float = float(i) * 0.5
-		var hh: float = WorldManager.height_at(a_mitte.x + cos(w_r) * dd,
-			a_mitte.z - sin(w_r) * dd)
-		if hh >= gipfel - OW2.VISTA_GIPFEL_TOL_M:
-			gerade_recht = dd
-	_check("Der alte Ausloeser feuerte weit unter dem Gipfel (%.1f m von %.1f m)"
+	_check("Auf der Rampe ist man beim alten Fenster noch tief unten (%.1f m von %.1f m)"
 		% [zu_frueh, gipfel], zu_frueh < gipfel - 5.0)
-	_check("Der neue erst am Gipfel (ab %.0f m Abstand zur Mitte)" % gerade_recht,
-		gerade_recht > 0.0 and gerade_recht <= 3.0)
+	# Und der Ring liegt ausserhalb dieses Fensters — sonst haette sich nichts geaendert.
+	var ring_d: float = Vector2(spot3.x - a_mitte.x, spot3.z - a_mitte.z).length()
+	_check("Der Ring liegt am Gipfel, nicht im alten Fenster (%.1f m gegen %.1f m)"
+		% [WorldManager.height_at(spot3.x, spot3.z), zu_frueh],
+		WorldManager.height_at(spot3.x, spot3.z) > zu_frueh + 4.0)
+	_check("Und er ist klein genug, dass man ihn treffen MUSS (%.1f m Radius)" % OW2.VISTA_RING_R_M,
+		OW2.VISTA_RING_R_M <= 3.0)
+	_check("Aber gross genug, dass man ihn trifft", OW2.VISTA_RING_R_M >= 1.5)
 	# Und die Kamera kreist auf Gipfelhoehe: Wenn sie unten anfinge, ginge sie durch den Fels.
 	_check("Die Umrundung setzt ueber dem Standplatz an (%.1f m)" % OW2.VISTA_NAH_H,
 		OW2.VISTA_NAH_H > 0.0)
@@ -2000,13 +2080,28 @@ func _test_orbit() -> void:
 	var heimweg: float = OW.INTRO_SEK_HEIM + OW.INTRO_SEK_EINSCHWENKEN
 	_check("Der Rueckweg ist kuerzer als der Hinweg (%.1f s vs. %.1f s)"
 		% [heimweg, OW.INTRO_SEK_ANFLUG], heimweg < OW.INTRO_SEK_ANFLUG)
-	# Und die Umrundung bleibt langsamer als der Anflug: 190° auf 27 m sind gut 89 m Bogen in
-	# 4,2 s; der Anflug legt rund 95 m in 1,4 s zurueck.
-	var bogen_m: float = deg_to_rad(OW.INTRO_ORBIT_GRAD) * OW.INTRO_ORBIT_R
-	var v_runde: float = bogen_m / OW.INTRO_SEK_RUNDE
-	var v_anflug: float = OW.INTRO_SIGHT_M / OW.INTRO_SEK_ANFLUG
-	_check("Die Umrundung ist das langsame Stueck (%.0f m/s gegen %.0f m/s im Anflug)"
-		% [v_runde, v_anflug], v_runde < v_anflug * 0.5)
+	# Und die Umrundung schwenkt langsam genug, dass man den Ort SIEHT.
+	#
+	# Hier stand vorher ein Vergleich der Bahngeschwindigkeit in m/s: Die Umrundung musste
+	# hoechstens halb so schnell sein wie der Anflug. Dieses Mass stammt aus der ersten Fassung,
+	# die den Wasserturm auf 27 m Abstand umkreiste — da hiess „langsam in m/s" auch „langsam im
+	# Bild". Seit die Fahrt die 64 m entfernte Palisade umrundet, misst es nichts mehr: Derselbe
+	# Bogen in derselben Zeit ergibt bei mehr als doppeltem Radius zwangslaeufig die doppelte
+	# Bahngeschwindigkeit, obwohl das Motiv im Bild genauso schnell vorbeizieht. Ein Kriterium,
+	# das sich mit dem Radius aendert, kann keins fuer den Bildeindruck sein.
+	#
+	# Wahrgenommen wird die WINKELgeschwindigkeit — wie schnell sich der Ort unter der Kamera
+	# wegdreht. Ueber etwa 30°/s verwischt eine Establishing-Fahrt; darunter hat das Auge Zeit,
+	# dem Motiv zu folgen. (Genau daran ist die Fassung mit 250° haengengeblieben: 29,8°/s.)
+	# Der Anflug kommt hier nicht mehr vor, weil ein geradliniger Zuflug auf das Ziel kaum
+	# schwenkt und deshalb kein Vergleichswert ist. Dass die Umrundung der langsame Abschnitt
+	# ist, prueft der Test darueber: Sie bekommt mehr als die Haelfte der Zeit.
+	var grad_pro_sek: float = OW.INTRO_ORBIT_GRAD / OW.INTRO_SEK_RUNDE
+	_check("Die Umrundung schwenkt ruhig (%.1f °/s)" % grad_pro_sek, grad_pro_sek < 30.0)
+	# Der Weg bleibt trotzdem interessant — als Gegenprobe, dass Zeit und Radius zusammenpassen
+	# und niemand versehentlich eine Hetzjagd um eine Grossstadt gebaut hat.
+	var bogen_m: float = deg_to_rad(OW.INTRO_ORBIT_GRAD) * kam_r
+	_check("Die Kamera legt dabei %.0f m zurueck" % bogen_m, bogen_m > 120.0 and bogen_m < 400.0)
 
 
 ## Das Flackern von Esse und Fackeln.

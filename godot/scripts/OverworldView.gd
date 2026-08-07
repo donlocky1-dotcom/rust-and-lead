@@ -702,16 +702,48 @@ const VISTA_SEK_HEIM: float = 1.8
 ## Waagerecht UND senkrecht, und der senkrechte Teil ist der entscheidende: Die Höhe ist das,
 ## was „oben" bedeutet. Zwei Meter Spielraum, weil die aufgesetzten Buckel den Standplatz um
 ## etwa anderthalb Meter wellen — auf den Zentimeter genau wäre der Auslöser eine Falle.
-const VISTA_GIPFEL_TOL_M: float = 2.0
-const VISTA_PLATEAU_ZUGABE_M: float = 3.0
-func _auf_ausguck(f: Dictionary) -> bool:
+## Der Standplatz an der VORDERKANTE — dort, wo man hinsoll.
+##
+## Zwei Anläufe vorher, beide aus derselben Sorte Fehler: Erst der waagerechte Abstand zur
+## Felsmitte (auf der Rampe ist man dort acht Meter zu tief), dann zusätzlich die Höhe (besser,
+## aber immer noch geraten — man steht irgendwo oben, nicht an der Kante).
+##
+## Der Fehler war nicht die Formel, sondern der Ansatz: Ein Auslöser, den man nicht SIEHT, muss
+## raten, wo „richtig" ist. Also ein Ring, der leuchtet. Die Fußspur führt hinein, man stellt
+## sich hin, es geht los — kein Ratespiel und keine Toleranz, die mal zu groß und mal zu klein
+## ist.
+##
+## Der Punkt wird GEMESSEN, nicht gesetzt: vom Gipfel aus Richtung Rustwater nach außen, bis
+## der Boden abfällt. Das ist die Kante — und sie wandert mit, wenn jemand den Fels umbaut.
+const VISTA_KANTE_TOL_M: float = 1.2
+const VISTA_RING_R_M: float = 2.2
+func _vista_spot() -> Vector3:
+	var f: Dictionary = _feature("ausguck")
+	if f.is_empty():
+		return Vector3.INF
 	var mitte: Vector3 = WorldManager.feature_center(f)
-	var flach := Vector2(_player.position.x - mitte.x, _player.position.z - mitte.z)
-	if flach.length() > float(f["radius"]) * float(f["floor"]) + VISTA_PLATEAU_ZUGABE_M:
-		return false
+	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
+	var hin := Vector3(stadt.x - mitte.x, 0.0, stadt.z - mitte.z).normalized()
 	var gipfel: float = WorldManager.height_at(mitte.x, mitte.z)
-	var hier: float = WorldManager.height_at(_player.position.x, _player.position.z)
-	return hier >= gipfel - VISTA_GIPFEL_TOL_M
+	var best := Vector3(mitte.x, gipfel, mitte.z)
+	var d: float = 0.0
+	while d < float(f["radius"]):
+		d += 0.25
+		var q: Vector3 = mitte + hin * d
+		var h: float = WorldManager.height_at(q.x, q.z)
+		if h < gipfel - VISTA_KANTE_TOL_M:
+			break
+		best = Vector3(q.x, h, q.z)
+	# Ein gutes Stück von der Abbruchkante zurück: Man soll davor stehen, nicht darauf.
+	return best - hin * 1.2
+
+
+func _auf_ausguck(_f: Dictionary) -> bool:
+	var spot: Vector3 = _vista_spot()
+	if spot == Vector3.INF or _player == null:
+		return false
+	return Vector2(_player.position.x - spot.x, _player.position.z - spot.z).length() \
+		<= VISTA_RING_R_M
 func _maybe_vista() -> void:
 	if GameState.saw_vista or GameState.prolog_done or _player == null:
 		return
@@ -775,6 +807,78 @@ func _feature(id: String) -> Dictionary:
 		if String(f.get("id", "")) == id:
 			return f
 	return {}
+
+
+## Ein leuchtender Ring auf dem Boden: „hier hin".
+##
+## Gezeichnet, nicht als Modell — ein Ring ist zwei Zylinderringe und ein Material, und dafür
+## lohnt keine Datei. Additiv und unbeleuchtet, damit er in der Dämmerung und nachts gleich gut
+## zu sehen ist; ein beleuchteter Ring wäre im Schatten der Felskante genau dort unsichtbar, wo
+## er gebraucht wird.
+##
+## Er ATMET (langsames Pulsieren). Ein stehender Ring liest sich als Bodendekoration; erst die
+## Bewegung sagt „das gehört zu dir".
+const MARKE_FARBE: Color = Color(1.0, 0.80, 0.38)
+const MARKE_PULS_HZ: float = 0.55
+var _marke: Node3D = null
+func _marke_ring(pos: Vector3, radius: float) -> Node3D:
+	var n := Node3D.new()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = MARKE_FARBE
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	# Der Ring liegt auf unebenem Fels. Ohne das verschwindet die halbe Scheibe im Boden.
+	mat.no_depth_test = true
+	var ring := MeshInstance3D.new()
+	var t := TorusMesh.new()
+	t.inner_radius = radius * 0.86
+	t.outer_radius = radius
+	ring.mesh = t
+	ring.material_override = mat
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(ring)
+	# Eine schwache Scheibe darin — der blosse Umriss liest sich aus der Spielkamera als Loch.
+	var innen := MeshInstance3D.new()
+	var c := CylinderMesh.new()
+	c.top_radius = radius * 0.86
+	c.bottom_radius = radius * 0.86
+	c.height = 0.02
+	innen.mesh = c
+	var m2: StandardMaterial3D = mat.duplicate()
+	m2.albedo_color = Color(MARKE_FARBE.r, MARKE_FARBE.g, MARKE_FARBE.b, 0.16)
+	innen.material_override = m2
+	innen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(innen)
+	n.position = pos + Vector3(0.0, 0.12, 0.0)
+	add_child(n)
+	return n
+
+
+## Den Ring auf den Ausguck setzen — solange die Rundsicht noch aussteht.
+func _build_vista_marke() -> void:
+	if GameState.saw_vista or GameState.prolog_done:
+		return
+	var spot: Vector3 = _vista_spot()
+	if spot == Vector3.INF:
+		return
+	_marke = _marke_ring(spot, VISTA_RING_R_M)
+	_label(spot + Vector3(0.0, 1.9, 0.0), "◎ Aussicht", MARKE_FARBE, LBL_FIGUR, 120.0)
+
+
+func _process_marke(_delta: float) -> void:
+	if _marke == null or not is_instance_valid(_marke):
+		return
+	if GameState.saw_vista:
+		_marke.queue_free()
+		_marke = null
+		return
+	# Atmen: Groesse und Helligkeit zusammen, sonst wirkt es wie ein Wackelkontakt.
+	var t: float = sin(_flacker_t * TAU * MARKE_PULS_HZ) * 0.5 + 0.5
+	_marke.scale = Vector3.ONE * lerpf(0.94, 1.06, t)
+	for c in _marke.get_children():
+		var m: StandardMaterial3D = (c as MeshInstance3D).material_override
+		m.albedo_color.a = lerpf(0.55, 1.0, t) * (1.0 if c.get_index() == 0 else 0.24)
 
 
 ## Geroell auf dem Ausguck.
@@ -935,6 +1039,7 @@ func _ready() -> void:
 	_spawn_pack()
 	_build_chests()
 	_dress_ausguck()
+	_build_vista_marke()
 	_hp = float(PlayerStats.max_hp())
 	# Das Erwachen haengt an `saw_wake`, NICHT daran, ob ein Spielstand geladen wurde. Vorher
 	# hing es am Spielstand — und weil das Spiel automatisch speichert, bekam man die Szene nach
@@ -1582,8 +1687,14 @@ const INTRO_EYE_M: float = 1.62
 ## Der Radius kommt aus dem tatsaechlichen Umriss der Palisade (`_wall_umriss`) plus Abstand;
 ## eine feste Zahl waere in dem Moment falsch, in dem jemand im Editor ein Mauerstueck
 ## versetzt.
+##
+## 230° statt der urspruenglichen 250°: Um den Turm herum war der Bogen kurz und der Radius
+## klein, seit die Palisade umkreist wird liegt die Kamera 64 m draussen — und derselbe
+## Winkel in derselben Zeit heisst dort deutlich mehr Weg. Bei 250° schwenkte das Bild mit
+## knapp 30°/s, und das ist der Punkt, an dem eine Establishing-Fahrt anfaengt zu schmieren
+## statt zu zeigen. 230° reichen immer noch, um den Ort von allen Seiten zu sehen.
 const INTRO_ORBIT_RAND_M: float = 22.0
-const INTRO_ORBIT_GRAD: float = 250.0
+const INTRO_ORBIT_GRAD: float = 230.0
 const INTRO_ORBIT_H0: float = 24.0
 const INTRO_ORBIT_H1: float = 40.0
 ## Worauf geblickt wird: die Stadtmitte, etwas ueber den Daechern. Tiefer und man sieht die
@@ -3417,9 +3528,11 @@ func _prolog_ziel() -> Vector3:
 	var reich: float = WorldManager.feature_reach(f)
 	var d: float = Vector2(_player.position.x - mitte.x, _player.position.z - mitte.z).length()
 	if d <= reich + AUSGUCK_FUSS_M:
-		# Am Fels: hinauf. Ueber die Rampe kommt er von selbst, sie ist die einzige Seite, die
-		# die Steigungsgrenze durchlaesst.
-		return Vector3(mitte.x, WorldManager.height_at(mitte.x, mitte.z), mitte.z)
+		# Am Fels: in den leuchtenden Ring an der Vorderkante. Ueber die Rampe kommt er von
+		# selbst — sie ist die einzige Seite, die die Steigungsgrenze durchlaesst.
+		var spot: Vector3 = _vista_spot()
+		return spot if spot != Vector3.INF else Vector3(mitte.x,
+			WorldManager.height_at(mitte.x, mitte.z), mitte.z)
 	# Noch draussen: zum Fuss der Rampe. `ramp_deg` zaehlt wie ueberall im Gelaende — 0° ist
 	# Osten, und Norden ist −z, deshalb das Minus beim Sinus.
 	var w: float = deg_to_rad(float(f.get("ramp_deg", 0.0)))
@@ -5523,6 +5636,7 @@ func _process(delta: float) -> void:
 	_process_daytime(delta)
 	_process_speech(delta)
 	_process_wach(delta)
+	_process_marke(delta)
 	if _prolog_frage > 0.0:
 		_prolog_frage -= delta
 	_process_beats(delta)
