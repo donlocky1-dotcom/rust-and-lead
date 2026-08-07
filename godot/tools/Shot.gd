@@ -16,6 +16,7 @@ extends Node
 ##  • **Eigene Kamera.** Die Spielkamera folgt der Blickrichtung der Figur, und die ist nach
 ##    einem Sprung an einen Ort beliebig. Die ersten Bilder zeigten leeren Sand, waehrend
 ##    Stadt und Bahnhof hinter der Kamera lagen.
+const DayCycle = preload("res://scripts/DayCycle.gd")
 const OUT: String = "user://shot"
 var _views: Array = []
 var _i: int = -1
@@ -109,6 +110,10 @@ func _ready() -> void:
 	# Ende der ersten Etappe — der reine Blickpunkt des Helden, ohne Beimischung.
 	for anteil in ["0.17", "0.35", "0.60", "0.86", "0.96"]:
 		_views.append(["flug_" + anteil, null, "flug_" + anteil])
+	# Das Erwachen in der Schrottgrube — der erste Augenblick des Spiels. Zwei Stellen: der
+	# Blick von oben in die Grube und die Haltung, in der man dann spielt.
+	for anteil in ["0.25", "0.95"]:
+		_views.append(["wach_" + anteil, null, "wach_" + anteil])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -303,6 +308,32 @@ func _setup_ui(art: String) -> void:
 		# Stadtplatz aus schraeg darauf, damit Fassade UND Vorplatz im Bild sind.
 		_cam.position = rw2 + Vector3(6.0, 5.0, 17.0)
 		_cam.look_at(rw2 + Vector3(-11.0, 2.0, 0.0), Vector3.UP)
+		_cam.current = true
+	elif art.begins_with("wach_"):
+		# Der Anfang: die Figur liegt am Grund der Grube und steht auf, waehrend die Kamera von
+		# oben herunterkommt. Derselbe Aufbau wie bei den Flug-Bildern (siehe dort, warum die
+		# Welt dabei angehalten wird).
+		ow.set_process(true)
+		ow._end_flight()
+		ow._end_cine()
+		ow._close_character()
+		# Die ECHTE Anfangszeit, nicht Mitternacht: Der Prolog beginnt im Abendrot, und wie hell
+		# die Grube dabei ist, ist genau die Frage, die dieses Bild beantworten soll.
+		GameState.hour = DayCycle.START_HOUR
+		GameState.prolog_done = false
+		ow._apply_daytime()
+		ow._apply_night_lights()
+		var grube: Vector3 = ow._start_spawn()
+		ow._player.position = grube
+		ow._cam.position = grube + ow._cam_offset(ow._cam_dist)
+		ow._cam.look_at(grube + Vector3(0.0, 1.0, 0.0), Vector3.UP)
+		ow._erwachen()
+		ow._flight_t = ow._flight_total() * float(art.get_slice("_", 1).to_float())
+		ow.set_process(false)
+		var wf: Array = ow._flight_frame()
+		_cam.position = wf[0]
+		if wf[0].distance_to(wf[1]) > 0.05:
+			_cam.look_at(wf[1], Vector3.UP)
 		_cam.current = true
 	elif art.begins_with("flug_"):
 		# Der Anflug an einer bestimmten Stelle seiner Laufzeit. Die Fahrt wird echt ausgeloest

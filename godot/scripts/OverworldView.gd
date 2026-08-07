@@ -283,6 +283,94 @@ const STATION_SOLID_SHARE: float = 0.67
 func _in_town(pos: Vector3) -> bool:
 	return pos.distance_to(WorldManager.poi_scene_position("rustwater")) < TOWN_SAFE_M
 
+
+# ── Erzählte Momente: Text, der auf die Bewegung wartet ───────────────────────
+## Eine Folge von Textzeilen mit eigenen Einsätzen.
+##
+## `_say` kann einen Satz. Eine Szene besteht aber aus mehreren, und zwar zu bestimmten
+## Zeitpunkten — der zweite Satz kommt, wenn die Figur aufgestanden ist, nicht wenn sie sich
+## noch aufrappelt. Bisher hätte man dafür Timer-Knoten gebraucht oder alles in einen
+## überlangen Satz gepresst.
+##
+## Bewusst eine flache Liste und kein Zustandsautomat: Ein erzählter Moment ist eine Abfolge,
+## keine Verzweigung. Was verzweigt, ist das GESPRÄCH — und das gehört in die Dialogtabelle,
+## nicht hierher.
+##
+## Einträge: `{ "t": Sekunde ab Start, "text": String, "sek": Anzeigedauer }`
+var _beats: Array = []
+var _beat_t: float = 0.0
+func _play_beats(beats: Array) -> void:
+	_beats = beats.duplicate()
+	_beat_t = 0.0
+
+
+func _process_beats(delta: float) -> void:
+	if _beats.is_empty():
+		return
+	_beat_t += delta
+	# Von vorne durchgehen und alles ausgeben, was fällig ist. Mehrere gleichzeitig fällige
+	# Zeilen können nicht vorkommen, solange die Einsätze auseinanderliegen — und wenn doch,
+	# gewinnt die letzte, was richtig ist: Bei einem Bildratenhänger will man den aktuellen
+	# Stand sehen, nicht den übersprungenen.
+	while not _beats.is_empty() and _beat_t >= float(_beats[0]["t"]):
+		var b: Dictionary = _beats.pop_front()
+		_say(String(b["text"]), float(b.get("sek", 4.0)))
+
+
+## Das Aufwachen — der erste Augenblick des Spiels.
+##
+## Drei Dinge gleichzeitig: Die Figur steht auf (`Stand_Up1` liegt im Rig und wurde bisher nie
+## benutzt), die Kamera kommt von oben herunter in die Spielhaltung, und der Text kommt in zwei
+## Schüben statt als eine Wand.
+##
+## Warum von OBEN: Man liegt am Grund einer Grube. Der Blick von oben zeigt in einer Einstellung,
+## wo man ist — mitten im Schutt, allein, ohne Weg nach draußen im Bild. Aus Spielerhöhe wäre es
+## eine Nahaufnahme von Blech.
+##
+## Die alte Begrüßung („Willkommen im Krater — 5000 m Kante zu Kante") war ein Handbuch. Ein
+## Spiel, das mit seinen eigenen Maßen anfängt, hat noch nicht angefangen.
+const WACH_HOCH_M: float = 16.0
+const WACH_SEK: float = 3.4
+func _erwachen() -> void:
+	if _cam == null or _player == null:
+		return
+	AssetRegistry.play_clip(_player_model, "standup")
+	# Die Fahrt beginnt über der Figur; `_play_flight` merkt sich die Kamera, wie sie JETZT
+	# steht, also wird sie vorher dorthin gesetzt.
+	var kopf: Vector3 = _player.position + Vector3(0.0, 1.0, 0.0)
+	_cam.position = _player.position + Vector3(1.5, WACH_HOCH_M, 1.5)
+	_cam.look_at(kopf, Vector3.UP)
+	_play_flight([
+		{ "pos": _player.position + Vector3(2.2, WACH_HOCH_M * 0.45, 3.4), "ziel": kopf,
+			"sek": WACH_SEK * 0.55 },
+		{ "pos": _player.position + _cam_offset(_cam_dist), "ziel": kopf,
+			"sek": WACH_SEK * 0.45 },
+	])
+	_play_beats([
+		{ "t": 0.6, "text": "Dein Schädel dröhnt. Öl im Mund, Rost in der Nase.", "sek": 4.0 },
+		{ "t": 4.8, "text": "Du weißt nicht, wie du hierhergekommen bist. Und, jetzt wo du "
+			+ "darüber nachdenkst: auch nicht, wer dich hergebracht hat.", "sek": 6.0 },
+		{ "t": 11.4, "text": "🔦 Irgendwo hier liegt eine Truhe. Danach: der Weg nach Rustwater.",
+			"sek": 5.0 },
+	])
+
+
+## Rustwater betreten beendet den Prolog — einmalig.
+##
+## Ohne das wird `GameState.prolog_done` zwar gelesen (es entscheidet, wo eine Runde beginnt)
+## und gespeichert, aber NIE gesetzt: Der Prolog endete nie, und jeder Start warf einen wieder
+## auf die Kippe, auch mit zwei Kapiteln im Rücken.
+func _check_prolog_done() -> void:
+	if GameState.prolog_done or _player == null:
+		return
+	if not _in_town(_player.position):
+		return
+	GameState.prolog_done = true
+	_play_beats([
+		{ "t": 0.0, "text": "🏚 Rustwater. Erste Menschen seit dem Erwachen.", "sek": 4.0 },
+		{ "t": 4.5, "text": "Der Saloon hat offen. Mamma Mabel hat immer offen.", "sek": 4.5 },
+	])
+
 var _player: Node3D
 var _cam: Camera3D
 var _hp: float = 100.0
@@ -371,10 +459,12 @@ func _ready() -> void:
 	_build_chests()
 	_hp = float(PlayerStats.max_hp())
 	if _save_loaded:
-		_say("💾 Spielstand geladen — Lv %d · %d 💰 · 🎽 %d/%d   [Tab] Waffe" % [
+		_say("💾 Spielstand geladen — Lv %d · %d 💰 · 🎽 %d/%d" % [
 			GameState.level, GameState.gold, EquipManager.worn().size(), EquipManager.GEAR_SLOTS.size()], 4.0)
+	elif not GameState.prolog_done:
+		_erwachen()
 	else:
-		_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. Ziehen (Maus/Finger) = laufen, [Tab] wechselt die Waffe.", 5.0)
+		_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. Ziehen (Maus/Finger) = laufen.", 5.0)
 
 
 ## Lädt den laufenden Spielstand (falls vorhanden), BEVOR irgendetwas anderes GameState liest
@@ -1013,6 +1103,11 @@ func _apply_night_lights() -> void:
 
 func _apply_daytime() -> void:
 	var h: float = GameState.hour
+	# Die Lachen zeigen den Himmel — siehe `_add_puddle`. Nachts ist das Blaugrau, abends die
+	# Horizontglut; damit ist eine Pfuetze zu jeder Tageszeit das Hellste am Grund der Grube.
+	var himmel: Color = DayCycle.sky_color(h)
+	for pm in _puddles:
+		(pm as StandardMaterial3D).emission = himmel
 	if _moon != null:
 		var sicht: float = DayCycle.moon_visibility(h)
 		_moon.visible = sicht > 0.01
@@ -3066,6 +3161,10 @@ func _dress_rim(c: Vector3, f: Dictionary, rng: RandomNumberGenerator) -> void:
 ##
 ## Der einzige waagerechte, spiegelnde Fleck in einer Grube voller stumpfem Rost: Genau
 ## deshalb zieht er den Blick auf die Mitte, und genau dort soll der Held liegen.
+## Wie stark eine Lache den Himmel zeigt. Genug, dass sie im Schatten der Kraterwand noch da
+## ist — zu wenig, um im Sonnenlicht als Lampe zu wirken.
+const PUDDLE_HIMMEL: float = 0.55
+var _puddles: Array = []
 func _add_puddle(c: Vector3, f: Dictionary) -> void:
 	var mi := MeshInstance3D.new()
 	var disc := CylinderMesh.new()
@@ -3076,14 +3175,36 @@ func _add_puddle(c: Vector3, f: Dictionary) -> void:
 	mi.mesh = disc
 	var m := StandardMaterial3D.new()
 	# Nicht schwarz: Ein schwarzer Fleck im hellen Sand liest sich als LOCH, nicht als Wasser.
-	# Ein bisschen Eigenfarbe, mittlere Rauheit und etwas Metallic ergeben einen breiten
-	# Glanz statt eines Spiegels — und Glanz ist es, was eine Pfuetze im Bild ausmacht.
-	m.albedo_color = Color(0.14, 0.13, 0.10)
-	m.metallic = 0.40
-	m.roughness = 0.22
+	#
+	# Genau das war er trotzdem, und der Grund ist eine PBR-Falle: `metallic` bedeutet „diese
+	# Flaeche hat keine eigene Farbe, sie zeigt nur, was um sie herum ist". Die Welt hier steht
+	# aber auf `AMBIENT_SOURCE_COLOR` — es gibt keine Himmelsreflexion, die eine metallische
+	# Flaeche zurueckwerfen koennte. Ein Metall ohne Umgebung ist schwarz, und zwar vollstaendig.
+	# Im ersten Augenblick des Spiels lag die Figur damit in einem schwarzen Loch.
+	#
+	# Also kein Metall. Der nasse Eindruck kommt aus dem, was auch ohne Reflexionen traegt:
+	# geringe Rauheit fuer einen breiten Sonnenglanz (direktes Licht spiegelt sehr wohl),
+	# ein Randschimmer, und eine Eigenfarbe, die das Umgebungslicht ueberhaupt annehmen kann.
+	m.albedo_color = Color(0.20, 0.18, 0.14)
+	m.metallic = 0.0
+	m.roughness = 0.30
 	m.rim_enabled = true
 	m.rim = 0.6
+	# Und das, was sie ueberhaupt erst sichtbar macht: Sie zeigt den HIMMEL.
+	#
+	# Eine waagerechte Wasserflaeche spiegelt nicht die Sonne, sondern die Kuppel darueber —
+	# deshalb sieht man Pfuetzen auch im Schatten. Godot koennte das von selbst, wenn die Welt
+	# auf Himmelsreflexion stuende; sie steht aber auf `AMBIENT_SOURCE_COLOR`. Also wird der
+	# Himmel als Eigenleuchten nachgereicht, und `_apply_daytime` zieht ihn mit der Tageszeit
+	# nach: abends kupfern, nachts blaugrau.
+	m.emission_enabled = true
+	m.emission_energy_multiplier = PUDDLE_HIMMEL
+	# Gleich mit der richtigen Farbe anfangen. `_apply_daytime` zieht sie danach nach, laeuft
+	# aber erst im naechsten Bild — und ein Bild lang eine WEISSE Scheibe (die Vorgabe fuer
+	# `emission`) mitten in der Grube waere ein Blitz, den niemand erklaeren kann.
+	m.emission = DayCycle.sky_color(GameState.hour)
 	mi.mesh.surface_set_material(0, m)
+	_puddles.append(m)
 	mi.position = Vector3(c.x, WorldManager.height_at(c.x, c.z) + 0.02, c.z)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
@@ -4579,7 +4700,9 @@ func _process(delta: float) -> void:
 	_process_zone_title(delta)
 	_process_fog(delta)
 	_process_daytime(delta)
+	_process_beats(delta)
 	_maybe_intro_flight()
+	_check_prolog_done()
 	_process_interactions(delta)
 	_process_trail(delta)
 	_process_mount(delta)

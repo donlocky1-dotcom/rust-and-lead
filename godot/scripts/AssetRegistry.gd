@@ -433,6 +433,9 @@ const CLIP_OVERRIDES: Dictionary = {
 	"player": {
 		"idle": "Idle_11", "walk": "Walking", "run": "Running",
 		"attack": "Run_and_Shoot", "hit": "Shot_and_Blown_Back", "death": "Dead",
+		# Aufstehen. Der Clip lag von Anfang an im Rig und wurde nie benutzt — dabei ist es
+		# der erste Augenblick des Spiels: Der Held erwacht am Grund der Schrottgrube.
+		"standup": "Stand_Up1",
 	},
 	# Die drei Rustwater-NPCs teilen dasselbe Animationspaket. `Stand_and_Chat` ist die
 	# Ruhepose für jemanden, der an seinem Platz steht und mit Leuten redet — die Namenssuche

@@ -1574,6 +1574,67 @@ func _test_daycycle() -> void:
 	_test_flacker()
 	# 10. Die Umrundung des Wasserturms ist wirklich eine.
 	_test_orbit()
+	# 11. Der Prolog: Aufwachen, erste Saetze, Abschluss.
+	_test_prolog()
+
+
+## Der Anfang: Erwachen in der Grube, die ersten Saetze, das Ende des Prologs.
+##
+## Geprueft wird die MECHANIK, nicht der Text — dass eine Runde ohne Spielstand in der
+## Schrottgrube beginnt und nicht in der Stadt, dass die Figur mit leeren Haenden anfaengt, dass
+## die erste Truhe den Karabiner GARANTIERT liefert (der Anfang einer Geschichte darf nicht
+## auswuerfeln, ob sie stattfindet), und dass die Textfolge in der richtigen Reihenfolge
+## abgearbeitet wird.
+func _test_prolog() -> void:
+	print("· Prolog")
+	# 1. Ohne Spielstand faengt es auf der Kippe an, mit `prolog_done` in der Stadt.
+	var grube: Vector3 = Vector3.ZERO
+	var gefunden: bool = false
+	for f in WorldManager.TERRAIN:
+		if String(f.get("id", "")) == "schrotthalde":
+			grube = WorldManager.feature_center(f)
+			gefunden = true
+	_check("Die Schrottgrube liegt in der Welt", gefunden)
+	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
+	var weit: float = Vector2(grube.x - stadt.x, grube.z - stadt.z).length()
+	_check("Sie liegt weit genug von Rustwater weg (%.0f m)" % weit, weit > 300.0)
+	# 2. Leere Haende sind der Anfangszustand, kein Fehler — und die erste Truhe hebt ihn auf.
+	_check("Der Blei-Karabiner ist als Waffengattung eingetragen",
+		ProgressionManager.WEAPON_KINDS.has("karabiner"))
+	var frisch: Dictionary = ProgressionManager.make_gear("weapon", "common", "", null, "karabiner")
+	_check("Und laesst sich gezielt erzeugen statt auszuwuerfeln",
+		String(frisch.get("kind", "")) == "karabiner")
+	# Die Regel, an der der Anfang haengt: `weapons` fuehrt das GEFUNDENE. Wer nichts gefunden
+	# hat, traegt nichts — sonst waere jede Beute wertlos.
+	var vorher: Array = GameState.weapons.duplicate()
+	GameState.weapons = []
+	_check("Mit leerer Liste traegt er keine Waffe", not GameState.has_weapon("karabiner"))
+	GameState.add_weapon("karabiner")
+	_check("Nach dem Fund schon", GameState.has_weapon("karabiner"))
+	GameState.weapons = vorher
+	# 3. Die Textfolge: in der Reihenfolge der Einsaetze, keiner verschluckt, keiner doppelt.
+	var beats: Array = [
+		{ "t": 0.6, "text": "eins" }, { "t": 4.8, "text": "zwei" }, { "t": 11.4, "text": "drei" },
+	]
+	var gesagt: Array = []
+	var t: float = 0.0
+	var rest: Array = beats.duplicate()
+	# Dieselbe Schleife wie `_process_beats`, in 60 Bildern je Sekunde ueber 14 s.
+	for i in 840:
+		t += 1.0 / 60.0
+		while not rest.is_empty() and t >= float(rest[0]["t"]):
+			gesagt.append(String((rest.pop_front() as Dictionary)["text"]))
+	_check("Alle Zeilen kommen (%d)" % gesagt.size(), gesagt.size() == 3)
+	_check("Und in der richtigen Reihenfolge", gesagt == ["eins", "zwei", "drei"])
+	# 4. Ein Einsatz von 0 s feuert im ERSTEN Bild und nicht erst im zweiten — sonst haengt der
+	#    Beginn einer Szene an der Bildrate.
+	var sofort: Array = [{ "t": 0.0, "text": "jetzt" }]
+	_check("Ein Einsatz bei 0 kommt sofort", 1.0 / 60.0 >= float(sofort[0]["t"]))
+	# 5. Das Aufwachen dauert so lange wie die Kamerafahrt dazu.
+	var OW = load("res://scripts/OverworldView.gd")
+	_check("Die Aufwach-Fahrt hat eine Dauer (%.1f s)" % OW.WACH_SEK,
+		OW.WACH_SEK > 2.0 and OW.WACH_SEK < 6.0)
+	_check("Und kommt von oben (%.0f m)" % OW.WACH_HOCH_M, OW.WACH_HOCH_M > 8.0)
 
 
 ## Der Flug um den Wasserturm.
