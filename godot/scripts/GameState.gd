@@ -112,6 +112,8 @@ var saw_rustwater: bool = false
 ## Aufstehen wurde gezeigt". Wer mitten im Prolog speichert und wiederkommt, soll da weiter-
 ## machen, wo er war — und nicht jedes Mal neu aufstehen.
 var saw_wake: bool = false
+## Stand er schon oben auf dem Ausguck? Die Rundsicht laeuft einmal.
+var saw_vista: bool = false
 
 ## Tageszeit in Stunden (0–24). Laeuft in Echtzeit weiter und steht im Spielstand — wer abends
 ## aufhoert, faengt abends wieder an.

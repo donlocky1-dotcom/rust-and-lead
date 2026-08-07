@@ -643,6 +643,85 @@ func _process_wach(delta: float) -> void:
 		_wach_licht.light_energy = WACH_LICHT_ENERGIE * clampf(_wach_left / aus, 0.0, 1.0)
 
 
+## Der Ausguck — die Rundsicht oben auf der Anhoehe.
+##
+## Zwischen Schrottgrube und Rustwater liegt eine 24 m hohe Anhoehe mit steiler Klippe auf der
+## Stadtseite und einer Rampe auf der Grubenseite (siehe `WorldManager.TERRAIN`, „ausguck").
+## Wer aus der Grube kommt, sieht sie vor sich, steigt hinauf, um sich zu orientieren — und
+## genau dort oben nimmt die Kamera ihm die Sicht ab.
+##
+## Warum das der richtige Ort dafuer ist: Ein Ueberblick, den man sich ERGEHT, ist etwas anderes
+## als einer, den man geschenkt bekommt. Der Held weiss nicht, wo er ist; er sucht sich den
+## hoechsten Punkt und steigt hoch. Das ist eine Handlung, keine Zwischensequenz — die Kamera
+## bestaetigt sie nur.
+##
+## Die Fahrt: erst zurueck und hoch, dann eine Umrundung UM IHN HERUM, damit sich der ganze
+## Horizont hinter ihm dreht, dann ein Schwenk hinunter ins Tal auf Rustwater. Weitwinkel
+## (`VISTA_FOV`) statt der engen Spielkamera — ein Ueberblick, der durch ein Fernrohr
+## stattfindet, ist keiner.
+const VISTA_FOV: float = 78.0
+const VISTA_R_M: float = 17.0
+const VISTA_H0: float = 5.0
+const VISTA_H1: float = 26.0
+const VISTA_GRAD: float = 230.0
+const VISTA_SEK_AUF: float = 2.6
+const VISTA_SEK_RUNDE: float = 7.4
+const VISTA_SEK_TAL: float = 3.2
+const VISTA_SEK_HEIM: float = 1.8
+func _maybe_vista() -> void:
+	if GameState.saw_vista or GameState.prolog_done or _player == null:
+		return
+	if _in_cine() or _in_flight() or _overlay_open():
+		return
+	var f: Dictionary = _feature("ausguck")
+	if f.is_empty():
+		return
+	var mitte: Vector3 = WorldManager.feature_center(f)
+	var flach := Vector2(_player.position.x - mitte.x, _player.position.z - mitte.z)
+	# Oben auf dem Plateau — also innerhalb des flachen Teils, nicht schon an der Flanke.
+	if flach.length() > float(f["radius"]) * float(f["floor"]):
+		return
+	GameState.saw_vista = true
+	var p: Vector3 = _player.position
+	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
+	var zur_stadt := Vector3(stadt.x - p.x, 0.0, stadt.z - p.z).normalized()
+	var heim: Transform3D = _cam.global_transform
+	# Angefangen wird hinter ihm, auf der Grubenseite — da kommt er her.
+	var start: Vector3 = p - zur_stadt * VISTA_R_M + Vector3(0.0, VISTA_H0, 0.0)
+	var punkte: Array = [
+		{ "pos": start, "ziel": p + Vector3(0.0, 1.2, 0.0), "sek": VISTA_SEK_AUF,
+			"fov": VISTA_FOV },
+	]
+	# Um ihn herum. Er bleibt in der Mitte, der Horizont dreht sich — so sieht man die ganze
+	# Umgebung, ohne die Figur aus dem Bild zu verlieren.
+	punkte.append_array(orbit_punkte(Vector3(p.x, WorldManager.height_at(p.x, p.z), p.z), start,
+		VISTA_GRAD, VISTA_H0, VISTA_H1, 1.2, VISTA_SEK_RUNDE))
+	for q in punkte:
+		q["fov"] = VISTA_FOV
+	# Und hinunter ins Tal: ueber seine Schulter auf Rustwater. Der Punkt, auf den der ganze
+	# Aufstieg hinauslaeuft.
+	punkte.append({ "pos": p - zur_stadt * 9.0 + Vector3(0.0, 7.0, 0.0),
+		"ziel": stadt + Vector3(0.0, 4.0, 0.0), "sek": VISTA_SEK_TAL, "fov": VISTA_FOV })
+	punkte.append({ "pos": heim.origin, "ziel": heim.origin - heim.basis.z * 10.0,
+		"sek": VISTA_SEK_HEIM, "fov": CAM_FOV })
+	_play_flight(punkte)
+	_play_speech(HELD_NAME, "held", [
+		"„Von hier oben sieht man wenigstens etwas.“",
+		"„Wüste. Wüste. Und noch mal Wüste.“",
+		"„…da. Ganz hinten im Tal.“",
+		"„Dächer. Ein Turm. Und Licht — da lebt jemand.“",
+		"„Ein Fußmarsch. Aber der erste Weg, der irgendwohin führt.“",
+	])
+
+
+## Ein Gelaendestueck nach Kennung ({} = keins).
+func _feature(id: String) -> Dictionary:
+	for f in WorldManager.TERRAIN:
+		if String(f.get("id", "")) == id:
+			return f
+	return {}
+
+
 ## Rustwater betreten beendet den Prolog — einmalig.
 ##
 ## Ohne das wird `GameState.prolog_done` zwar gelesen (es entscheidet, wo eine Runde beginnt)
@@ -825,6 +904,7 @@ func _prolog_zuruecksetzen() -> void:
 	GameState.prolog_done = false
 	GameState.saw_rustwater = false
 	GameState.saw_wake = false
+	GameState.saw_vista = false
 	GameState.hour = DayCycle.START_HOUR
 	GameState.weapons = []
 	GameState.equip.erase("weapon")
@@ -890,6 +970,27 @@ func _solid_pillar(center: Vector3, radius: float) -> void:
 ## Steht dieser Punkt in einem Bauwerk? Grundlage der baulichen Begrenzung: in der Wildnis
 ## ist die Liste leer, in einer Aktionszone dicht — daher fühlt sich dieselbe Steuerung
 ## draußen weit und drinnen geführt an.
+## Zu steil zum Hinaufgehen?
+##
+## Bis jetzt gab es keine Steigungsgrenze: Man lief die 66°-Wand der Schrottgrube hoch wie eine
+## Fliege, und die Rampe war reine Deko. Das ist mit der Anhoehe nicht mehr tragbar — ihr ganzer
+## Sinn ist, dass man IHREN Weg nimmt und oben ankommt, statt irgendwo die Klippe hochzulaufen.
+##
+## Nur BERGAUF wird gesperrt. Hinunter darf man ueberall: Wer von der Kante springt, hat sich
+## dafuer entschieden, und eine Grenze in beide Richtungen wuerde jemanden festsetzen, der schon
+## auf einem steilen Stueck steht.
+##
+## 1,0 ist die Tangente von 45°. Eine Duenenflanke (30°) laeuft man hoch, eine Kraterwand (57°
+## im Mittel) nicht.
+const MAX_STEIGUNG: float = 1.0
+func _zu_steil(von: Vector3, nach: Vector3) -> bool:
+	var weit: float = Vector2(nach.x - von.x, nach.z - von.z).length()
+	if weit < 0.001:
+		return false
+	var hoch: float = WorldManager.height_at(nach.x, nach.z) - WorldManager.height_at(von.x, von.z)
+	return hoch / weit > MAX_STEIGUNG
+
+
 func _blocked(p: Vector3) -> bool:
 	var q := Vector2(p.x, p.z)
 	for b in _blockers:
@@ -5031,7 +5132,7 @@ func _end_flight() -> void:
 ## Zielpunkte zielen zwangslaeufig daneben — beim ersten Versuch punktgenau auf seine Stiefel.
 func _flight_punkt(p: Dictionary) -> Array:
 	if not bool(p.get("kopf", false)):
-		return [p["pos"], p["ziel"]]
+		return [p["pos"], p["ziel"], float(p.get("fov", CAM_FOV))]
 	var kopf: Vector3 = _kopf_welt()
 	if kopf.x >= INF:
 		kopf = (_player.position + Vector3(0.0, 1.0, 0.0)) if _player != null else Vector3.ZERO
@@ -5039,13 +5140,14 @@ func _flight_punkt(p: Dictionary) -> Array:
 	# Sonst haengt es vom Zufall der Figurendrehung ab, ob man ihr ins Gesicht oder auf den
 	# Ruecken sieht — und beim ersten Versuch war es der Ruecken.
 	var yaw: float = _player.rotation.y if _player != null else 0.0
-	return [kopf + Basis(Vector3.UP, yaw) * Vector3(p["pos"]), kopf]
+	return [kopf + Basis(Vector3.UP, yaw) * Vector3(p["pos"]), kopf, float(p.get("fov", CAM_FOV))]
 
 
 func _flight_frame() -> Array:
 	var t: float = _flight_t
 	var von_pos: Vector3 = _flight_von.origin
 	var von_ziel: Vector3 = von_pos - _flight_von.basis.z * 10.0
+	var von_fov: float = CAM_FOV
 	for p in _flight:
 		var sek: float = maxf(float(p["sek"]), 0.05)
 		var aufgeloest: Array = _flight_punkt(p)
@@ -5058,11 +5160,13 @@ func _flight_frame() -> Array:
 			# setzen `weich` auf false und tragen ihre Beschleunigung in der Verteilung der
 			# Stuetzpunkte (siehe `orbit_punkte`).
 			var k: float = smoothstep(0.0, 1.0, roh) if bool(p.get("weich", true)) else roh
-			return [von_pos.lerp(aufgeloest[0], k), von_ziel.lerp(aufgeloest[1], k)]
+			return [von_pos.lerp(aufgeloest[0], k), von_ziel.lerp(aufgeloest[1], k),
+				lerpf(von_fov, float(aufgeloest[2]), k)]
 		t -= sek
 		von_pos = aufgeloest[0]
 		von_ziel = aufgeloest[1]
-	return [von_pos, von_ziel]
+		von_fov = float(aufgeloest[2])
+	return [von_pos, von_ziel, von_fov]
 
 
 ## Stuetzpunkte fuer eine Umrundung — eine echte Kurve, keine Gerade daran vorbei.
@@ -5124,7 +5228,7 @@ func _process_camera(delta: float) -> void:
 		_cam.position = ff[0]
 		if ff[0].distance_to(ff[1]) > 0.05:
 			_cam.look_at(ff[1], Vector3.UP)
-		_cam.fov = CAM_FOV
+		_cam.fov = float(ff[2])
 		if _flight_t >= _flight_total():
 			_end_flight()
 		return
@@ -5172,6 +5276,7 @@ func _process(delta: float) -> void:
 	if _prolog_frage > 0.0:
 		_prolog_frage -= delta
 	_process_beats(delta)
+	_maybe_vista()
 	_maybe_intro_flight()
 	_check_prolog_done()
 	_process_interactions(delta)
@@ -5246,12 +5351,14 @@ func _process_movement(delta: float) -> void:
 	# geht durch denselben Test — nur ist die Blocker-Liste in der Wildnis leer, weshalb sich
 	# dort nichts anfühlt wie eine Wand. Achsenweise nachgeben, damit man an einer Hausecke
 	# entlanggleitet statt hängenzubleiben.
-	if not WorldManager.is_walkable(to_rel) or _blocked(next):
+	if not WorldManager.is_walkable(to_rel) or _blocked(next) or _zu_steil(_player.position, next):
 		var slide_x: Vector3 = Vector3(next.x, 0.0, _player.position.z)
 		var slide_z: Vector3 = Vector3(_player.position.x, 0.0, next.z)
-		if WorldManager.is_walkable(WorldManager.scene_to_world(slide_x)) and not _blocked(slide_x):
+		if WorldManager.is_walkable(WorldManager.scene_to_world(slide_x)) and not _blocked(slide_x) \
+				and not _zu_steil(_player.position, slide_x):
 			next = slide_x
-		elif WorldManager.is_walkable(WorldManager.scene_to_world(slide_z)) and not _blocked(slide_z):
+		elif WorldManager.is_walkable(WorldManager.scene_to_world(slide_z)) and not _blocked(slide_z) \
+				and not _zu_steil(_player.position, slide_z):
 			next = slide_z
 		else:
 			return   # in eine Ecke gelaufen — Position halten

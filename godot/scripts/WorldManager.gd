@@ -72,6 +72,30 @@ const TERRAIN: Array = [
 	{ "id": "schrotthalde", "kind": "crater", "poi": "schrott_minen",
 		"radius": 15.0, "depth": 5.0, "rim": 1.0, "rim_width": 0.36,
 		"floor": 0.78, "ramp_deg": 55.0, "ramp_span": 70.0 },
+	# Der Ausguck: eine Anhöhe auf halbem Weg zwischen Schrottgrube und Rustwater.
+	#
+	# Sie ist ein **umgedrehter Krater** — dieselbe Formel, `depth` negativ. Das ist kein Trick,
+	# sondern die richtige Bauweise: Das Höhenprofil eines Kraters ist ein flacher Boden, eine
+	# steile Wand und ein Sektor, in dem die Wand fehlt. Vorzeichen umgedreht ergibt genau das,
+	# was hier gebraucht wird: ein flaches Plateau, eine steil abfallende Klippe ringsum und
+	# EINE Seite, über die man hinaufkommt.
+	#
+	# Warum Gelände und kein 3D-Objekt: `height_at()` ist die einzige Wahrheit für Bodenhöhe im
+	# ganzen Spiel — daran hängen Laufen, Fußspuren, Streuung, jede Figur und jede Kiste. Ein
+	# aufgestelltes Modell wüsste davon nichts; man liefe hindurch, die Fußspur ginge darunter
+	# her, und Gegner ständen in der Luft. Als Formel gilt es überall, ohne dass irgendwo eine
+	# Zeile dafür geschrieben wird.
+	#
+	# Die Zahlen: 24 m hoch bei 46 m Radius, Plateau bis 52 % — das sind rund 22 m Wand auf 22 m
+	# Waagerechte, im Mittel 48° und an der steilsten Stelle über 60°. Da kommt niemand hoch.
+	# Die Rampe zeigt mit 135° zur Schrottgrube: Wer von dort kommt, findet den Aufstieg vor
+	# sich; die Klippe liegt auf der Seite von Rustwater (−45°), also genau dort, wo man steht,
+	# wenn man hinunterschaut.
+	#
+	# `scrap: false`, weil hier kein Müll liegt. Eine Anhöhe in der Wüste ist Fels, keine Halde.
+	{ "id": "ausguck", "kind": "crater", "x": 228, "y": 372, "scrap": false,
+		"radius": 46.0, "depth": -24.0, "rim": 0.0, "rim_width": 0.10,
+		"floor": 0.52, "ramp_deg": 135.0, "ramp_span": 62.0 },
 	# Das Wellenmeer: ein Dünenfeld östlich von Rustwater, 220 m breit. Nicht an einem Ort
 	# verankert, sondern frei auf der Karte — es IST die Landmarke.
 	#

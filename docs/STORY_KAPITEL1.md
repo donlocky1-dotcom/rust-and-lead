@@ -97,6 +97,42 @@ im Sattel gut eine.
 **5. Der Weg.** Die Fußspur führt aus der Grube nach Rustwater — und, seit die Palisade steht,
 **durch das Tor** statt gegen die Mauer.
 
+**5b. Der Ausguck.** Auf halbem Weg (276 m von der Grube, 255 m vor der Stadt) liegt eine
+**24 m hohe Anhöhe**: flaches Plateau, ringsum steile Klippe, auf der Grubenseite eine Rampe.
+Wer aus der Grube kommt, sieht sie vor sich und steigt hinauf, um sich zu orientieren.
+
+Das ist **Gelände, kein 3D-Objekt** — und zwar ein *umgedrehter Krater*: dieselbe Formel,
+`depth` negativ. Das Höhenprofil eines Kraters ist ein flacher Boden, eine steile Wand und ein
+Sektor, in dem die Wand fehlt; Vorzeichen gedreht ergibt genau das Gesuchte. `height_at()` ist
+die einzige Wahrheit für Bodenhöhe im ganzen Spiel — daran hängen Laufen, Fußspuren, Streuung,
+jede Figur und jede Kiste. Ein aufgestelltes Modell wüsste davon nichts: Man liefe hindurch, die
+Fußspur ginge darunter her, Gegner ständen in der Luft.
+
+Gemessen: **Klippe 58°, Rampe 38°.** Dazwischen liegt die neue **Steigungsgrenze von 45°** — bis
+jetzt gab es keine, man lief die 66°-Wand der Schrottgrube hoch wie eine Fliege und ihre Rampe
+war reine Deko. Gesperrt wird nur *bergauf*; wer von der Kante springt, hat sich dafür
+entschieden.
+
+Oben übernimmt die Kamera ein zweites Mal — **15 Sekunden im Weitwinkel** (78° statt 50°):
+
+1. Zurück und hoch, hinter ihm (2,6 s)
+2. **Um ihn herum**, 230°, von 5 auf 26 m steigend (7,4 s) — er bleibt in der Mitte, der ganze
+   Horizont dreht sich hinter ihm
+3. Schwenk über seine Schulter **hinunter ins Tal auf Rustwater** (3,2 s)
+4. Zurück in die Ausgangshaltung (1,8 s)
+
+> **DER NAMENLOSE:** „Von hier oben sieht man wenigstens etwas."
+> „Wüste. Wüste. Und noch mal Wüste."
+> „…da. Ganz hinten im Tal."
+> „Dächer. Ein Turm. Und Licht — da lebt jemand."
+> „Ein Fußmarsch. Aber der erste Weg, der irgendwohin führt."
+
+**Warum das der richtige Ort dafür ist:** Ein Überblick, den man sich *ergeht*, ist etwas anderes
+als einer, den man geschenkt bekommt. Der Held weiß nicht, wo er ist; er sucht sich den höchsten
+Punkt und steigt hoch. Das ist eine Handlung, keine Zwischensequenz — die Kamera bestätigt sie
+nur. Der Anflug bei 95 m (Punkt 6) bleibt davon unberührt: Der Ausguck sagt *„dahin"*, der
+Anflug sagt *„da bin ich"*.
+
 **6. Der Anblick.** Auf **95 m** übernimmt die Kamera, einmal im ganzen Spiel — **sechzehn
 Sekunden**, jederzeit mit einem Tipp abbrechbar. Solange die Fahrt läuft, steht die Figur; sonst
 liefe sie weiter, während die Kamera anderswo ist, und die Fahrt endete dreißig Meter hinter ihr.

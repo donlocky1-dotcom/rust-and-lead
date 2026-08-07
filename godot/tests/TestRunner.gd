@@ -1699,6 +1699,57 @@ func _test_prolog() -> void:
 		quelle.contains("Aufsitzen") and quelle.contains("Absteigen"))
 	_check("Und Taste wie Knopf fragen dieselbe Reichweite ab",
 		quelle.count("_pferd_greifbar()") >= 2)
+	# 6b. Der Ausguck: eine Anhoehe zwischen Grube und Stadt, auf die man STEIGT.
+	#
+	# Gebaut als umgedrehter Krater — dieselbe Formel, `depth` negativ. Geprueft wird, dass das
+	# Profil auch wirklich tut, was es soll: a_oben flach, ringsum zu steil zum Hochlaufen, und
+	# genau EINE Seite begehbar.
+	var aus: Dictionary = {}
+	for f in WorldManager.TERRAIN:
+		if String(f.get("id", "")) == "ausguck":
+			aus = f
+	_check("Die Anhoehe steht in der Welt", not aus.is_empty())
+	if aus.is_empty():
+		return
+	var a_mitte: Vector3 = WorldManager.feature_center(aus)
+	var a_oben: float = WorldManager.height_at(a_mitte.x, a_mitte.z)
+	_check("Sie ist hoch genug fuer eine Aussicht (%.0f m)" % a_oben, a_oben > 15.0)
+	# Zwischen Grube und Stadt, nicht daneben: Wer den einen Weg geht, kommt daran vorbei.
+	var a_grube: Vector3 = WorldManager.poi_scene_position("schrott_minen")
+	var stadt2: Vector3 = WorldManager.poi_scene_position("rustwater")
+	var d_g: float = Vector2(a_mitte.x - a_grube.x, a_mitte.z - a_grube.z).length()
+	var d_s: float = Vector2(a_mitte.x - stadt2.x, a_mitte.z - stadt2.z).length()
+	var a_direkt: float = Vector2(stadt2.x - a_grube.x, stadt2.z - a_grube.z).length()
+	_check("Sie liegt auf dem Weg (%.0f + %.0f m gegen %.0f m direkt)" % [d_g, d_s, a_direkt],
+		d_g + d_s < a_direkt * 1.10)
+	# Die Klippe ist zu steil zum Hochlaufen, die Rampe nicht. Gemessen am Profil selbst.
+	var r_a: float = float(aus["radius"])
+	var steilste: float = 0.0
+	var rampe: float = 0.0
+	for i in 400:
+		var a_t: float = float(i) / 400.0
+		# Richtung Rustwater = Klippe, Gegenrichtung = Rampe.
+		for seite in [1.0, -1.0]:
+			var richt: Vector2 = Vector2(stadt2.x - a_mitte.x, stadt2.z - a_mitte.z).normalized() * seite
+			var a: Vector3 = a_mitte + Vector3(richt.x, 0.0, richt.y) * (a_t * r_a)
+			var b: Vector3 = a_mitte + Vector3(richt.x, 0.0, richt.y) * (a_t * r_a + 0.4)
+			var stg: float = (WorldManager.height_at(a.x, a.z) - WorldManager.height_at(b.x, b.z)) / 0.4
+			if seite > 0.0:
+				steilste = maxf(steilste, stg)
+			else:
+				rampe = maxf(rampe, stg)
+	var OW2 = load("res://scripts/OverworldView.gd")
+	_check("Die Klippe ist zu steil zum Hochlaufen (%.0f°)" % rad_to_deg(atan(steilste)),
+		steilste > OW2.MAX_STEIGUNG)
+	_check("Die Rampe nicht (%.0f°)" % rad_to_deg(atan(rampe)), rampe < OW2.MAX_STEIGUNG)
+	# Und die Grenze greift ueberhaupt: Vorher gab es keine, man lief die 66°-Kraterwand hoch
+	# wie eine Fliege und die Rampe war Deko.
+	_check("Es gibt eine Steigungsgrenze (%.0f°)" % rad_to_deg(atan(OW2.MAX_STEIGUNG)),
+		OW2.MAX_STEIGUNG > 0.5 and OW2.MAX_STEIGUNG < 2.0)
+	_check("Die Rundsicht laeuft nur einmal", quelle.contains("GameState.saw_vista = true"))
+	_check("Und im Weitwinkel (%.0f° gegen %.0f° im Spiel)" % [OW2.VISTA_FOV, OW2.CAM_FOV],
+		OW2.VISTA_FOV > OW2.CAM_FOV * 1.3)
+
 	# 7. Die Startschalter, ohne die man den Prolog nach dem ersten Start nie wiedersieht —
 	#    das Spiel speichert automatisch, es gibt also kein „noch nicht gespeichert".
 	_check("Es gibt einen Schalter fuer ein neues Spiel", OW.ARG_NEU == "--neu")

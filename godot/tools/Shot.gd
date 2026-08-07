@@ -114,6 +114,18 @@ func _ready() -> void:
 	# Blick von oben in die Grube und die Haltung, in der man dann spielt.
 	for anteil in ["0.25", "0.50", "0.72", "0.95"]:
 		_views.append(["wach_" + anteil, null, "wach_" + anteil])
+	# Der Ausguck: die Anhoehe zwischen Grube und Stadt. Einmal von der Seite (steht die Klippe
+	# wirklich steil?) und einmal von oben herab Richtung Rustwater — der Blick, auf den der
+	# ganze Aufstieg hinauslaeuft.
+	var berg: Vector3 = WorldManager.world_to_scene(Vector2(228.0, 372.0))
+	berg.y = WorldManager.height_at(berg.x, berg.z)
+	var zur_stadt: Vector3 = (rw - berg)
+	zur_stadt.y = 0.0
+	zur_stadt = zur_stadt.normalized()
+	_views.append(["ausguck_seite", berg + zur_stadt * 120.0 + Vector3(0.0, 26.0, 0.0),
+		berg + Vector3(0.0, 6.0, 0.0)])
+	_views.append(["ausguck_oben", berg + Vector3(0.0, 9.0, 0.0) - zur_stadt * 14.0,
+		rw + Vector3(0.0, 6.0, 0.0)])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
