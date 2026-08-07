@@ -70,7 +70,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_poi_walkable": 22,
 	"_test_town_walkable": 17,
 	"_test_enemy_attacks": 20,
-	"_test_daycycle": 191,
+	"_test_daycycle": 197,
 	"_test_dialog": 22,
 	"_test_memory_manager": 29,
 	"_test_encounter_manager": 24,
@@ -2064,6 +2064,27 @@ func _test_prolog() -> void:
 	# also behielt den Lauf-Clip, wer beim Start der Fahrt gerade lief. Die Figur rannte auf der
 	# Stelle weiter. Beim Anflug auf Rustwater faellt das nicht auf — die Kamera ist weit weg —,
 	# auf dem Ausguck dagegen kreist sie auf 8,5 m um genau diese Figur.
+	# 6d. Der Vorspann. Das Video laeuft vor dem Erwachen und muendet hinein.
+	_check("Der Vorspann liegt vor dem Erwachen",
+		quelle.contains("if not _vorspann_starten():\n\t\t\t_erwachen()"))
+	# Und er endet ueber SCHWARZ, nicht mit einem Schnitt ins Helle: Ein harter Wechsel vom Film
+	# auf die Grube waere ein Sprung zwischen zwei Bildqualitaeten, und genau daran erkennt man
+	# eine eingeklebte Sequenz.
+	_check("Er blendet ins Schwarze und geht von dort weiter",
+		quelle.contains("VORSPANN_BLENDE_SEK") and quelle.contains("VORSPANN_SCHWARZ_SEK")
+		and quelle.contains("_erwachen()"))
+	# Die Welt ruht dabei. Sonst spielte das Spiel hinter dem Film weiter, und wer ihn zu Ende
+	# sieht, faende die Figur woanders vor als der, der ihn wegtippt.
+	_check("Waehrend des Vorspanns ruht die Welt",
+		quelle.contains("if _im_vorspann():\n\t\treturn\n\t_process_vorspann(delta)"))
+	_check("Und ein Tipp ueberspringt ihn",
+		quelle.contains("if druck and _im_vorspann():"))
+	# Fehlt die Datei, faellt der Vorspann still aus — ein Intro darf nie zwischen dem Spieler
+	# und dem Spiel stehen.
+	_check("Ohne Videodatei faengt das Spiel trotzdem an",
+		quelle.contains("if not ResourceLoader.exists(VORSPANN_PFAD):"))
+	_check("Die Videodatei ist da und ist Theora",
+		FileAccess.file_exists("res://assets/video/intro_muellkippe.ogv"))
 	_check("Waehrend einer Kamerafahrt stehen auch die Beine still",
 		quelle.contains('if _wach_left <= 0.0:\n\t\t\tAssetRegistry.play_clip(_player_model, "idle")'))
 	# Und die Fussspur fuehrt auch wirklich ueber die Kuppe, statt quer ueber die Flanke zu zeigen.

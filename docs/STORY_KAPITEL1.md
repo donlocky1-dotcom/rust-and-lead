@@ -28,6 +28,24 @@ sich die Anlaufrichtung ändert) sind alle Messwerte wieder die alten: Gipfel 16
 rechts der Achse, Rampe 39°, Klippe 77°. Auch der Ausgang der Grube zeigt jetzt zum Fels (119°)
 statt irgendwohin.
 
+**Davor läuft der Film.** `intro_muellkippe.ogv` spielt vor dem Erwachen und mündet hinein —
+nicht als Vorspann *neben* dem Spiel, sondern als sein erster Satz. Nahtlos heißt dabei zweierlei,
+und das zweite ist das schwierigere:
+
+* **Kein Schnitt ins Helle.** Der Film endet, das Bild geht über 1,2 s ins Schwarze, hält dort
+  0,7 s, und aus dem Schwarz kommt die Grube hoch. Ein harter Wechsel wäre ein Sprung zwischen
+  zwei Bildqualitäten — genau daran erkennt man eine eingeklebte Sequenz. Der Moment Schwarz
+  nimmt dem Auge den Vergleich ab.
+* **Kein Wechsel der Erzählhaltung.** Der Film zeigt die Müllkippe; das Erwachen fängt dicht am
+  Gesicht an. Das eine geht ins andere über, weil beide dieselbe Frage stellen — *wer liegt da* —
+  und nicht, weil sie aneinandergeklebt sind. Deshalb läuft der Text erst **nach** dem Film an.
+
+Solange er läuft, ruht die Welt vollständig: keine Bewegung, keine Gegner, keine Auslöser. Sonst
+spielte das Spiel hinter dem Film weiter, und wer ihn zu Ende sieht, fände die Figur woanders vor
+als der, der ihn wegtippt. Ein Tipp überspringt ihn — dieselbe Regel wie bei jeder Kamerafahrt.
+Fehlt die Videodatei, fällt der Vorspann still aus und das Spiel fängt beim Erwachen an: Ein
+Intro darf nie zwischen dem Spieler und dem Spiel stehen.
+
 Der Held erwacht **in der Lache am Grund der Schrottgrube**. Kein Menü, keine Erklärung. Die
 Lache ist der einzige freie Fleck im Schutt — der einzige Ort, an dem man liegen kann; genau
 deshalb wird sie beim Füllen ausgespart.

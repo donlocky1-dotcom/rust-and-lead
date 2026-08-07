@@ -1177,7 +1177,9 @@ func _ready() -> void:
 	# hing es am Spielstand — und weil das Spiel automatisch speichert, bekam man die Szene nach
 	# dem allerersten Start nie wieder zu sehen, auch nicht nach einem Zuruecksetzen.
 	if not GameState.saw_wake and not GameState.prolog_done:
-		_erwachen()
+		# Erst der Film, dann das Erwachen — und wenn der Film fehlt, eben gleich das Erwachen.
+		if not _vorspann_starten():
+			_erwachen()
 	elif _save_loaded:
 		_say("💾 Spielstand geladen — Lv %d · %d 💰 · 🎽 %d/%d" % [
 			GameState.level, GameState.gold, EquipManager.worn().size(), EquipManager.GEAR_SLOTS.size()], 4.0)
@@ -5122,6 +5124,12 @@ func _input(event: InputEvent) -> void:
 	var druck: bool = (event is InputEventScreenTouch and event.pressed) \
 		or (event is InputEventMouseButton and event.pressed) \
 		or (event is InputEventKey and event.pressed and not event.echo)
+	# Der Vorspann geht VOR allem anderen — auch vor der Sprechtafel, denn waehrend er laeuft
+	# steht dort nichts. Wer den Film schon kennt, tippt ihn weg.
+	if druck and _im_vorspann():
+		_vorspann_ueberspringen()
+		get_viewport().set_input_as_handled()
+		return
 	# Solange Text auf der Tafel steht, BLAETTERT ein Tipp — er bricht nicht die Fahrt ab.
 	# Andersherum waere der erste Tipp im Spiel gleichzeitig das Ueberspringen des Anfangs.
 	if druck and _dialog != null and _dialog.visible:
@@ -5896,6 +5904,16 @@ func _process_camera(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	# Der Vorspann liegt VOR allem. Solange er laeuft, gibt es keine Welt, die etwas tun
+	# koennte: keine Bewegung, keine Gegner, keine Ausloeser. Sonst spielte das Spiel hinter
+	# dem Film weiter, und wer ihn zu Ende sieht, faende die Figur woanders vor als der, der
+	# ihn wegtippt.
+	if _im_vorspann():
+		return
+	_process_vorspann(delta)
+	# Nach dem Film haelt der schwarze Deckel noch kurz — auch dann ruht die Welt.
+	if _vorspann_t >= 0.0:
+		return
 	_process_movement(delta)
 	_process_facing(delta)
 	_process_camera(delta)
@@ -6697,3 +6715,106 @@ func _update_hud() -> void:
 			_feed_map(_world_map, ep)
 	if Time.get_ticks_msec() / 1000.0 > _toast_until:
 		_toast.text = ""
+
+# ── Der Vorspann ──────────────────────────────────────────────────────────────
+## Das Video laeuft VOR dem Erwachen und geht nahtlos hinein.
+##
+## Nahtlos heisst hier zweierlei, und das zweite ist das schwierigere:
+##
+##  1. **Kein Schnitt ins Helle.** Der Film endet, das Bild wird schwarz, und aus dem Schwarz
+##     kommt die Spielszene hoch. Ein harter Wechsel vom Film auf die Grube waere ein Sprung
+##     zwischen zwei Bildqualitaeten, und genau daran erkennt man eine eingeklebte Sequenz.
+##  2. **Kein Wechsel der Erzaehlhaltung.** Der Film zeigt die Muellkippe; das Erwachen faengt
+##     dicht am Gesicht an. Das eine geht ins andere ueber, weil beide dieselbe Frage stellen —
+##     *wer liegt da* —, und nicht, weil sie aneinandergeklebt sind. Deshalb laeuft der Text
+##     erst NACH dem Film an, nicht darueber.
+##
+## Godot 4 spielt ueber `VideoStreamPlayer` nur Ogg Theora. Fehlt die Datei (etwa in einem
+## Zweig, in dem sie nicht mitgeliefert wird), faellt der Vorspann still aus und das Spiel
+## faengt beim Erwachen an — ein Intro darf nie zwischen dem Spieler und dem Spiel stehen.
+const VORSPANN_PFAD: String = "res://assets/video/intro_muellkippe.ogv"
+## Wie lange das Bild am Ende ins Schwarze geht, und wie lange es schwarz BLEIBT, bevor die
+## Grube auftaucht. Der Moment Schwarz ist der eigentliche Uebergang: Er nimmt dem Auge den
+## Vergleich zwischen Film und Spielbild ab.
+const VORSPANN_BLENDE_SEK: float = 1.2
+const VORSPANN_SCHWARZ_SEK: float = 0.7
+var _vorspann: VideoStreamPlayer = null
+var _vorspann_deckel: ColorRect = null
+var _vorspann_t: float = -1.0        # < 0 = laeuft nicht; sonst Restzeit des Ausblendens
+
+
+## Startet den Vorspann. `false`, wenn es keinen gibt — dann geht es sofort weiter.
+func _vorspann_starten() -> bool:
+	if not ResourceLoader.exists(VORSPANN_PFAD):
+		return false
+	var strom: VideoStream = load(VORSPANN_PFAD) as VideoStream
+	if strom == null:
+		return false
+	var lage := CanvasLayer.new()
+	# UEBER alles, auch ueber die Weltkarte und die Sprechtafel.
+	lage.layer = 128
+	add_child(lage)
+	_vorspann = VideoStreamPlayer.new()
+	_vorspann.stream = strom
+	_vorspann.expand = true
+	_vorspann.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lage.add_child(_vorspann)
+	# Der Deckel liegt UEBER dem Film und wird am Ende aufgezogen. Er bleibt danach liegen,
+	# bis die Spielszene steht — sonst blitzt zwischen letztem Filmbild und erstem Spielbild
+	# ein Einzelbild der ungeblendeten Welt auf.
+	_vorspann_deckel = ColorRect.new()
+	_vorspann_deckel.color = Color(0.0, 0.0, 0.0, 0.0)
+	_vorspann_deckel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vorspann_deckel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lage.add_child(_vorspann_deckel)
+	_set_hud_hidden(true)
+	_vorspann.finished.connect(_vorspann_ende)
+	_vorspann.play()
+	return true
+
+
+## Ein Tipp oder eine Taste ueberspringt den Film. Wer ihn schon kennt, soll ihn nicht
+## aussitzen muessen — dieselbe Regel wie bei jeder Kamerafahrt im Prolog.
+func _vorspann_ueberspringen() -> void:
+	if _vorspann == null or not is_instance_valid(_vorspann):
+		return
+	if _vorspann.is_playing():
+		_vorspann.stop()
+	_vorspann_ende()
+
+
+func _vorspann_ende() -> void:
+	if _vorspann_t >= 0.0:
+		return   # laeuft schon aus
+	_vorspann_t = VORSPANN_BLENDE_SEK + VORSPANN_SCHWARZ_SEK
+
+
+## Ausblenden, Schwarz halten, aufraeumen, Erwachen starten.
+func _process_vorspann(delta: float) -> void:
+	if _vorspann_t < 0.0:
+		return
+	_vorspann_t -= delta
+	if _vorspann_deckel != null and is_instance_valid(_vorspann_deckel):
+		# In der Blende zu, danach schwarz. Der Film laeuft dahinter aus; ihn zu stoppen waere
+		# ein Bildsprung, denn sein letztes Bild bliebe sonst stehen.
+		var zu: float = clampf(
+			(VORSPANN_BLENDE_SEK + VORSPANN_SCHWARZ_SEK - _vorspann_t) / VORSPANN_BLENDE_SEK,
+			0.0, 1.0)
+		_vorspann_deckel.color = Color(0.0, 0.0, 0.0, zu)
+	if _vorspann_t > 0.0:
+		return
+	_vorspann_t = -1.0
+	if _vorspann != null and is_instance_valid(_vorspann):
+		var lage: Node = _vorspann.get_parent()
+		if lage != null:
+			lage.queue_free()
+	_vorspann = null
+	_vorspann_deckel = null
+	_set_hud_hidden(false)
+	# Und jetzt die Szene, in die der Film gemuendet ist.
+	_erwachen()
+
+
+## Laeuft gerade der Vorspann? Solange sperrt er alles andere — Bewegung, Kamera, Ausloeser.
+func _im_vorspann() -> bool:
+	return _vorspann != null and is_instance_valid(_vorspann)
