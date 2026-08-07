@@ -51,7 +51,7 @@ Umgebungslicht, die Figur war eine Silhouette ohne Gesicht — im Augenblick, in
 nächsten ist. Deshalb hat die Szene ein eigenes Licht: warm, tief, von der Seite, wie die letzte
 Sonne über dem Kraterrand. Es geht am Ende mit der Kamerafahrt unter.
 
-**Er redet, und die Tafel läuft von selbst weiter.** Vierzehn Zeilen, jede so lange stehend,
+**Er redet, und die Tafel läuft von selbst weiter.** Sechzehn Zeilen, jede so lange stehend,
 wie sie zu lesen braucht; ein Tipp überspringt die Restzeit. Erst der Körper, dann der Ort,
 dann die Frage nach ihm selbst — und die bleibt offen:
 
@@ -68,10 +68,18 @@ dann die Frage nach ihm selbst — und die bleibt offen:
 > „…"
 > „Auch das noch nicht. Gut. Später."
 > „Wasser. Ich brauch Wasser, und was zu essen, und was zum Festhalten."
-> „Und dann rede ich mit dem Ersten, der mir über den Weg läuft."
+> „Aber zuerst muss ich mich orientieren. Ich weiß ja nicht mal, wo ich hier bin."
+> „Da drüben ragt was aus dem Sand. Ein Fels, hoch genug."
+> „Von da oben sehe ich vielleicht mehr als Blech und Dreck."
+
 
 Dass die Frage nach dem Namen unbeantwortet stehenbleibt, ist der ganze Aufbau der Geschichte
 in einem Satz.
+
+Die letzten drei Zeilen sind der **Auftrag an den Spieler**: Er sagt selbst, dass er sich
+orientieren muss, und er sagt selbst, wohin — auf den Fels. Danach zeigt die Fußspur genau
+dorthin. Ohne diese Zeilen wäre die Spur eine Anweisung von außen; mit ihnen ist sie sein
+eigener Entschluss.
 
 Die **Lache**, auf der er liegt, zeigt den Himmel — abends kupfern, nachts blaugrau. Ohne das
 war sie ein schwarzes Loch, das die Figur verschluckte: `metallic` ohne Himmelsreflexion ist

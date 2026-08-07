@@ -472,8 +472,14 @@ var _wach_tempo: float = 1.0
 ## Geschmack, das Klebrige im Haar), dann der Ort, dann die Frage nach ihm selbst — und die
 ## bleibt offen. Zum Schluss das Einzige, was jetzt zaehlt: Wasser, und etwas in der Hand.
 ##
-## Dass die letzte Frage („Wie heisse ich?") unbeantwortet stehenbleibt, ist der ganze Aufbau
-## der Geschichte in einem Satz.
+## Dass die Frage nach dem Namen unbeantwortet stehenbleibt, ist der ganze Aufbau der Geschichte
+## in einem Satz.
+##
+## Und der SCHLUSS nennt das naechste Ziel: „Der Fels da drueben." Damit begruendet die Szene
+## die Fussspur, statt sie nur zu haben — der Spieler geht nicht einem Wegweiser nach, sondern
+## dem, was die Figur gerade gesagt hat. Vorher endete sie mit „dann rede ich mit dem Ersten,
+## der mir ueber den Weg laeuft", und das setzte voraus, dass er von Menschen weiss. Er weiss
+## noch gar nichts.
 static func _wach_zeilen() -> Array:
 	return [
 		"„…hh.“",
@@ -489,7 +495,9 @@ static func _wach_zeilen() -> Array:
 		"„…“",
 		"„Auch das noch nicht. Gut. Später.“",
 		"„Wasser. Ich brauch Wasser, und was zu essen, und was zum Festhalten.“",
-		"„Und dann rede ich mit dem Ersten, der mir über den Weg läuft.“",
+		"„Aber zuerst muss ich mich orientieren. Ich weiß ja nicht mal, wo ich hier bin.“",
+		"„Da drüben ragt was aus dem Sand. Ein Fels, hoch genug.“",
+		"„Von da oben sehe ich vielleicht mehr als Blech und Dreck.“",
 	]
 
 
