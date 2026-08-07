@@ -21,22 +21,35 @@ Kosmetik, sondern der Bauplan des Prologs: Der Held erwacht in der Dämmerung, u
 Richtung Rustwater geht, wird es Nacht. Zu Fuß dauert der Kilometer vier Minuten — acht
 Spielstunden, Ankunft gegen **01:40**. Im Sattel reicht es gerade für die Dämmerung.
 
-**1. Aufwachen.** Fünf Sekunden. Die Figur stemmt sich hoch (`Stand_Up1`), während die Kamera
-aus 16 m Höhe in die Spielhaltung herunterkommt. Von oben, weil man am Grund einer Grube liegt:
-Eine Einstellung zeigt, wo man ist — mitten im Schutt, allein, ohne Weg nach draußen im Bild.
+**1. Aufwachen.** Neun Sekunden, der ganze `Stand_Up1`-Clip — „langsames Aufstehen" heißt
+langsam. Vier Kamera-Etappen:
 
-Der Clip dauert 8,3 s, gezeigt wird das **Ende**. Die ersten Sekunden liegt die Figur nur da;
-das ist als Animation richtig und als Spielanfang eine Zumutung. Wie weit hineingesprungen wird,
-rechnet der Code aus der tatsächlichen Clip-Länge — beim nächsten Rig stimmt es wieder.
+1. **Der Ort** (2,3 s) — aus 16 m Höhe. Eine Einstellung zeigt, wo er liegt: mitten im Schutt,
+   allein, ohne Weg nach draußen im Bild.
+2. **Heran** (2,2 s) — auf gut drei Meter, Kniehöhe. Ab hier ist die Figur das Bild.
+3. **Mitgehen** (2,9 s) — langsam seitlich, während er sich hochstemmt, der Blick wandert mit
+   ihm nach oben. Der längste Abschnitt; hier passiert das, worum es geht.
+4. **Zurück** (1,6 s) in die Spielhaltung.
 
-Dazu die ersten Sätze, in drei Schüben statt als Wand:
+Dazu spricht **er selbst**, in der Sprechtafel, und man blättert weiter:
 
-> *Dein Schädel dröhnt. Öl im Mund, Rost in der Nase.*
+> **DER NAMENLOSE:** „…hh. Mein Schädel."
 >
-> *Du weißt nicht, wie du hierhergekommen bist. Und, jetzt wo du darüber nachdenkst: auch nicht,
-> wer dich hergebracht hat.*
+> „Öl im Mund. Rost in der Nase. Und ich lieg in irgendeiner Brühe."
 >
-> *🔦 Irgendwo hier liegt eine Truhe. Danach: der Weg nach Rustwater.*
+> „Wie komm ich hier runter? … Nichts. Da ist nichts."
+>
+> „Wer legt einen Mann auf eine Müllkippe und lässt ihn liegen?"
+>
+> „Erst mal was zum Festhalten. Dann sehen wir weiter."
+
+Vorher lief das über die Meldungszeile oben — hinter den Werten, nach vier Sekunden weg, und
+formuliert von einem Erzähler („Dein Schädel dröhnt"), also von einer Stimme, die im ganzen
+restlichen Spiel nicht mehr vorkommt. Die Sprechtafel gab es längst, sie stand nur den
+Auftraggebern zur Verfügung.
+
+Solange Text auf der Tafel steht, **blättert** ein Tipp — er bricht nicht die Fahrt ab.
+Andersherum wäre der erste Tipp im Spiel gleichzeitig das Überspringen des Anfangs.
 
 Die **Lache**, auf der er liegt, zeigt den Himmel — abends kupfern, nachts blaugrau. Ohne das
 war sie ein schwarzes Loch, das die Figur verschluckte: `metallic` ohne Himmelsreflexion ist
@@ -76,7 +89,7 @@ Torfackeln sind einzeln zu erkennen, und der Sand vor der Palisade glüht.
 |---|---|---|---|
 | 1 | **In seine Sicht** — auf Augenhöhe, Blick auf die Stadt | 2,8 s | steht |
 | 2 | **Anflug** — über Wüste und Palisade hinauf auf Turmhöhe, in einem Zug | 2,8 s | ~34 m/s |
-| 3 | **Um den Wasserturm** — 190°, dabei von 15 auf 22 m steigend | 8,4 s | ~11 m/s |
+| 3 | **Um die Palisade** — 250°, Blick nach innen, von 24 auf 40 m steigend | 8,4 s | ~30 m/s |
 | 4 | **Zurück, Blick auf der Stadt** | 1,2 s | schnell |
 | 5 | **Einschwenken** in die Ausgangshaltung | 0,8 s | — |
 
@@ -98,15 +111,17 @@ Er **endet exakt in der Ausgangshaltung** — nicht „über der Figur nachgerec
 beim Start gemerkte Kamera-Transform. Das ist dieselbe Zusage auch dann noch, wenn jemand
 zwischendurch den Zoom verstellt hat.
 
-**Die Richtung der Umrundung ist keine Geschmacksfrage.** Der Turm steht am *Rand* von
-Rustwater, nicht in der Mitte: Von innen sieht man ihn vor leerer Wüste, von außen vor der
-beleuchteten Stadt. Die Fahrt beginnt deshalb innen — Turm vor schwarzem Nichts, ein
-geschlossenes Bild — und endet außen, wo er sich vor dem Ort auflöst. Andersherum finge der
-Anflug mit seinem besten Bild an und arbeitete sich davon weg.
+**Umrundet wird die Palisade, nicht der Wasserturm.** Der erste Entwurf kreiste um den Turm,
+weil er die Landmarke ist. Im Bild war das eine Fahrt um ein Fass: Der Turm füllte den Rahmen,
+die Stadt lag als Streifen dahinter, und weil er am *Ortsrand* steht, schaute die halbe
+Umrundung nach draußen in die Wüste.
 
-190° und nicht 360°: Eine volle Runde kommt dort wieder heraus, wo sie angefangen hat, und die
-letzten neunzig Grad zeigen dasselbe Bild ein zweites Mal. Etwas mehr als eine halbe Runde
-reicht für den Umschlag von „Turm vor Nichts" zu „Turm vor der Stadt".
+Um die Mauer herum, mit dem Blick nach **innen**, zeigt jede Sekunde dasselbe Motiv aus einer
+neuen Richtung: den beleuchteten Ort. Der Turm ist dabei nicht weg — er dreht sich als
+Silhouette durch das Bild, so wie man ihn beim Herangehen auch sieht.
+
+Der Radius kommt aus dem **tatsächlichen** Umriss der Palisade plus 22 m Abstand; eine feste
+Zahl wäre in dem Moment falsch, in dem jemand im Editor ein Mauerstück versetzt.
 
 Dazu die Zeile: *„🌙 Rustwater. Licht in der Wüste."* Der Flug merkt sich in
 `GameState.saw_rustwater`, dass er gelaufen ist — er kommt nicht wieder.

@@ -266,6 +266,17 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   | **Wasserturm** | Laterne unter dem Kessel, weit und schwach | Die Landmarke, an der man Rustwater von weitem erkennt. Ohne Licht wäre sie nachts weg. |
   | **Bahnsteig** | Eine Lampe | Eine Station ohne Licht findet nachts niemand, und reisen soll man auch im Dunkeln. |
 
+  **Der Mond ist eine eigene Lampe.** Vorher lief das Nachtlicht über dieselbe gerichtete
+  Quelle wie die Sonne — und die steht nachts bei −14°, also *unter* dem Horizont. Das Licht
+  strich von unten durch den Boden und beleuchtete praktisch nichts, während die Mondscheibe
+  sichtbar bei +52° am Himmel hing: Quelle und Wirkung widersprachen sich, und 84 % eines
+  Nachtbilds lagen unter 12/255 — schwarz, nicht dunkel. Jetzt gibt es zwei gerichtete Lichter,
+  Sonne und Mond, jedes aus seiner Richtung.
+
+  Die Helligkeit kommt dabei aus dem **gerichteten** Mondlicht, nicht aus dem Umgebungslicht.
+  Umgebungslicht hat keine Richtung: Es hebt alles gleichmäßig an und macht aus einer Mondnacht
+  einen trübe beleuchteten Tag. Es füllt nur so weit auf, dass die Schattenseite nicht absäuft.
+
   **Schatten nur, wo sie etwas erzählen.** Ein Punktlicht mit Schatten kostet sechs
   Schattenkarten — also tragen genau zwei sie: das Raumlicht im Saloon und das Feuer in der
   Esse. Ohne sie schiene beides durch die Wände und die Häuser sähen aus wie aus Papier; mit

@@ -112,7 +112,7 @@ func _ready() -> void:
 		_views.append(["flug_" + anteil, null, "flug_" + anteil])
 	# Das Erwachen in der Schrottgrube — der erste Augenblick des Spiels. Zwei Stellen: der
 	# Blick von oben in die Grube und die Haltung, in der man dann spielt.
-	for anteil in ["0.25", "0.95"]:
+	for anteil in ["0.25", "0.50", "0.72", "0.95"]:
 		_views.append(["wach_" + anteil, null, "wach_" + anteil])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.

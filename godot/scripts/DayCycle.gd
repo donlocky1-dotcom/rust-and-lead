@@ -104,15 +104,39 @@ static func sun_color(stunde: float) -> Color:
 ## sondern als Lichtquelle: Er wirft eigene, harte Schatten und zeichnet die Landschaft in
 ## Blaugrau. Ein Viertel der Mittagssonne ist die Größenordnung, in der man eine Wüstennacht
 ## bei klarem Himmel tatsächlich erlebt; darunter sieht man nichts, darüber wird es Tag.
-const MOND_ENERGIE: float = 0.42
+## GEMESSEN, nicht geschaetzt. Bei 0,42 waren 84 % eines Nachtbilds unter 12/255 — also
+## schwarz, nicht dunkel. Man sah die Lichter der Stadt und sonst nichts; die Wueste dazwischen
+## war ein Loch, und ein Spiel, in dem man nachts nicht laufen kann, hat keine Nacht, sondern
+## eine Pause.
+##
+## Eine Wuestennacht bei Vollmond und klarem Himmel ist HELL — man liest keine Zeitung, aber man
+## sieht den Weg, die Kante eines Felsens und den eigenen Schatten. Genau das ist der Anspruch:
+## Der Mond wirft harte Schatten, die Farbe ist blaugrau, aber die Form der Welt bleibt lesbar.
+const MOND_ENERGIE: float = 0.34
 static func sun_energy(stunde: float) -> float:
-	return lerpf(MOND_ENERGIE, 1.7, daylight(stunde))
+	return lerpf(0.0, 1.7, daylight(stunde))
+
+
+## Das Mondlicht — eine EIGENE gerichtete Lichtquelle, nicht ein Bodensatz der Sonnenenergie.
+##
+## Vorher war es genau das: `sun_energy` gab nachts einfach `MOND_ENERGIE` zurueck, und dieses
+## Licht kam aus der Richtung der SONNE. Die steht nachts bei −14°, also unter dem Horizont —
+## das Licht strich von unten durch den Boden und beleuchtete praktisch nichts. Gleichzeitig
+## haengte die Mondscheibe sichtbar bei +52° am Himmel. Quelle und Wirkung widersprachen sich,
+## und die Nacht war schwarz.
+##
+## Zwei gerichtete Lichter kosten eine zweite Schattenkarte. Das ist der Preis dafuer, dass
+## Sonne und Mond gleichzeitig existieren duerfen — und in der Daemmerung tun sie das
+## tatsaechlich, weshalb ein einzelnes umschaltendes Licht dort einen Sprung machen wuerde.
+const MOND_FARBE: Color = Color(0.62, 0.70, 0.95)
+static func moon_energy(stunde: float) -> float:
+	return MOND_ENERGIE * (1.0 - smoothstep(0.0, 0.28, daylight(stunde)))
 
 
 ## Himmelsfarbe. Der Bronzehimmel der Story-Bibel bei Tag, tiefes Blaugrau bei Nacht.
 static func sky_color(stunde: float) -> Color:
 	var t: float = daylight(stunde)
-	var nacht := Color(0.045, 0.055, 0.085)
+	var nacht := Color(0.055, 0.068, 0.105)
 	var glut := Color(0.42, 0.24, 0.16)      # Horizontglut zur Dämmerung
 	var tag := Color(0.55, 0.55, 0.42)
 	if t < 0.35:
@@ -123,13 +147,18 @@ static func sky_color(stunde: float) -> Color:
 ## Umgebungslicht (der Himmelsanteil, der in die Schatten fällt).
 static func ambient_color(stunde: float) -> Color:
 	var t: float = daylight(stunde)
-	return Color(0.16, 0.20, 0.34).lerp(Color(0.62, 0.66, 0.78), smoothstep(0.0, 0.6, t))
+	return Color(0.21, 0.26, 0.42).lerp(Color(0.62, 0.66, 0.78), smoothstep(0.0, 0.6, t))
 
 
 static func ambient_energy(stunde: float) -> float:
 	# Nachts DEUTLICH weniger, sonst ist die Nacht nur ein blauer Anstrich. Der Unterschied
 	# zwischen Licht- und Schattenseite muss auch nachts bestehen bleiben, sonst wird alles flach.
-	return lerpf(0.15, 0.32, daylight(stunde))
+	# Nachts DEUTLICH weniger als tagsueber — und deutlich weniger, als man beim ersten
+	# Aufhellen versucht ist zu nehmen. Umgebungslicht hat keine Richtung: Es hebt alles
+	# gleichmaessig an und macht aus einer Mondnacht einen truebe beleuchteten Tag. Die
+	# Helligkeit muss vom gerichteten MONDLICHT kommen, das Schatten wirft; das Umgebungslicht
+	# fuellt nur so weit auf, dass die Schattenseite nicht schwarz absaeuft.
+	return lerpf(0.11, 0.42, daylight(stunde))
 
 
 ## Wo steht der Mond? Gegenüber der Sonne — er geht auf, wenn sie untergeht.
@@ -152,7 +181,7 @@ static func moon_visibility(stunde: float) -> float:
 
 ## Nebelfarbe — nachts kalt, tagsüber staubig.
 static func fog_color(stunde: float) -> Color:
-	return Color(0.07, 0.09, 0.14).lerp(Color(0.62, 0.62, 0.52),
+	return Color(0.10, 0.13, 0.19).lerp(Color(0.62, 0.62, 0.52),
 		smoothstep(0.0, 0.6, daylight(stunde)))
 
 

@@ -285,6 +285,57 @@ func _in_town(pos: Vector3) -> bool:
 
 
 # ── Erzählte Momente: Text, der auf die Bewegung wartet ───────────────────────
+## Wer spricht, wenn der Held selbst spricht.
+##
+## Er hat keinen Namen — das ist Teil der Geschichte („Wer aus dem Schrott kommt, hat meistens
+## keinen mehr"). Ein leeres Namensfeld saehe aber nach Fehler aus, und „DU" waere Erzaehlung
+## statt Rede. Also das, was er in diesem Augenblick IST.
+const HELD_NAME: String = "Der Namenlose"
+
+## Mehrseitige Rede in der Sprechtafel — die Tafel wartet, der Spieler blättert.
+##
+## Bisher lief die Prolog-Erzählung durch `_say()`, also durch dieselbe Einblendung, die auch
+## „Beutel voll" meldet: oben im Bild, hinter den Werten, nach vier Sekunden weg. Für einen
+## Nebensatz reicht das; für den ersten Satz des Spiels nicht. Die Sprechtafel gibt es längst,
+## sie stand nur den Auftraggebern allein zur Verfügung.
+##
+## Und der Held redet SELBST. Vorher stand dort ein Erzähler („Dein Schädel dröhnt") — das ist
+## eine Stimme, die im ganzen restlichen Spiel nicht mehr vorkommt.
+var _speech: Array = []
+var _speech_name: String = ""
+var _speech_giver: String = ""
+func _play_speech(name_text: String, giver: String, zeilen: Array) -> void:
+	if _dialog == null or zeilen.is_empty():
+		return
+	_speech = zeilen.duplicate()
+	_speech_name = name_text
+	_speech_giver = giver
+	_naechste_zeile()
+
+
+func _in_speech() -> bool:
+	return not _speech.is_empty()
+
+
+func _naechste_zeile() -> void:
+	if _dialog == null:
+		return
+	if _speech.is_empty():
+		_dialog.visible = false
+		return
+	_dialog.show_line(_speech_name, String(_speech.pop_front()), _speech_giver)
+
+
+## Die Tafel wurde weggetippt. Erst blättern, dann beenden.
+func _on_dialog_dismissed() -> void:
+	if not _speech.is_empty():
+		_naechste_zeile()
+		return
+	if _dialog != null:
+		_dialog.visible = false
+	_end_cine()
+
+
 ## Eine Folge von Textzeilen mit eigenen Einsätzen.
 ##
 ## `_say` kann einen Satz. Eine Szene besteht aber aus mehreren, und zwar zu bestimmten
@@ -340,7 +391,15 @@ func _process_beats(delta: float) -> void:
 ## tatsaechlichen Clip-Laenge. Wer das Rig austauscht, bekommt automatisch den passenden
 ## Einsprung statt einer Figur, die zu frueh steht.
 const WACH_HOCH_M: float = 16.0
-const WACH_SEK: float = 5.0
+## Und wie NAH sie herankommt. Die Fahrt aus 16 m Hoehe zeigt den Ort; das Aufstehen zeigt sie
+## erst, wenn sie unten ist. Drei Meter neben der Figur, auf Kniehoehe — von dort sieht man,
+## wie sich jemand aus einer Lache hochstemmt, statt einen Punkt im Schutt.
+const WACH_NAH_M: float = 3.2
+const WACH_AUGE_M: float = 1.15
+## Der ganze Clip, nicht sein Ende: „langsames Aufstehen" heisst langsam. `Stand_Up1` dauert
+## 8,27 s, und die Kamerafahrt bekommt dieselbe Zeit — plus einen Atemzug, in dem er einfach
+## steht, bevor man ihn steuern darf.
+const WACH_SEK: float = 9.0
 ## Solange > 0, gehoert die Figur der Aufwach-Animation: `_process_movement` fasst den Clip
 ## nicht an. Ohne das ueberschriebe „idle" ihn im ersten Bild nach der Kamerafahrt, und der
 ## Held schnellte aus dem Liegen in den Stand.
@@ -349,26 +408,36 @@ func _erwachen() -> void:
 	if _cam == null or _player == null:
 		return
 	GameState.saw_wake = true
-	var laenge: float = AssetRegistry.clip_length(_player_model, "standup")
-	AssetRegistry.play_clip(_player_model, "standup", false, maxf(laenge - WACH_SEK, 0.0))
+	AssetRegistry.play_clip(_player_model, "standup", false)
 	_wach_left = WACH_SEK
 	# Die Fahrt beginnt über der Figur; `_play_flight` merkt sich die Kamera, wie sie JETZT
 	# steht, also wird sie vorher dorthin gesetzt.
-	var kopf: Vector3 = _player.position + Vector3(0.0, 1.0, 0.0)
+	var kopf: Vector3 = _player.position + Vector3(0.0, WACH_AUGE_M, 0.0)
+	var liegend: Vector3 = _player.position + Vector3(0.0, 0.25, 0.0)
 	_cam.position = _player.position + Vector3(1.5, WACH_HOCH_M, 1.5)
-	_cam.look_at(kopf, Vector3.UP)
+	_cam.look_at(liegend, Vector3.UP)
+	# Vier Etappen: von oben herunter, ganz nah heran, langsam mitgehen, dann heraus.
 	_play_flight([
-		{ "pos": _player.position + Vector3(2.2, WACH_HOCH_M * 0.45, 3.4), "ziel": kopf,
-			"sek": WACH_SEK * 0.55 },
-		{ "pos": _player.position + _cam_offset(_cam_dist), "ziel": kopf,
-			"sek": WACH_SEK * 0.45 },
+		# 1. Der Ort. Aus 16 m sieht man, WO er liegt — mitten im Schutt, allein.
+		{ "pos": _player.position + Vector3(1.2, WACH_HOCH_M * 0.62, 2.0), "ziel": liegend,
+			"sek": WACH_SEK * 0.26 },
+		# 2. Heran, auf Kniehoehe. Ab hier ist die Figur das Bild und nicht mehr die Grube.
+		{ "pos": _player.position + Vector3(WACH_NAH_M * 0.62, 0.95, WACH_NAH_M * 0.78),
+			"ziel": liegend + Vector3(0.0, 0.25, 0.0), "sek": WACH_SEK * 0.24 },
+		# 3. Mitgehen, waehrend er sich hochstemmt: langsam seitlich, der Blick wandert mit ihm
+		#    nach oben. Der laengste Abschnitt — hier passiert das, worum es geht.
+		{ "pos": _player.position + Vector3(-WACH_NAH_M * 0.55, 1.45, WACH_NAH_M * 0.92),
+			"ziel": kopf, "sek": WACH_SEK * 0.32 },
+		# 4. Zurueck in die Spielhaltung.
+		{ "pos": _player.position + _cam_offset(_cam_dist),
+			"ziel": _player.position + Vector3(0.0, 1.0, 0.0), "sek": WACH_SEK * 0.18 },
 	])
-	_play_beats([
-		{ "t": 0.6, "text": "Dein Schädel dröhnt. Öl im Mund, Rost in der Nase.", "sek": 4.0 },
-		{ "t": 4.8, "text": "Du weißt nicht, wie du hierhergekommen bist. Und, jetzt wo du "
-			+ "darüber nachdenkst: auch nicht, wer dich hergebracht hat.", "sek": 6.0 },
-		{ "t": 11.4, "text": "🔦 Irgendwo hier liegt eine Truhe. Danach: der Weg nach Rustwater.",
-			"sek": 5.0 },
+	_play_speech(HELD_NAME, "held", [
+		"„…hh. Mein Schädel.“",
+		"„Öl im Mund. Rost in der Nase. Und ich lieg in irgendeiner Brühe.“",
+		"„Wie komm ich hier runter? … Nichts. Da ist nichts.“",
+		"„Wer legt einen Mann auf eine Müllkippe und lässt ihn liegen?“",
+		"„Erst mal was zum Festhalten. Dann sehen wir weiter.“",
 	])
 
 
@@ -383,9 +452,10 @@ func _check_prolog_done() -> void:
 	if not _in_town(_player.position):
 		return
 	GameState.prolog_done = true
-	_play_beats([
-		{ "t": 0.0, "text": "🏚 Rustwater. Erste Menschen seit dem Erwachen.", "sek": 4.0 },
-		{ "t": 4.5, "text": "Der Saloon hat offen. Mamma Mabel hat immer offen.", "sek": 4.5 },
+	_play_speech(HELD_NAME, "held", [
+		"„Rustwater. Also gibt es die wirklich.“",
+		"„Licht im Saloon. Um die Zeit ist da noch jemand wach.“",
+		"„Reden wir mit dem, der wach ist.“",
 	])
 
 var _player: Node3D
@@ -806,6 +876,15 @@ func _build_environment() -> void:
 	env.fog_sky_affect = 0.0
 	we.environment = env
 	add_child(we)
+	# Die zweite gerichtete Lampe: der Mond. Sie steht dort, wo die Scheibe steht, und uebernimmt,
+	# sobald die Sonne unter dem Horizont ist.
+	var mond := DirectionalLight3D.new()
+	mond.light_color = DayCycle.MOND_FARBE
+	mond.light_energy = 0.0
+	mond.shadow_enabled = true
+	mond.directional_shadow_max_distance = sun.directional_shadow_max_distance
+	add_child(mond)
+	_moonlight = mond
 	_sun = sun
 	_env = env
 	_apply_daytime()
@@ -998,6 +1077,17 @@ func _light_tower(r: Dictionary) -> void:
 		22.0, 2.4, false, 0.55, NIGHT_LIGHT_COLOR, 0.10)
 
 
+## Wie weit reicht Rustwater? Groesster Abstand der Palisade von der Ortsmitte.
+##
+## Aus dem gemessenen Umriss, nicht aus einer Zahl: Wer im Editor ein Mauerstueck nach aussen
+## setzt, verschiebt damit auch die Kamerafahrt, die aussen herumfliegen soll.
+func _ort_radius() -> float:
+	var groesste: float = 0.0
+	for r in _wall_umriss:
+		groesste = maxf(groesste, float(r))
+	return groesste if groesste > 5.0 else 42.0
+
+
 ## Der Anflug auf Rustwater — einmal im Spiel, beim ersten Anblick der Stadt.
 ##
 ## Der Held erwacht in der Daemmerung auf der Kippe; waehrend er losgeht, wird es Nacht. Wenn
@@ -1022,18 +1112,26 @@ const INTRO_SIGHT_M: float = 95.0
 const INTRO_EYE_M: float = 1.62
 ## Die Umrundung: Abstand, Bogen, Hoehe am Anfang und am Ende.
 ##
-## 190° und nicht 360°: Eine volle Runde kommt genau dort wieder heraus, wo sie angefangen hat,
-## und die letzten neunzig Grad zeigen dasselbe Bild ein zweites Mal. Etwas mehr als eine halbe
-## Runde reicht — sie beginnt auf der Stadtseite des Turms und endet draussen, und mehr braucht
-## es fuer den Umschlag von „Turm vor Nichts" zu „Turm vor der Stadt" nicht.
+## Umrundet wird die PALISADE, nicht der Wasserturm.
 ##
-## Sie STEIGT dabei von 15 auf 22 m. Eine Umrundung auf gleicher Hoehe ist ein Karussell; mit
-## dem Steigen wird sie zur Aufloesung — am Ende schaut man von oben auf den Ort, und genau
-## dorthin geht die Spielkamera zurueck.
-const INTRO_ORBIT_R: float = 27.0
-const INTRO_ORBIT_GRAD: float = 190.0
-const INTRO_ORBIT_H0: float = 15.0
-const INTRO_ORBIT_H1: float = 22.0
+## Der erste Entwurf kreiste um den Turm, weil er die Landmarke ist. Im Bild war das aber eine
+## Fahrt um ein Fass: Der Turm fuellte den Rahmen, die Stadt lag als Streifen dahinter, und die
+## halbe Umrundung schaute nach draussen in die Wueste, weil der Turm am Ortsrand steht.
+##
+## Um die Mauer herum, mit dem Blick nach INNEN, zeigt jede Sekunde dasselbe Motiv aus einer
+## neuen Richtung: den beleuchteten Ort. Der Turm ist dabei nicht weg — er dreht sich als
+## Silhouette durch das Bild, so wie man ihn beim Herangehen auch sieht.
+##
+## Der Radius kommt aus dem tatsaechlichen Umriss der Palisade (`_wall_umriss`) plus Abstand;
+## eine feste Zahl waere in dem Moment falsch, in dem jemand im Editor ein Mauerstueck
+## versetzt.
+const INTRO_ORBIT_RAND_M: float = 22.0
+const INTRO_ORBIT_GRAD: float = 250.0
+const INTRO_ORBIT_H0: float = 24.0
+const INTRO_ORBIT_H1: float = 40.0
+## Worauf geblickt wird: die Stadtmitte, etwas ueber den Daechern. Tiefer und man sieht die
+## Rueckseite der naechsten Huette, hoeher und der Ort rutscht aus dem Bild.
+const INTRO_BLICK_H: float = 7.0
 
 ## Die Zeiten. Zusammen **sechzehn Sekunden**.
 ##
@@ -1068,24 +1166,13 @@ func _maybe_intro_flight() -> void:
 		return
 	GameState.saw_rustwater = true
 	var hin: Vector3 = flach.normalized()
-	var turm3: Vector3 = _turm_punkt(stadt)
-	var turm := Vector3(turm3.x, WorldManager.height_at(turm3.x, turm3.z), turm3.z)
 	var auge: Vector3 = _player.position + Vector3(0.0, INTRO_EYE_M, 0.0)
-	# Wo die Umrundung anfaengt, entscheidet die Achse Turm–Stadt, nicht die Anflugrichtung.
-	#
-	# Der Wasserturm steht am RAND von Rustwater, nicht in der Mitte. Bei 27 m Radius liegt die
-	# halbe Kreisbahn deshalb ausserhalb der Palisade und die andere Haelfte drinnen — und was
-	# man sieht, haengt daran, auf welcher Seite man gerade ist: von aussen steht die Stadt
-	# HINTER dem Turm, von innen die leere Wueste.
-	#
-	# Also faengt die Fahrt auf der Stadtseite an (Turm vor schwarzem Nichts, ein geschlossenes,
-	# dunkles Bild) und endet draussen — dort loest sich der Turm vor der beleuchteten Stadt
-	# auf. Andersherum faengt der Anflug mit seinem besten Bild an und arbeitet sich davon weg.
-	var zur_stadt := Vector3(stadt.x - turm.x, 0.0, stadt.z - turm.z)
-	# Steht der Turm in der Mitte (die vom Code gebaute Stadt), gibt es keine solche Achse —
-	# dann tut es die Anflugrichtung.
-	zur_stadt = (-hin) if zur_stadt.length() < 1.0 else zur_stadt.normalized()
-	var start: Vector3 = turm + zur_stadt * INTRO_ORBIT_R + Vector3(0.0, INTRO_ORBIT_H0, 0.0)
+	# Der Kreis liegt um die MITTE des Ortes, sein Radius kommt aus der Palisade selbst.
+	var mitte := Vector3(stadt.x, WorldManager.height_at(stadt.x, stadt.z), stadt.z)
+	var radius: float = _ort_radius() + INTRO_ORBIT_RAND_M
+	# Angefangen wird dort, wo die Kamera herkommt — auf der Seite der Figur. Sonst muesste sie
+	# erst quer ueber die Stadt, bevor der Kreis ueberhaupt beginnt.
+	var start: Vector3 = mitte - hin * radius + Vector3(0.0, INTRO_ORBIT_H0, 0.0)
 	# Wohin die Fahrt am Ende zurueckkehrt: GENAU dorthin, wo sie angefangen hat. Nicht „ueber
 	# die Figur nach `_cam_offset` gerechnet" — das waere dieselbe Haltung nur solange niemand
 	# den Zoom verstellt hat. Die Ausgangshaltung merken und wieder anfahren ist die Zusage,
@@ -1094,21 +1181,21 @@ func _maybe_intro_flight() -> void:
 	var punkte: Array = [
 		# 1. In seine Sicht. Was er sieht, sieht der Spieler — der einzige Punkt, an dem die
 		#    Fahrt STEHT. Alles andere ist Bewegung.
-		{ "pos": auge, "ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": INTRO_SEK_BLICK },
-		# 2. Der Anflug, in einem Zug: ueber die Wueste, ueber die Palisade und hinauf auf
-		#    Turmhoehe. Frueher waren das zwei Etappen — fliegen, dann steigen. Das kostete
-		#    Zeit und sah aus wie ein Aufzug; zusammen ist es ein Schwung. Rund 95 m in
-		#    1,4 s, das schnellste Stueck der Fahrt.
-		{ "pos": start, "ziel": turm + Vector3(0.0, 9.0, 0.0), "sek": INTRO_SEK_ANFLUG },
+		{ "pos": auge, "ziel": stadt + Vector3(0.0, INTRO_BLICK_H, 0.0), "sek": INTRO_SEK_BLICK },
+		# 2. Der Anflug, in einem Zug: ueber die Wueste und hinauf auf Umrundungshoehe.
+		#    Frueher waren das zwei Etappen — fliegen, dann steigen. Das kostete Zeit und sah
+		#    aus wie ein Aufzug; zusammen ist es ein Schwung, und das schnellste Stueck.
+		{ "pos": start, "ziel": mitte + Vector3(0.0, INTRO_BLICK_H, 0.0),
+			"sek": INTRO_SEK_ANFLUG },
 	]
-	# 3. Und herum — das langsame Stueck, 190° in 4,2 s.
-	punkte.append_array(orbit_punkte(turm, start, INTRO_ORBIT_GRAD,
-		INTRO_ORBIT_H0, INTRO_ORBIT_H1, 9.0, INTRO_SEK_RUNDE))
+	# 3. Und herum um die Mauer, Blick nach innen — das langsame Stueck.
+	punkte.append_array(orbit_punkte(mitte, start, INTRO_ORBIT_GRAD,
+		INTRO_ORBIT_H0, INTRO_ORBIT_H1, INTRO_BLICK_H, INTRO_SEK_RUNDE))
 	# 4. Der Ruecksprung, zweigeteilt. Erst schnell hinaus — und dabei bleibt der Blick auf der
 	#    STADT: Das letzte, was man von Rustwater sieht, soll Rustwater sein und nicht der
 	#    Hinterkopf der Figur.
-	punkte.append({ "pos": heim.origin.lerp(turm, 0.34) + Vector3(0.0, 9.0, 0.0),
-		"ziel": stadt + Vector3(0.0, 4.0, 0.0), "sek": INTRO_SEK_HEIM })
+	punkte.append({ "pos": heim.origin.lerp(mitte, 0.34) + Vector3(0.0, 14.0, 0.0),
+		"ziel": mitte + Vector3(0.0, INTRO_BLICK_H, 0.0), "sek": INTRO_SEK_HEIM })
 	# 5. Und einschwenken: dieselbe Stelle, dieselbe Blickrichtung wie vor der Fahrt.
 	punkte.append({ "pos": heim.origin, "ziel": heim.origin - heim.basis.z * 10.0,
 		"sek": INTRO_SEK_EINSCHWENKEN })
@@ -1127,6 +1214,7 @@ func _maybe_intro_flight() -> void:
 const MOON_DIST_M: float = 400.0
 const MOON_SIZE_M: float = 26.0
 var _moon: MeshInstance3D = null
+var _moonlight: DirectionalLight3D = null
 func _build_moon() -> void:
 	var mi := MeshInstance3D.new()
 	var q := QuadMesh.new()
@@ -1209,6 +1297,15 @@ func _apply_daytime() -> void:
 			DayCycle.sun_azimuth_deg(h), 0.0)
 		_sun.light_color = DayCycle.sun_color(h)
 		_sun.light_energy = DayCycle.sun_energy(h)
+		_sun.visible = _sun.light_energy > 0.01
+	if _moonlight != null:
+		# Der Mond leuchtet AUS SEINER RICHTUNG. Das klingt selbstverstaendlich und war es
+		# nicht: Vorher lief das Nachtlicht ueber dieselbe Lampe wie die Sonne, also aus −14°
+		# unter dem Horizont — waehrend die Scheibe bei +52° am Himmel stand.
+		_moonlight.rotation_degrees = Vector3(-DayCycle.moon_altitude_deg(h),
+			DayCycle.moon_azimuth_deg(h), 0.0)
+		_moonlight.light_energy = DayCycle.moon_energy(h)
+		_moonlight.visible = _moonlight.light_energy > 0.01
 	if _env != null:
 		_env.background_color = DayCycle.sky_color(h)
 		_env.ambient_light_color = DayCycle.ambient_color(h)
@@ -3469,7 +3566,7 @@ func _build_hud() -> void:
 	# gerückt. Ohne das beginnt sie in der Bildmitte und wächst mit dem Text nach rechts aus
 	# dem Bild heraus — gemessen ragte sie bei 1152 px Fensterbreite 260 px darüber hinaus.
 	_dialog = DialogBox.new()
-	_dialog.dismissed.connect(_end_cine)
+	_dialog.dismissed.connect(_on_dialog_dismissed)
 	layer.add_child(_dialog)
 	_toast = Label.new()
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -4132,9 +4229,16 @@ func _input(event: InputEvent) -> void:
 	# Eine Sequenz, die man aussitzen MUSS, ist beim zweiten Mal eine Zumutung. Jeder Tipp und
 	# jede Taste bricht ab — und wird dabei verbraucht, damit derselbe Tipp nicht gleich noch
 	# den Joystick startet.
-	if (_in_cine() or _in_flight()) and ((event is InputEventScreenTouch and event.pressed)
-			or (event is InputEventMouseButton and event.pressed)
-			or (event is InputEventKey and event.pressed and not event.echo)):
+	var druck: bool = (event is InputEventScreenTouch and event.pressed) \
+		or (event is InputEventMouseButton and event.pressed) \
+		or (event is InputEventKey and event.pressed and not event.echo)
+	# Solange Text auf der Tafel steht, BLAETTERT ein Tipp — er bricht nicht die Fahrt ab.
+	# Andersherum waere der erste Tipp im Spiel gleichzeitig das Ueberspringen des Anfangs.
+	if druck and _dialog != null and _dialog.visible:
+		_naechste_zeile()
+		get_viewport().set_input_as_handled()
+		return
+	if (_in_cine() or _in_flight()) and druck:
 		if _in_flight():
 			_end_flight()
 		else:

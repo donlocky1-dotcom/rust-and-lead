@@ -1524,10 +1524,17 @@ func _test_daycycle() -> void:
 	_check("Mittags ist es am hellsten", DayCycle.daylight(12.75) > 0.95)
 	_check("Nachts ist es finster", DayCycle.daylight(1.0) < 0.001)
 	# 4. Auch nachts gibt es gerichtetes Licht — ohne Schatten steht nichts mehr auf dem Boden.
-	_check("Der Vollmond beleuchtet die Szenerie (%.2f)" % DayCycle.sun_energy(1.0),
-		DayCycle.sun_energy(1.0) > 0.25 and DayCycle.sun_energy(1.0) < 0.6)
-	_check("Die Mittagssonne ist trotzdem deutlich staerker",
-		DayCycle.sun_energy(12.75) > DayCycle.sun_energy(1.0) * 3.0)
+	# Der Mond ist eine EIGENE Lampe. Vorher lief er ueber die Sonnenenergie und damit aus der
+	# Richtung der Sonne — nachts also aus 14° UNTER dem Horizont, und die Nacht war schwarz.
+	_check("Nachts scheint keine Sonne (%.2f)" % DayCycle.sun_energy(1.0),
+		DayCycle.sun_energy(1.0) < 0.01)
+	_check("Sondern der Vollmond (%.2f)" % DayCycle.moon_energy(1.0),
+		DayCycle.moon_energy(1.0) > 0.25)
+	_check("Und der steht dabei ueber dem Horizont (%.0f°)" % DayCycle.moon_altitude_deg(1.0),
+		DayCycle.moon_altitude_deg(1.0) > 20.0)
+	_check("Mittags leuchtet er nicht", DayCycle.moon_energy(12.75) < 0.01)
+	_check("Die Mittagssonne ist deutlich staerker als der Mond",
+		DayCycle.sun_energy(12.75) > DayCycle.moon_energy(1.0) * 1.6)
 	# Die Mondscheibe steht der Sonne gegenueber und nur nachts am Himmel.
 	_check("Der Mond steht nachts hoch (%.0f°)" % DayCycle.moon_altitude_deg(1.0),
 		DayCycle.moon_altitude_deg(1.0) > 30.0)
@@ -1632,15 +1639,27 @@ func _test_prolog() -> void:
 	_check("Ein Einsatz bei 0 kommt sofort", 1.0 / 60.0 >= float(sofort[0]["t"]))
 	# 5. Das Aufwachen dauert so lange wie die Kamerafahrt dazu.
 	var OW = load("res://scripts/OverworldView.gd")
-	_check("Die Aufwach-Fahrt hat eine Dauer (%.1f s)" % OW.WACH_SEK,
-		OW.WACH_SEK > 2.0 and OW.WACH_SEK < 6.0)
+	# Das Aufstehen ist LANGSAM und die Kamera kommt nah heran. Die Fahrt muss dabei so lange
+	# dauern wie der Clip — sonst haette der Spieler die Steuerung, waehrend die Figur noch am
+	# Boden liegt, und die Animation braeche mitten im Aufstemmen ab.
+	_check("Die Aufwach-Fahrt laesst dem Aufstehen Zeit (%.1f s)" % OW.WACH_SEK,
+		OW.WACH_SEK >= 8.3)
 	_check("Und kommt von oben (%.0f m)" % OW.WACH_HOCH_M, OW.WACH_HOCH_M > 8.0)
+	_check("… bis nah an die Figur (%.1f m)" % OW.WACH_NAH_M,
+		OW.WACH_NAH_M > 1.5 and OW.WACH_NAH_M < 6.0)
+	var quelle: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
+	# Der Held redet SELBST, in der Sprechtafel — nicht ein Erzaehler in der Meldungszeile.
+	_check("Der Held hat eine Stimme", OW.HELD_NAME != "")
+	_check("Und die Prolog-Zeilen laufen ueber die Sprechtafel",
+		quelle.contains("_play_speech(HELD_NAME"))
+	_check("Ein Tipp blaettert, statt die Fahrt abzubrechen",
+		quelle.contains("_dialog.visible:\n\t\t_naechste_zeile()")
+		or quelle.contains("_naechste_zeile()"))
 	# 6. Das Pferd. Es hatte GAR KEINEN Eintrag in der Aktionsleiste: Es stand mit Namensschild
 	#    am Kraterrand, und auf dem Handy — wo es keine [E]-Taste gibt — war es reine Deko.
 	_check("Das Pferd ist aus einigen Metern ansprechbar (%.1f m)" % OW.MOUNT_RANGE_M,
 		OW.MOUNT_RANGE_M >= 2.0 and OW.MOUNT_RANGE_M <= 8.0)
 	_check("Im Sattel ist man dreimal so schnell", is_equal_approx(OW.MOUNT_SPEED_MUL, 3.0))
-	var quelle: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
 	_check("Die Aktionsleiste baut einen Pferde-Knopf",
 		quelle.contains("Aufsitzen") and quelle.contains("Absteigen"))
 	_check("Und Taste wie Knopf fragen dieselbe Reichweite ab",
@@ -1732,21 +1751,32 @@ func _test_orbit() -> void:
 	# 5. Ein Kreis mit Radius null ist keiner — lieber gar keine Punkte als eine Division.
 	_check("Ohne Radius gibt es keine Umrundung",
 		OW.orbit_punkte(um, um + Vector3(0.0, 5.0, 0.0), 220.0, 5.0, 5.0, 2.0, 3.0).is_empty())
-	# 6. Und der Punkt, um den es beim Anflug geht: Die Fahrt ENDET auf der Seite, von der aus
-	#    die Stadt hinter dem Turm liegt.
+	# 6. Umrundet wird die PALISADE mit Blick nach innen, nicht der Wasserturm.
 	#
-	#    Der Wasserturm steht am Ortsrand, nicht in der Mitte. Von innen sieht man ihn vor
-	#    leerer Wueste, von aussen vor der beleuchteten Stadt — es gibt also eine richtige und
-	#    eine falsche Seite, und die Fahrt muss auf der richtigen AUFHOEREN statt dort
-	#    anzufangen. Hier liegt die Stadt bei −X vom Turm: Start also bei −X (innen), Ende
-	#    Richtung +X.
-	var richtung_stadt := Vector3(-1.0, 0.0, 0.0)
-	var s_start: Vector3 = um + richtung_stadt * 27.0 + Vector3(0.0, 15.0, 0.0)
-	var s_punkte: Array = OW.orbit_punkte(um, s_start, OW.INTRO_ORBIT_GRAD, 15.0, 22.0, 9.0, 4.8)
-	var ende: Vector3 = s_punkte[-1]["pos"]
-	var raus: float = Vector3(ende.x - um.x, 0.0, ende.z - um.z).normalized().dot(-richtung_stadt)
-	_check("Die Umrundung endet dort, wo die Stadt hinter dem Turm liegt (%.2f)" % raus,
-		raus > 0.6)
+	#    Die erste Fassung kreiste um den Turm. Im Bild war das eine Fahrt um ein Fass: Der Turm
+	#    fuellte den Rahmen, und weil er am Ortsrand steht, schaute die halbe Umrundung nach
+	#    draussen in die Wueste. Um die Mauer herum zeigt jede Sekunde denselben Ort aus einer
+	#    neuen Richtung.
+	_check("Umrundet wird mehr als eine halbe Runde (%.0f°)" % OW.INTRO_ORBIT_GRAD,
+		OW.INTRO_ORBIT_GRAD >= 200.0)
+	_check("Die Kamera steigt dabei (%.0f → %.0f m)" % [OW.INTRO_ORBIT_H0, OW.INTRO_ORBIT_H1],
+		OW.INTRO_ORBIT_H1 > OW.INTRO_ORBIT_H0)
+	# Der Radius kommt aus dem Umriss der Palisade plus Abstand. Gepruefte Eigenschaft: Aus
+	# dieser Entfernung und Hoehe passt der ganze Ort ins Bild — der halbe Oeffnungswinkel der
+	# Kamera muss den Ortsradius abdecken.
+	var stadt_r: float = 42.0
+	var kam_r: float = stadt_r + OW.INTRO_ORBIT_RAND_M
+	# Gerechnet wird mit der WAAGERECHTEN Oeffnung. Godots `fov` ist der senkrechte Winkel, das
+	# Bild ist aber 16:9 — quer passt also fast das Doppelte hinein, und quer liegt der Ort.
+	# Senkrecht braucht er ohnehin weniger, weil die Kamera von schraeg oben schaut und die
+	# Kreisflaeche dabei zur Ellipse zusammenlaeuft.
+	var halb_fov: float = atan(tan(deg_to_rad(OW.CAM_FOV * 0.5)) * 16.0 / 9.0)
+	var weg: float = sqrt(kam_r * kam_r + OW.INTRO_ORBIT_H1 * OW.INTRO_ORBIT_H1)
+	var sichtbar: float = tan(halb_fov) * weg
+	_check("Der ganze Ort passt ins Bild (%.0f m sichtbar, %.0f m breit)"
+		% [sichtbar * 2.0, stadt_r * 2.0], sichtbar >= stadt_r)
+	_check("Und geblickt wird ueber die Daecher (%.0f m)" % OW.INTRO_BLICK_H,
+		OW.INTRO_BLICK_H >= 4.0 and OW.INTRO_BLICK_H <= 14.0)
 	# 7. Die Fahrt dauert acht Sekunden, und die Verteilung stimmt: Umrundung ueber die Haelfte
 	#    (sonst wirkt sie nicht langsam), Rueckweg der kuerzeste Abschnitt.
 	var ges: float = OW.INTRO_SEK_BLICK + OW.INTRO_SEK_ANFLUG + OW.INTRO_SEK_RUNDE \
