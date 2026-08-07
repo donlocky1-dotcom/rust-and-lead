@@ -254,17 +254,37 @@ und fester Kamera im **Kampf** unlesbar. Also trennen wir die beiden Fälle:
   Kessel-Kläffer) erscheinen nur bei Dunkelheit — bei Tag fällt der Wurf ersatzlos aus, denn eine
   leere Wüste in der Mittagshitze ist die richtige Antwort. Damit wird die Uhrzeit zu einer
   Entscheidung, und Quests können sie verlangen.
-* **Nachtbeleuchtung.** Zwei Orte brennen die Nacht durch: der **Gatling-Saloon** — der hat
-  **immer offen**, bei Mabel ist immer jemand wach — und der **Bahnsteig**, denn eine Station
-  ohne Licht findet nachts niemand, und reisen soll man auch im Dunkeln.
-  Der Saloon leuchtet **von innen**: ein großes Licht im Schankraum, drei Kerzen an den Tischen,
-  eine Laterne an der Tür. Das Raumlicht wirft **Schatten** — das ist der ganze Trick: Ohne sie
-  schiene es durch die Wände und das Haus sähe aus wie aus Papier; mit ihnen kommt es nur durch
-  Tür und Fenster heraus. Nur dieses eine Licht wirft Schatten (ein Punktlicht kostet sechs
-  Schattenkarten), die Kerzen füllen bloß den Raum. Sie gehen mit der Dämmerung weich an und aus, nicht auf
-  die Sekunde. **Nichts schließt nachts.** Händler, Werkstatt und Quest-Geber sind rund um
-  die Uhr erreichbar; Öffnungszeiten wären eine Wartezeit, die nichts erzählt. Die Nacht ändert,
-  wie die Welt AUSSIEHT und wer draußen herumläuft — nicht, was man tun kann.
+* **Nachtbeleuchtung.** Ein Ort bei Nacht braucht mehr als Helligkeit — er braucht eine
+  **lesbare Silhouette**: wo ist der Eingang, wo wird gearbeitet, woran erkenne ich den Ort von
+  weitem? Rustwater beantwortet die drei Fragen mit drei Lichtern, und der Rest bleibt dunkel.
+
+  | Wo | Was | Warum |
+  |---|---|---|
+  | **Gatling-Saloon** | Raumlicht + drei Kerzen + Türlaterne, warmes Petroleumgelb | Hat **immer offen** — bei Mabel ist immer jemand wach. Leuchtet **von innen**. |
+  | **Schmiede** | **Esse**: Feuer im Haus, Widerschein am Boden, Glut am Schornstein — tiefes Orangerot | Hier wird gearbeitet. Eigene Farbe, sonst wäre es die vierte Laterne statt ein Feuer. |
+  | **Torpfosten** | Je **zwei Fackeln**, links und rechts der Durchfahrt, oben auf den Pfosten | Markieren den einzigen Weg hinein. Von schräg oben verschwindet eine Wandfackel hinterm Balken — oben steht sie frei. |
+  | **Wasserturm** | Laterne unter dem Kessel, weit und schwach | Die Landmarke, an der man Rustwater von weitem erkennt. Ohne Licht wäre sie nachts weg. |
+  | **Bahnsteig** | Eine Lampe | Eine Station ohne Licht findet nachts niemand, und reisen soll man auch im Dunkeln. |
+
+  **Schatten nur, wo sie etwas erzählen.** Ein Punktlicht mit Schatten kostet sechs
+  Schattenkarten — also tragen genau zwei sie: das Raumlicht im Saloon und das Feuer in der
+  Esse. Ohne sie schiene beides durch die Wände und die Häuser sähen aus wie aus Papier; mit
+  ihnen kommt das Licht nur durch Tür und Fenster heraus, und genau das ist das Bild. Alles
+  andere leuchtet schattenlos.
+
+  **Flammen flackern**, Laternen kaum. Zwei Sinus mit unrundem Verhältnis statt Zufall: Zufall
+  hinge an der Bildrate, und ein einzelner Sinus wäre ein Pulsschlag, den man nach zwei Sekunden
+  mitzählt. Die Phase kommt aus der Position — damit zucken vier Fackeln nicht im Gleichtakt,
+  und dieselbe Fackel flackert bei jedem Start gleich.
+
+  Die Lichter gehen mit der Dämmerung weich an und aus, nicht auf die Sekunde, und sie hängen
+  am **Bauteil**, nicht an einer Koordinatenliste: Wer die Schmiede im Editor umstellt, nimmt
+  die Esse mit; wer ein zweites Tor hinstellt, bekommt dort Fackeln, ohne dass jemand Code
+  anfasst.
+
+  **Nichts schließt nachts.** Händler, Werkstatt und Quest-Geber sind rund um die Uhr
+  erreichbar; Öffnungszeiten wären eine Wartezeit, die nichts erzählt. Die Nacht ändert, wie die
+  Welt AUSSIEHT und wer draußen herumläuft — nicht, was man tun kann.
 * **Befriedete Zonen** (Hub, eigene Fraktionsbasis) spawnen keine Gegner; Gegner-Nachschub und
   Truhen erscheinen nie in einer Hauswand und nie hinter einem geschlossenen Sektor-Tor.
 * **Jeder Ort hängt an mindestens einer Route**, und das Schienennetz ist zusammenhängend —

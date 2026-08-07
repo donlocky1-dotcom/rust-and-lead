@@ -631,6 +631,7 @@ func _build_environment() -> void:
 	_sun = sun
 	_env = env
 	_apply_daytime()
+	_apply_night_lights()
 
 
 # ── Tageszeit ────────────────────────────────────────────────────────────────
@@ -647,6 +648,10 @@ const DAYTIME_INTERVAL: float = 0.25
 var _daytime_cd: float = 0.0
 func _process_daytime(delta: float) -> void:
 	GameState.hour = DayCycle.advance(GameState.hour, delta)
+	# Die Lichter JEDEN Frame: Sonne und Mond duerfen viermal je Sekunde nachziehen, eine Flamme
+	# nicht — bei vier Stufen je Sekunde flackert sie nicht, sie stottert.
+	_flacker_t += delta
+	_apply_night_lights()
 	_daytime_cd -= delta
 	if _daytime_cd > 0.0:
 		return
@@ -671,7 +676,7 @@ const NIGHT_LIGHT_COLOR: Color = Color(1.0, 0.72, 0.38)   # Petroleum, warm
 var _night_lights: Array = []
 func _add_night_light(pos: Vector3, reichweite: float, energie: float,
 		schatten: bool = false, glas_m: float = 0.55,
-		farbe: Color = NIGHT_LIGHT_COLOR) -> void:
+		farbe: Color = NIGHT_LIGHT_COLOR, flacker: float = 0.0) -> void:
 	var l := OmniLight3D.new()
 	l.light_color = farbe
 	l.omni_range = reichweite
@@ -682,7 +687,11 @@ func _add_night_light(pos: Vector3, reichweite: float, energie: float,
 	l.shadow_enabled = schatten
 	l.position = pos
 	add_child(l)
-	_night_lights.append({ "node": l, "max": energie, "farbe": farbe })
+	# Die Phase aus der Position: Vier Fackeln, die im Gleichtakt zucken, sehen aus wie ein
+	# Wackelkontakt. Aus der Position abgeleitet statt gewuerfelt, damit dasselbe Licht bei
+	# jedem Start gleich flackert — Zufall, der bei jedem Laden anders ausfaellt, ist keiner.
+	_night_lights.append({ "node": l, "max": energie, "farbe": farbe,
+		"flacker": flacker, "phase": fposmod(pos.x * 1.7 + pos.z * 2.9, TAU) })
 	# Die Quelle selbst, damit man sie sieht und nicht nur ihren Schein.
 	var glas := MeshInstance3D.new()
 	var q := QuadMesh.new()
@@ -741,6 +750,74 @@ func _light_saloon(r: Dictionary, stadtmitte: Vector2) -> void:
 	var tuer: Vector2 = mitte + zur_strasse * (maxf(r["h"].x, r["h"].y) + 0.8)
 	_add_night_light(Vector3(tuer.x, WorldManager.height_at(tuer.x, tuer.y) + 2.5, tuer.y),
 		11.0, 2.2, false, 0.42)
+
+
+## Die Esse in der Schmiede — das einzige Licht der Stadt, das nicht von einer Flamme im Glas
+## kommt, sondern von gluehender Kohle.
+##
+## Deshalb hat sie eine eigene Farbe: tief orangerot, deutlich unter dem Petroleumgelb der
+## Laternen. Zwei warme Lichter derselben Farbe waeren zwei Laternen; erst der Unterschied macht
+## aus dem einen ein FEUER. Und sie flackert am staerksten von allem — eine Esse atmet, wenn der
+## Blasebalg geht.
+##
+## Drei Lichter, jedes mit einer Aufgabe:
+##
+## 1. **Das Feuer selbst**, tief im Haus und mit SCHATTEN. Nur so faellt der Schein durch Tuer
+##    und Fensterluke nach draussen statt durch die Waende — dieselbe Begruendung wie beim
+##    Saloon, und aus demselben Grund traegt es hier auch die Schattenkosten.
+## 2. **Der Widerschein**, weit, schwach, ohne Schatten, direkt ueber dem Boden. Godot rechnet
+##    hier keine Lichtbrechung; was ein echtes Feuer ueber den Sand und die Hauswand zurueck
+##    wirft, muss man von Hand hinstellen. Genau dafuer ist dieses Licht da — es soll man nicht
+##    SEHEN, man soll den Boden gluehen sehen.
+## 3. **Der Schornstein**, klein und hoch. Aus der Ferne — und der Anflug auf die Stadt kommt aus
+##    der Ferne — ist das der Punkt, der sagt: hier arbeitet noch jemand.
+const ESSE: Color = Color(1.0, 0.44, 0.14)
+func _light_forge(r: Dictionary) -> void:
+	var mitte := Vector2(r["c"])
+	var boden: float = WorldManager.height_at(mitte.x, mitte.y)
+	var deckel: float = float(r["deckel"])
+	# Das Feuer steht nicht in der Mitte der Halle, sondern an der Wand — dort, wo der Amboss
+	# Platz laesst. Ein Viertel nach hinten reicht, damit der Schein aus der Tuer schraeg faellt.
+	var laengs := Vector2(cos(float(r["yaw"])), sin(float(r["yaw"])))
+	var feuer: Vector2 = mitte + laengs * (r["h"].x * 0.35)
+	_add_night_light(Vector3(feuer.x, boden + 1.05, feuer.y), 15.0, 3.6, true, 0.5, ESSE, 0.30)
+	_add_night_light(Vector3(mitte.x, boden + 0.35, mitte.y), 23.0, 1.5, false, 0.0, ESSE, 0.22)
+	_add_night_light(Vector3(mitte.x, deckel - 0.4, mitte.y), 6.0, 1.5, false, 0.30, ESSE, 0.34)
+
+
+## Eine Fackel auf einem Torpfosten.
+##
+## `TownCollision` liefert ein Tor bereits als ZWEI Sperren — die beiden Pfosten, mit dem
+## Durchgang dazwischen. Damit ist „links und rechts vom Tor" keine Rechnung mehr: Je Sperre
+## eine Fackel, und sie sitzt richtig, auch wenn jemand das Tor im Editor dreht oder verschiebt.
+##
+## Sie steht OBEN AUF dem Pfosten, nicht daran. Von schraeg oben — und das ist die einzige
+## Ansicht, die es im Spiel gibt — verschwindet eine Wandfackel hinter dem Balken, an dem sie
+## haengt. Oben steht sie frei, und die beiden Flammen markieren die Toroeffnung wie zwei
+## Landepunkte.
+const FACKEL: Color = Color(1.0, 0.60, 0.24)
+func _light_gate(r: Dictionary) -> void:
+	var mitte := Vector2(r["c"])
+	_add_night_light(Vector3(mitte.x, float(r["deckel"]) + 0.45, mitte.y),
+		13.0, 2.6, false, 0.40, FACKEL, 0.20)
+
+
+## Die Laterne im Wasserturm.
+##
+## Der Turm ist tagsueber die Landmarke, an der man Rustwater von weitem erkennt; nachts waere
+## er ohne Licht ein schwarzer Fleck vor einem schwarzen Himmel — die Stadt haette dann genau
+## die Silhouette verloren, an der man sie kennt. Das Licht sitzt UNTER dem Kessel, auf der
+## Umlaufbuehne: hoch genug, dass es ueber die Palisade hinaus zu sehen ist, tief genug, dass es
+## den Turm von unten anleuchtet statt in den Himmel zu strahlen.
+##
+## Weite Reichweite, wenig Energie: Es soll den Turm zeichnen, nicht den Platz darunter
+## ueberstrahlen — dafuer sind die Fackeln und der Saloon da.
+func _light_tower(r: Dictionary) -> void:
+	var mitte := Vector2(r["c"])
+	var boden: float = WorldManager.height_at(mitte.x, mitte.y)
+	var hoehe: float = maxf(float(r["deckel"]) - boden, 4.0)
+	_add_night_light(Vector3(mitte.x, boden + hoehe * 0.72, mitte.y),
+		22.0, 2.4, false, 0.55, NIGHT_LIGHT_COLOR, 0.10)
 
 
 ## Der Anflug auf Rustwater — einmal im Spiel, beim ersten Anblick der Stadt.
@@ -820,18 +897,44 @@ func _build_moon() -> void:
 	_moon = mi
 
 
-func _apply_daytime() -> void:
-	var h: float = GameState.hour
+## Wie stark brennt eine Flamme gerade? 1,0 = ruhig.
+##
+## Zwei Sinus mit unrundem Verhaeltnis (7,3 zu 11,9) statt eines einzelnen: Ein einzelner ist
+## ein Pulsschlag, den das Auge nach zwei Sekunden mitzaehlt. Zwei, deren Perioden nicht
+## aufgehen, wiederholen sich erst nach Minuten — und genau das liest sich als Feuer.
+##
+## Kein Zufallsgenerator: Flackern aus `randf()` springt mit der Bildrate. Bei 30 fps waere es
+## ein anderes Feuer als bei 120, und das darf ein Spiel nicht haben.
+static func flacker_faktor(t: float, phase: float, staerke: float) -> float:
+	if staerke <= 0.0:
+		return 1.0
+	return 1.0 + staerke * (sin(t * 7.3 + phase) * 0.62 + sin(t * 11.9 + phase * 2.3) * 0.38)
+
+
+var _flacker_t: float = 0.0
+## Die Nachtlichter: an, wenn es dunkel wird, und Flammen flackern dabei.
+##
+## Getrennt von `_apply_daytime`, weil beides in einer anderen Geschwindigkeit lebt — die Sonne
+## steht viermal je Sekunde neu, eine Flamme in jedem Bild. Zwei Dutzend Punktlichter mit einer
+## Zahl zu beschreiben kostet nichts; sie im Vierteltakt zucken zu lassen, kostet den Effekt.
+func _apply_night_lights() -> void:
 	# Weich hoch und runter mit der Daemmerung — eine Laterne, die auf die Sekunde umspringt,
 	# liest sich als Schalter, nicht als Abend.
-	var dunkel: float = 1.0 - smoothstep(0.0, 0.35, DayCycle.daylight(h))
+	var dunkel: float = 1.0 - smoothstep(0.0, 0.35, DayCycle.daylight(GameState.hour))
 	for l in _night_lights:
-		(l["node"] as OmniLight3D).light_energy = float(l["max"]) * dunkel
+		var f: float = flacker_faktor(_flacker_t, float(l.get("phase", 0.0)),
+			float(l.get("flacker", 0.0)))
+		(l["node"] as OmniLight3D).light_energy = float(l["max"]) * dunkel * f
 		var glas: MeshInstance3D = l.get("glas")
 		if glas != null:
 			glas.visible = dunkel > 0.02
-			(glas.material_override as StandardMaterial3D).albedo_color = \
-				Color(l.get("farbe", NIGHT_LIGHT_COLOR), dunkel)
+			if glas.visible:
+				(glas.material_override as StandardMaterial3D).albedo_color = \
+					Color(l.get("farbe", NIGHT_LIGHT_COLOR), clampf(dunkel * f, 0.0, 1.0))
+
+
+func _apply_daytime() -> void:
+	var h: float = GameState.hour
 	if _moon != null:
 		var sicht: float = DayCycle.moon_visibility(h)
 		_moon.visible = sicht > 0.01
@@ -1978,8 +2081,18 @@ func _register_town_rects(sperren: Array) -> void:
 	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
 	for r in sperren:
 		_solid_rect_rot(Vector3(r["c"].x, 0.0, r["c"].y), r["h"], float(r["yaw"]))
-		if String(r["asset"]) == "saloon":
-			_light_saloon(r, Vector2(stadt.x, stadt.z))
+		# Wer nachts leuchtet, entscheidet sich am Bauteil — nicht an einer Koordinatenliste.
+		# Stellt jemand die Schmiede im Editor um, wandert die Esse mit; stellt er ein zweites
+		# Tor hin, brennen dort ebenfalls Fackeln, ohne dass hier eine Zeile dazukommt.
+		match String(r["asset"]):
+			"saloon":
+				_light_saloon(r, Vector2(stadt.x, stadt.z))
+			"forge":
+				_light_forge(r)
+			"gate":
+				_light_gate(r)
+			"water_tower":
+				_light_tower(r)
 		var text: String = String(r["label"])
 		if text != "":
 			_label(Vector3(r["c"].x, float(r["deckel"]) + 2.2, r["c"].y), text,

@@ -1570,6 +1570,41 @@ func _test_daycycle() -> void:
 	var ankunft: float = DayCycle.advance(DayCycle.START_HOUR, marsch)
 	_check("Bei Ankunft zu Fuss ist es Nacht (%s)" % DayCycle.clock_text(ankunft),
 		DayCycle.phase_at(ankunft) == DayCycle.NACHT)
+	# 9. Flammen flackern — und zwar so, dass es nicht auffaellt, WIE sie es tun.
+	_test_flacker()
+
+
+## Das Flackern von Esse und Fackeln.
+##
+## Geprueft wird nicht „sieht huebsch aus", sondern die drei Eigenschaften, an denen ein
+## Flacker-Effekt in der Praxis scheitert: Es darf nie negativ werden (ein Licht mit negativer
+## Energie zieht in Godot Helligkeit ab und macht einen schwarzen Fleck), es muss sich
+## tatsaechlich bewegen, und es darf sich nicht so schnell wiederholen, dass man den Takt
+## mitzaehlt.
+func _test_flacker() -> void:
+	var OW = load("res://scripts/OverworldView.gd")
+	_check("Ohne Staerke brennt es ruhig", is_equal_approx(OW.flacker_faktor(3.0, 1.0, 0.0), 1.0))
+	var kleinste: float = 999.0
+	var groesste: float = -999.0
+	for i in 4000:
+		var t: float = float(i) * 0.01
+		var f: float = OW.flacker_faktor(t, 0.7, 0.30)
+		kleinste = minf(kleinste, f)
+		groesste = maxf(groesste, f)
+	_check("Eine Flamme wird nie negativ (min %.2f)" % kleinste, kleinste > 0.15)
+	_check("Und ueberstrahlt nicht (max %.2f)" % groesste, groesste < 1.45)
+	_check("Sie bewegt sich wirklich (%.2f–%.2f)" % [kleinste, groesste],
+		groesste - kleinste > 0.30)
+	# Zwei Lichter mit verschiedener Phase duerfen nicht im Gleichtakt zucken.
+	var versetzt: float = 0.0
+	for j in 400:
+		var t2: float = float(j) * 0.05
+		versetzt = maxf(versetzt, absf(OW.flacker_faktor(t2, 0.0, 0.3)
+			- OW.flacker_faktor(t2, 2.1, 0.3)))
+	_check("Zwei Fackeln flackern versetzt (%.2f)" % versetzt, versetzt > 0.15)
+	# Kein Zufall: derselbe Zeitpunkt gibt denselben Wert, sonst haengt das Bild an der Bildrate.
+	_check("Das Flackern ist reproduzierbar",
+		is_equal_approx(OW.flacker_faktor(9.25, 1.3, 0.3), OW.flacker_faktor(9.25, 1.3, 0.3)))
 
 
 ## Gegner greifen an — mit Ausholen, Treffer und Pause.
@@ -1739,6 +1774,27 @@ func _test_town_walkable() -> void:
 			_check("Durch %s kommt man hindurch (%+.0f m)" % [kind.name, m], wer == "",
 				"%s steht im Weg" % wer)
 	_check("Rustwater hat ueberhaupt ein Tor", tore > 0)
+
+	# 2b. Nachts brennt Licht — und zwar an den Bauteilen, die es tragen sollen.
+	#
+	# `_register_town_rects` verteilt die Nachtlichter ueber `r["asset"]`. Das ist robust gegen
+	# Umstellen im Editor, aber NICHT gegen Umbenennen: Wer die Schmiede durch ein anderes
+	# Modell ersetzt, dreht damit stillschweigend die Esse aus, und niemand merkt es, bis
+	# jemand nachts durch die Stadt laeuft. Also wird hier gezaehlt.
+	var traeger: Dictionary = {}
+	for r in sperren:
+		var a: String = String(r["asset"])
+		traeger[a] = int(traeger.get(a, 0)) + 1
+	_check("Die Schmiede traegt die Esse (%d)" % int(traeger.get("forge", 0)),
+		int(traeger.get("forge", 0)) == 1)
+	_check("Der Wasserturm traegt seine Laterne (%d)" % int(traeger.get("water_tower", 0)),
+		int(traeger.get("water_tower", 0)) == 1)
+	# Je Tor zwei Pfosten, je Pfosten eine Fackel — links und rechts der Durchfahrt.
+	_check("Jedes Tor traegt zwei Fackeln (%d Pfosten bei %d Toren)"
+		% [int(traeger.get("gate", 0)), tore],
+		int(traeger.get("gate", 0)) == tore * 2)
+	_check("Der Saloon leuchtet weiterhin (%d)" % int(traeger.get("saloon", 0)),
+		int(traeger.get("saloon", 0)) == 1)
 
 	# 3. Der Rundgang. Von aussen hinein, und drinnen ueberall hin.
 	var schritt: float = 0.5

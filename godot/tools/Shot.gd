@@ -94,6 +94,12 @@ func _ready() -> void:
 	for uz in [["tageszeit_nacht", "uhr_1.5"], ["tageszeit_daemmerung", "uhr_5.9"],
 			["tageszeit_tag", "uhr_12.5"], ["tageszeit_abend", "uhr_19.6"]]:
 		_views.append([String(uz[0]), null, String(uz[1])])
+	# Die Nachtbeleuchtung als GANZES. Einzelbilder vom Saloon sagen nichts darueber, ob die
+	# Stadt nachts als Lichtbild funktioniert — ob Esse, Torfackeln und Turmlaterne zusammen
+	# eine Silhouette ergeben oder ob einer davon alles ueberstrahlt. Also von oben, und dann
+	# aus Augenhoehe auf die Schmiede.
+	_views.append(["nacht_stadt", null, "nachtstadt"])
+	_views.append(["nacht_schmiede", null, "nachtschmiede"])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -279,6 +285,7 @@ func _setup_ui(art: String) -> void:
 		ow._close_character()
 		GameState.hour = float(art.get_slice("_", 1).to_float())
 		ow._apply_daytime()
+		ow._apply_night_lights()
 		var rw2: Vector3 = WorldManager.poi_scene_position("rustwater")
 		ow._player.position = Vector3(rw2.x + 4.0, WorldManager.height_at(rw2.x + 4.0, rw2.z + 6.0),
 			rw2.z + 6.0)
@@ -287,6 +294,30 @@ func _setup_ui(art: String) -> void:
 		# Stadtplatz aus schraeg darauf, damit Fassade UND Vorplatz im Bild sind.
 		_cam.position = rw2 + Vector3(6.0, 5.0, 17.0)
 		_cam.look_at(rw2 + Vector3(-11.0, 2.0, 0.0), Vector3.UP)
+		_cam.current = true
+	elif art == "nachtstadt" or art == "nachtschmiede":
+		# Die Nachtbeleuchtung im Zusammenhang. Ein Bild vom Saloon allein beantwortet nicht die
+		# Frage, die zaehlt: Ergibt die Stadt nachts eine LESBARE Silhouette — Torfackeln als
+		# Eingang, Esse als Arbeitsplatz, Turmlaterne als Landmarke — oder ist es ein Haufen
+		# oranger Flecken?
+		ow._end_cine()
+		ow._close_character()
+		GameState.hour = 1.5
+		ow._apply_daytime()
+		ow._apply_night_lights()
+		var rwn: Vector3 = WorldManager.poi_scene_position("rustwater")
+		ow._player.position = Vector3(rwn.x, WorldManager.height_at(rwn.x, rwn.z), rwn.z)
+		if art == "nachtstadt":
+			_cam.position = rwn + Vector3(0.0, 74.0, 46.0)
+			_cam.look_at(rwn, Vector3.UP)
+		else:
+			# Die Schmiede steht in `Rustwater.tscn` bei (16,9 | −7,0) im Ortsraum. Von der
+			# Strasse aus darauf, aus Augenhoehe: So sieht man, ob der Schein aus der Oeffnung
+			# faellt und den Boden davor traegt — oder ob das Haus nur innen gluetht.
+			var schmiede: Vector3 = rwn + Vector3(16.9, 0.0, -7.0)
+			var auge: Vector3 = schmiede + Vector3(-9.0, 4.0, 9.0)
+			_cam.position = Vector3(auge.x, WorldManager.height_at(auge.x, auge.z) + 4.0, auge.z)
+			_cam.look_at(schmiede + Vector3(0.0, 2.0, 0.0), Vector3.UP)
 		_cam.current = true
 	elif art == "waffe":
 		# Die Figur mit Waffe, gross im Bild — und mitten im Schuss. Zwei Fragen in einem Bild:
