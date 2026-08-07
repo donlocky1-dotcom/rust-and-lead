@@ -1649,6 +1649,24 @@ func _test_prolog() -> void:
 	#    das Spiel speichert automatisch, es gibt also kein „noch nicht gespeichert".
 	_check("Es gibt einen Schalter fuer ein neues Spiel", OW.ARG_NEU == "--neu")
 	_check("Und einen, der nur den Prolog zuruecksetzt", OW.ARG_PROLOG == "--prolog")
+	_check("Und eine Taste, die im Spiel dasselbe tut",
+		quelle.contains("_prolog_neu_anfordern") and quelle.contains("KEY_F9"))
+	_check("Die zweimal gedrueckt werden muss",
+		quelle.contains("PROLOG_BESTAETIGUNG_SEK"))
+	# `saw_wake` entscheidet ueber die Aufwach-Szene — NICHT der Spielstand. Sonst bekaeme man
+	# sie nach dem allerersten Start nie wieder zu sehen, weil automatisch gespeichert wird.
+	var w_vorher: bool = GameState.saw_wake
+	var p_vorher: bool = GameState.prolog_done
+	GameState.saw_wake = false
+	GameState.prolog_done = false
+	_check("Ohne `saw_wake` steht das Erwachen an", not GameState.saw_wake)
+	GameState.saw_wake = true
+	_check("Danach nicht mehr", GameState.saw_wake)
+	GameState.saw_wake = w_vorher
+	GameState.prolog_done = p_vorher
+	# Und es faehrt durch den Spielstand: sonst waere das Zuruecksetzen nach einem Neuladen weg.
+	var j: String = SaveManager.to_json()
+	_check("`saw_wake` steht im Spielstand", j.contains("saw_wake"))
 	var probe: int = 97
 	SaveManager.save_to_slot(probe)
 	_check("Ein Spielstand laesst sich schreiben", SaveManager.has_slot(probe))

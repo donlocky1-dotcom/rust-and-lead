@@ -118,15 +118,27 @@ Kippe aufwachen.
 ### Den Prolog noch einmal sehen
 
 Das Spiel speichert **automatisch**. Es gibt also keinen Zustand „noch nicht gespeichert" — wer
-einmal gestartet ist, fängt beim nächsten Mal mit Spielstand an und sieht das Erwachen nie
-wieder. Zwei Startschalter dagegen:
+einmal gestartet ist, fängt beim nächsten Mal mit Spielstand an.
+
+**Der einfache Weg: `[F9]`, zweimal.** Der erste Druck fragt nach, der zweite setzt den Prolog
+zurück und lädt die Szene neu. Fortschritt (Level, Gold, Quests, Nebel) bleibt; zurückgesetzt
+werden nur Prolog-Marken, Uhrzeit und Waffen — mit dem Karabiner im Arm wäre „leere Hände" keine
+Aussage mehr. Zweimal drücken, weil `F9` neben `F10` und `F11` liegt und ein Fehlgriff nicht
+rückgängig zu machen wäre.
+
+Dass das überhaupt möglich ist, hängt an `GameState.saw_wake`: Die Aufwach-Szene hängt an
+diesem Merkmal, **nicht** daran, ob ein Spielstand geladen wurde. Sonst bekäme man sie nach dem
+allerersten Start nie wieder zu sehen — auch nicht nach einem Zurücksetzen.
+
+Für den Start von außen gibt es zusätzlich zwei Schalter:
 
 | Schalter | Wirkung |
 |---|---|
-| `--prolog` | Spielstand **behalten** (Level, Gold, Quests, Nebel), nur Prolog-Fortschritt, Uhrzeit und Waffen zurücksetzen. Der, den man beim Bauen will. |
+| `--prolog` | wie `[F9]`: Spielstand behalten, nur den Prolog zurücksetzen |
 | `--neu` | Spielstand **löschen**. Wirklich von vorn. |
 
-In Godot einzutragen unter *Projekt → Projekteinstellungen → Ausführen → Hauptargumente*, auf
+Sie stehen in den **Editor**-Einstellungen (nicht den Projekteinstellungen):
+*Editor → Editor-Einstellungen → Ausführen → Main Run Args* (`editor/run/main_run_args`). Auf
 der Kommandozeile direkt anhängen. Von Hand geht es auch: Die Datei heißt
 `rustlead_save_0.json` und liegt im Godot-Benutzerordner (`%APPDATA%\Godot\app_userdata\Rust & Lead\`
 unter Windows, `~/Library/Application Support/Godot/app_userdata/Rust & Lead/` auf dem Mac).

@@ -348,6 +348,7 @@ var _wach_left: float = 0.0
 func _erwachen() -> void:
 	if _cam == null or _player == null:
 		return
+	GameState.saw_wake = true
 	var laenge: float = AssetRegistry.clip_length(_player_model, "standup")
 	AssetRegistry.play_clip(_player_model, "standup", false, maxf(laenge - WACH_SEK, 0.0))
 	_wach_left = WACH_SEK
@@ -474,11 +475,14 @@ func _ready() -> void:
 	_spawn_pack()
 	_build_chests()
 	_hp = float(PlayerStats.max_hp())
-	if _save_loaded:
+	# Das Erwachen haengt an `saw_wake`, NICHT daran, ob ein Spielstand geladen wurde. Vorher
+	# hing es am Spielstand — und weil das Spiel automatisch speichert, bekam man die Szene nach
+	# dem allerersten Start nie wieder zu sehen, auch nicht nach einem Zuruecksetzen.
+	if not GameState.saw_wake and not GameState.prolog_done:
+		_erwachen()
+	elif _save_loaded:
 		_say("💾 Spielstand geladen — Lv %d · %d 💰 · 🎽 %d/%d" % [
 			GameState.level, GameState.gold, EquipManager.worn().size(), EquipManager.GEAR_SLOTS.size()], 4.0)
-	elif not GameState.prolog_done:
-		_erwachen()
 	else:
 		_say("🤠 Willkommen im Krater — 5000 m Kante zu Kante. Ziehen (Maus/Finger) = laufen.", 5.0)
 
@@ -516,6 +520,29 @@ func _load_or_init_save() -> void:
 		FogOfWar.fresh()
 
 
+## `[F9]` — den Anfang noch einmal sehen, ohne in Einstellungen zu suchen.
+##
+## Die Startschalter (`--prolog`, `--neu`) funktionieren, stehen aber in den EDITOR-Einstellungen
+## unter „Main Run Args" — und wer den Anfang zehnmal hintereinander pruefen will, will dabei
+## nicht zehnmal durch ein Einstellungsfenster. Eine Taste im laufenden Spiel tut dasselbe.
+##
+## ZWEIMAL druecken. Ein einzelner Tastendruck, der die laufende Partie zurueckwirft, waere ein
+## Fehler, den man nicht rueckgaengig machen kann — und `F9` liegt neben `F10` und `F11`.
+const PROLOG_BESTAETIGUNG_SEK: float = 3.0
+var _prolog_frage: float = 0.0
+func _prolog_neu_anfordern() -> void:
+	if _prolog_frage <= 0.0:
+		_prolog_frage = PROLOG_BESTAETIGUNG_SEK
+		_say("↺ Prolog von vorn? [F9] noch einmal drücken. (Fortschritt bleibt.)", 3.0)
+		return
+	_prolog_frage = 0.0
+	_prolog_zuruecksetzen()
+	# Erst schreiben, dann neu laden: Beim Neuaufbau liest `_load_or_init_save` die Datei, und
+	# ohne das Schreiben stuende dort noch der alte Stand.
+	SaveManager.save_to_slot(SAVE_SLOT)
+	get_tree().reload_current_scene()
+
+
 ## Den Prolog noch einmal erleben, ohne den Spielstand zu verlieren.
 ##
 ## Zurueckgesetzt wird genau das, woran der Anfang haengt — und die WAFFEN, denn mit vollem
@@ -524,11 +551,11 @@ func _load_or_init_save() -> void:
 func _prolog_zuruecksetzen() -> void:
 	GameState.prolog_done = false
 	GameState.saw_rustwater = false
+	GameState.saw_wake = false
 	GameState.hour = DayCycle.START_HOUR
 	GameState.weapons = []
 	GameState.equip.erase("weapon")
 	GameState.weapon_id = ""
-	_save_loaded = false   # damit die Aufwach-Szene laeuft statt der Spielstand-Meldung
 
 
 ## Schreibt den Spielstand in festem Takt weg (Gold/Level/Ausrüstung/Kills — alles, was
@@ -4242,6 +4269,8 @@ func _input(event: InputEvent) -> void:
 				_talk_to(String(npc["giver"]))
 			elif _pferd_greifbar():
 				_toggle_mount()
+		elif event.keycode == KEY_F9:
+			_prolog_neu_anfordern()
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
 			_fast_travel(event.keycode - KEY_1)
 
@@ -4809,6 +4838,8 @@ func _process(delta: float) -> void:
 	_process_zone_title(delta)
 	_process_fog(delta)
 	_process_daytime(delta)
+	if _prolog_frage > 0.0:
+		_prolog_frage -= delta
 	_process_beats(delta)
 	_maybe_intro_flight()
 	_check_prolog_done()

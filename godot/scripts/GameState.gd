@@ -107,6 +107,11 @@ var prolog_done: bool = false
 
 ## Hat er Rustwater schon einmal von weitem gesehen? Steuert den einmaligen Kameraflug.
 var saw_rustwater: bool = false
+## Lief die Aufwach-Szene schon? Eigenes Merkmal neben `prolog_done`, weil beides verschiedene
+## Fragen beantwortet: `prolog_done` heisst „der Anfang ist durch", `saw_wake` heisst „das
+## Aufstehen wurde gezeigt". Wer mitten im Prolog speichert und wiederkommt, soll da weiter-
+## machen, wo er war — und nicht jedes Mal neu aufstehen.
+var saw_wake: bool = false
 
 ## Tageszeit in Stunden (0–24). Laeuft in Echtzeit weiter und steht im Spielstand — wer abends
 ## aufhoert, faengt abends wieder an.
