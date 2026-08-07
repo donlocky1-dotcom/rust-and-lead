@@ -55,14 +55,15 @@ stattfindet. Dazu Gold, Munition, ein Ausrüstungsteil.
 > *Ein Karabiner, Lauf voller Sand. Er passt in deine Hand, als hättest du das schon tausendmal
 > gemacht. Woher weißt du das?*
 
-**4. Das Pferd.** Steht am Kraterrand, auf der Seite von Rustwater, mit Namensschild. `[E]`
-sitzt auf: **dreifaches Tempo, kein Schuss aus dem Sattel.** Der Weg in die Stadt ist gut einen
-Kilometer weit; zu Fuß sind das vier Minuten, im Sattel gut eine.
+**4. Das Pferd.** Steht am Kraterrand, auf der Seite von Rustwater, mit Namensschild. Aus 4 m
+erscheint **🐎 Aufsitzen** in der Aktionsleiste (oder `[E]`): **dreifaches Tempo, kein Schuss aus
+dem Sattel.** Der Weg in die Stadt ist gut einen Kilometer weit; zu Fuß sind das vier Minuten,
+im Sattel gut eine.
 
 **5. Der Weg.** Die Fußspur führt aus der Grube nach Rustwater — und, seit die Palisade steht,
 **durch das Tor** statt gegen die Mauer.
 
-**6. Der Anblick.** Auf **95 m** übernimmt die Kamera, einmal im ganzen Spiel — **acht
+**6. Der Anblick.** Auf **95 m** übernimmt die Kamera, einmal im ganzen Spiel — **sechzehn
 Sekunden**, jederzeit mit einem Tipp abbrechbar. Solange die Fahrt läuft, steht die Figur; sonst
 liefe sie weiter, während die Kamera anderswo ist, und die Fahrt endete dreißig Meter hinter ihr.
 
@@ -73,18 +74,23 @@ Torfackeln sind einzeln zu erkennen, und der Sand vor der Palisade glüht.
 
 | | Etappe | Dauer | Tempo |
 |---|---|---|---|
-| 1 | **In seine Sicht** — auf Augenhöhe, Blick auf die Stadt | 1,4 s | steht |
-| 2 | **Anflug** — über Wüste und Palisade hinauf auf Turmhöhe, in einem Zug | 1,4 s | ~68 m/s |
-| 3 | **Um den Wasserturm** — 190°, dabei von 15 auf 22 m steigend | 4,2 s | ~21 m/s |
-| 4 | **Zurück, Blick auf der Stadt** | 0,6 s | schnell |
-| 5 | **Einschwenken** in die Ausgangshaltung | 0,4 s | — |
+| 1 | **In seine Sicht** — auf Augenhöhe, Blick auf die Stadt | 2,8 s | steht |
+| 2 | **Anflug** — über Wüste und Palisade hinauf auf Turmhöhe, in einem Zug | 2,8 s | ~34 m/s |
+| 3 | **Um den Wasserturm** — 190°, dabei von 15 auf 22 m steigend | 8,4 s | ~11 m/s |
+| 4 | **Zurück, Blick auf der Stadt** | 1,2 s | schnell |
+| 5 | **Einschwenken** in die Ausgangshaltung | 0,8 s | — |
 
 **Die Verteilung ist der Inhalt.** Nicht jede Etappe bekommt gleich viel, sondern so viel, wie
-ihr Tempo sein soll: Der Anflug legt 95 m in 1,4 s zurück — das ist ein Zischen, und es soll
-eines sein. Die Umrundung bekommt mehr als die Hälfte der Fahrt und wirkt dadurch langsam,
-obwohl sie sich dauernd bewegt.
+ihr Tempo sein soll: Der Anflug legt 95 m in 2,8 s zurück — das bleibt der schnelle Teil. Die
+Umrundung bekommt mehr als die Hälfte der Fahrt und wirkt dadurch ruhig, obwohl sie sich dauernd
+bewegt.
 
-Der Rückweg ist mit einer Sekunde der **kürzeste** Abschnitt. Schneller als der Hinflug ist er
+Erst waren es acht Sekunden, und das war zu schnell: 45°/s ist kein Herumfahren mehr, das ist
+ein Schwenk. Verdoppelt wurde die **ganze** Fahrt, nicht nur die Umrundung — was hier zählt, ist
+das Verhältnis der Etappen zueinander; wer nur eine streckt, verschiebt die Betonung, statt Zeit
+zu geben.
+
+Der Rückweg ist mit zwei Sekunden der **kürzeste** Abschnitt. Schneller als der Hinflug ist er
 in Metern je Sekunde nicht, und kann es nicht sein: Die Umrundung endet auf der Seite, auf der
 die Figur steht, es sind also nur noch gut 40 m nach Hause gegenüber 95 m auf dem Hinweg.
 
@@ -108,6 +114,22 @@ Dazu die Zeile: *„🌙 Rustwater. Licht in der Wüste."* Der Flug merkt sich i
 **Abschluss des Prologs:** Betreten von Rustwater setzt `GameState.prolog_done = true`. Ab dann
 beginnt eine Runde wieder in der Stadt; niemand soll nach dem zweiten Kapitel wieder auf der
 Kippe aufwachen.
+
+### Den Prolog noch einmal sehen
+
+Das Spiel speichert **automatisch**. Es gibt also keinen Zustand „noch nicht gespeichert" — wer
+einmal gestartet ist, fängt beim nächsten Mal mit Spielstand an und sieht das Erwachen nie
+wieder. Zwei Startschalter dagegen:
+
+| Schalter | Wirkung |
+|---|---|
+| `--prolog` | Spielstand **behalten** (Level, Gold, Quests, Nebel), nur Prolog-Fortschritt, Uhrzeit und Waffen zurücksetzen. Der, den man beim Bauen will. |
+| `--neu` | Spielstand **löschen**. Wirklich von vorn. |
+
+In Godot einzutragen unter *Projekt → Projekteinstellungen → Ausführen → Hauptargumente*, auf
+der Kommandozeile direkt anhängen. Von Hand geht es auch: Die Datei heißt
+`rustlead_save_0.json` und liegt im Godot-Benutzerordner (`%APPDATA%\Godot\app_userdata\Rust & Lead\`
+unter Windows, `~/Library/Application Support/Godot/app_userdata/Rust & Lead/` auf dem Mac).
 
 ---
 

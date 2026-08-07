@@ -485,14 +485,50 @@ func _ready() -> void:
 
 ## Lädt den laufenden Spielstand (falls vorhanden), BEVOR irgendetwas anderes GameState liest
 ## (Leben/Schaden hängen an Level & Ausrüstung). Reine GameState-Mutation, keine Szenen-Abhängigkeit.
+## Zwei Startschalter, beide fuer die Bauzeit am Anfang:
+##
+##   `--neu`     Spielstand loeschen und wirklich von vorn anfangen.
+##   `--prolog`  Spielstand BEHALTEN (Level, Gold, Quests) und nur den Prolog zuruecksetzen.
+##
+## Der zweite ist der, den man beim Bauen tatsaechlich will: Wer nur pruefen moechte, ob das
+## Aufwachen richtig aussieht, soll nicht jedes Mal seinen Fortschritt wegwerfen.
+##
+## Warum es die ueberhaupt braucht: Das Spiel speichert automatisch. Es gibt also keinen
+## Zustand „noch nicht gespeichert" — wer einmal gestartet ist, faengt beim naechsten Mal mit
+## Spielstand an und sieht das Erwachen in der Grube nie wieder.
+##
+## In Godot einzutragen unter *Projekt → Projekteinstellungen → Ausfuehren → Hauptargumente*;
+## auf der Kommandozeile direkt anhaengen.
+const ARG_NEU: String = "--neu"
+const ARG_PROLOG: String = "--prolog"
 func _load_or_init_save() -> void:
+	var args: PackedStringArray = OS.get_cmdline_args()
+	if args.has(ARG_NEU):
+		SaveManager.delete_slot(SAVE_SLOT)
 	_save_loaded = SaveManager.has_slot(SAVE_SLOT)
 	if _save_loaded:
 		SaveManager.load_from_slot(SAVE_SLOT)
+		if args.has(ARG_PROLOG):
+			_prolog_zuruecksetzen()
 	else:
 		# Neues Spiel: Rustwater und Umgebung sind bekannt. Eine vollstaendig schwarze Karte
 		# beim ersten Start haelt man fuer kaputt, nicht fuer eine Aufgabe.
 		FogOfWar.fresh()
+
+
+## Den Prolog noch einmal erleben, ohne den Spielstand zu verlieren.
+##
+## Zurueckgesetzt wird genau das, woran der Anfang haengt — und die WAFFEN, denn mit vollem
+## Gewehr im Arm ist „leere Haende" keine Aussage mehr. Alles andere (Level, Gold, Quests,
+## Nebel) bleibt, wie es war.
+func _prolog_zuruecksetzen() -> void:
+	GameState.prolog_done = false
+	GameState.saw_rustwater = false
+	GameState.hour = DayCycle.START_HOUR
+	GameState.weapons = []
+	GameState.equip.erase("weapon")
+	GameState.weapon_id = ""
+	_save_loaded = false   # damit die Aufwach-Szene laeuft statt der Spielstand-Meldung
 
 
 ## Schreibt den Spielstand in festem Takt weg (Gold/Level/Ausrüstung/Kills — alles, was
@@ -972,24 +1008,28 @@ const INTRO_ORBIT_GRAD: float = 190.0
 const INTRO_ORBIT_H0: float = 15.0
 const INTRO_ORBIT_H1: float = 22.0
 
-## Die Zeiten. Zusammen **acht Sekunden** — so lange darf eine Fahrt dauern, die man einmal im
-## Spiel sieht und danach nie wieder.
+## Die Zeiten. Zusammen **sechzehn Sekunden**.
+##
+## Erst waren es acht, und das war zu schnell: Die Umrundung schaffte 45°/s — das ist kein
+## Herumfahren mehr, das ist ein Schwenk. Verdoppelt wird die GANZE Fahrt, nicht nur die
+## Umrundung: Was hier zaehlt, ist das Verhaeltnis der Etappen zueinander, und wer nur eine
+## davon streckt, verschiebt die Betonung, statt Zeit zu geben.
 ##
 ## Die Verteilung ist der eigentliche Inhalt: Nicht jede Etappe bekommt gleich viel, sondern
-## jede bekommt so viel, wie ihr TEMPO sein soll. Der Anflug legt rund 95 m in 1,4 s zurueck —
-## das ist ein Zischen, und es soll eines sein. Die Umrundung schafft 190° in 4,2 s (45°/s),
-## und weil sie mehr als die Haelfte der Fahrt bekommt, wirkt sie langsam, obwohl sie sich
-## dauernd bewegt. Der Rueckweg ist mit einer Sekunde der kuerzeste Abschnitt.
+## jede bekommt so viel, wie ihr TEMPO sein soll. Der Anflug legt rund 95 m in 2,8 s zurueck
+## (34 m/s) — das bleibt der schnelle Teil. Die Umrundung schafft 190° in 8,4 s (23°/s), und
+## weil sie mehr als die Haelfte der Fahrt bekommt, wirkt sie ruhig, obwohl sie sich dauernd
+## bewegt. Der Rueckweg ist mit zwei Sekunden der kuerzeste Abschnitt.
 ##
 ## Zu „schneller als der Hinflug": In Metern je Sekunde geht das nicht auf. Die Umrundung endet
 ## auf der Seite, auf der die Figur steht — es sind nur noch gut 40 m nach Hause, gegenueber
 ## 95 m auf dem Hinweg. Der Rueckweg ist deshalb der KUERZESTE Abschnitt der Fahrt, und genau
 ## das liest sich als „schnell zurueck".
-const INTRO_SEK_BLICK: float = 1.4
-const INTRO_SEK_ANFLUG: float = 1.4
-const INTRO_SEK_RUNDE: float = 4.2
-const INTRO_SEK_HEIM: float = 0.6
-const INTRO_SEK_EINSCHWENKEN: float = 0.4
+const INTRO_SEK_BLICK: float = 2.8
+const INTRO_SEK_ANFLUG: float = 2.8
+const INTRO_SEK_RUNDE: float = 8.4
+const INTRO_SEK_HEIM: float = 1.2
+const INTRO_SEK_EINSCHWENKEN: float = 0.8
 func _maybe_intro_flight() -> void:
 	if GameState.prolog_done or GameState.saw_rustwater or _player == null:
 		return
@@ -2422,6 +2462,12 @@ func _process_interactions(_delta: float) -> void:
 		ctx = "npc:" + String(npc["giver"])
 	elif station != "":
 		ctx = "station:" + station
+	elif _pferd_greifbar():
+		# Zuletzt in der Rangfolge, aber ueberhaupt drin: Das Pferd hatte GAR KEINEN Eintrag
+		# hier. Es stand mit Namensschild am Kraterrand, und auf dem Handy — wo es keine
+		# `[E]`-Taste gibt — war es damit reine Deko. Aufsitzen war nur am Schreibtisch
+		# moeglich, und auch dort nur, wenn man die Taste erraten hat.
+		ctx = "pferd:%d" % (1 if _mounted else 0)
 	if ctx == _ctx:
 		return
 	_ctx = ctx
@@ -2445,6 +2491,11 @@ func _process_interactions(_delta: float) -> void:
 			_add_action("🔨  Werkstatt", _open_shop.bind(ShopScreen.Mode.WERKSTATT))
 		elif String(npc["giver"]) == "mabel":
 			_add_action("💰  Geschäfte", _open_shop.bind(ShopScreen.Mode.WIRTSCHAFT))
+	elif ctx.begins_with("pferd:"):
+		if _mounted:
+			_add_action("🐎  Absteigen   [E]", _toggle_mount)
+		else:
+			_add_action("🐎  Aufsitzen   [E]", _toggle_mount)
 	elif ctx.begins_with("station:"):
 		_add_action("🚂  Iron Rail — Ziel wählen", Callable())
 		for i in FAST_TRAVEL.size():
@@ -4189,8 +4240,7 @@ func _input(event: InputEvent) -> void:
 				_pick_up_gear()
 			elif not npc.is_empty():
 				_talk_to(String(npc["giver"]))
-			elif _mounted or (_horse != null
-					and _player.position.distance_to(_horse.position) <= MOUNT_RANGE_M):
+			elif _pferd_greifbar():
 				_toggle_mount()
 		elif event.keycode >= KEY_1 and event.keycode <= KEY_5:
 			_fast_travel(event.keycode - KEY_1)
@@ -5377,6 +5427,13 @@ func _horse_dummy() -> Node3D:
 
 ## Auf- und absteigen. Im Sattel wird nicht geschossen (GDD §8.1a) — sonst waere das Pferd die
 ## bessere Version von allem.
+## Ist das Pferd in Reichweite — oder sitzt man schon drauf (dann geht Absteigen immer)?
+func _pferd_greifbar() -> bool:
+	if _horse == null or _player == null:
+		return false
+	return _mounted or _player.position.distance_to(_horse.position) <= MOUNT_RANGE_M
+
+
 func _toggle_mount() -> void:
 	if _horse == null:
 		return

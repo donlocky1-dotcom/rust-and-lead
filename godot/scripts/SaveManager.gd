@@ -140,6 +140,21 @@ static func load_from_slot(slot: int) -> bool:
 static func has_slot(slot: int) -> bool:
 	return FileAccess.file_exists(slot_path(slot))
 
+
+## Spielstand loeschen — die einzige Art, den Prolog noch einmal zu sehen.
+##
+## Das Spiel speichert automatisch, es gibt also keinen Zustand „noch nicht gespeichert": Wer
+## einmal gestartet ist, faengt beim naechsten Mal mit Spielstand an und sieht das Aufwachen in
+## der Grube nie wieder. Waehrend am Anfang gebaut wird, braucht es dafuer einen Weg.
+##
+## `true`, wenn danach wirklich keine Datei mehr da ist.
+static func delete_slot(slot: int) -> bool:
+	var path: String = slot_path(slot)
+	if not FileAccess.file_exists(path):
+		return true
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	return not FileAccess.file_exists(path)
+
 # ── Helfer ────────────────────────────────────────────────────────────────────
 
 static func _int_dict(src: Variant) -> Dictionary:

@@ -1635,6 +1635,25 @@ func _test_prolog() -> void:
 	_check("Die Aufwach-Fahrt hat eine Dauer (%.1f s)" % OW.WACH_SEK,
 		OW.WACH_SEK > 2.0 and OW.WACH_SEK < 6.0)
 	_check("Und kommt von oben (%.0f m)" % OW.WACH_HOCH_M, OW.WACH_HOCH_M > 8.0)
+	# 6. Das Pferd. Es hatte GAR KEINEN Eintrag in der Aktionsleiste: Es stand mit Namensschild
+	#    am Kraterrand, und auf dem Handy — wo es keine [E]-Taste gibt — war es reine Deko.
+	_check("Das Pferd ist aus einigen Metern ansprechbar (%.1f m)" % OW.MOUNT_RANGE_M,
+		OW.MOUNT_RANGE_M >= 2.0 and OW.MOUNT_RANGE_M <= 8.0)
+	_check("Im Sattel ist man dreimal so schnell", is_equal_approx(OW.MOUNT_SPEED_MUL, 3.0))
+	var quelle: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
+	_check("Die Aktionsleiste baut einen Pferde-Knopf",
+		quelle.contains("Aufsitzen") and quelle.contains("Absteigen"))
+	_check("Und Taste wie Knopf fragen dieselbe Reichweite ab",
+		quelle.count("_pferd_greifbar()") >= 2)
+	# 7. Die Startschalter, ohne die man den Prolog nach dem ersten Start nie wiedersieht —
+	#    das Spiel speichert automatisch, es gibt also kein „noch nicht gespeichert".
+	_check("Es gibt einen Schalter fuer ein neues Spiel", OW.ARG_NEU == "--neu")
+	_check("Und einen, der nur den Prolog zuruecksetzt", OW.ARG_PROLOG == "--prolog")
+	var probe: int = 97
+	SaveManager.save_to_slot(probe)
+	_check("Ein Spielstand laesst sich schreiben", SaveManager.has_slot(probe))
+	SaveManager.delete_slot(probe)
+	_check("… und wieder loeschen", not SaveManager.has_slot(probe))
 
 
 ## Der Flug um den Wasserturm.
@@ -1714,7 +1733,7 @@ func _test_orbit() -> void:
 	#    (sonst wirkt sie nicht langsam), Rueckweg der kuerzeste Abschnitt.
 	var ges: float = OW.INTRO_SEK_BLICK + OW.INTRO_SEK_ANFLUG + OW.INTRO_SEK_RUNDE \
 		+ OW.INTRO_SEK_HEIM + OW.INTRO_SEK_EINSCHWENKEN
-	_check("Der Anflug dauert acht Sekunden (%.1f s)" % ges, absf(ges - 8.0) < 0.05)
+	_check("Der Anflug dauert sechzehn Sekunden (%.1f s)" % ges, absf(ges - 16.0) < 0.05)
 	_check("Die Umrundung bekommt mehr als die Haelfte (%.0f %%)" % (100.0 * OW.INTRO_SEK_RUNDE / ges),
 		OW.INTRO_SEK_RUNDE / ges > 0.5)
 	var heimweg: float = OW.INTRO_SEK_HEIM + OW.INTRO_SEK_EINSCHWENKEN
