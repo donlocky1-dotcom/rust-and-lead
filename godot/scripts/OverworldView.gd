@@ -749,6 +749,52 @@ func _feature(id: String) -> Dictionary:
 	return {}
 
 
+## Geroell auf dem Ausguck.
+##
+## Die Formel liefert eine glatte Oberflaeche — richtig fuer Sand, falsch fuer Fels: Aus der
+## Naehe sah der Ausguck aus wie ein Lehmhaufen. Was fehlt, ist das Kleinteilige, und dafuer
+## gibt es keine Formel: Ein Fels ist ein Fels und Schutt an seinem Fuss.
+##
+## Gestreut wird nach STEILHEIT, nicht nach Zufallsposition: Broecken sammeln sich dort, wo
+## etwas abbricht (an der Kante) und dort, wo es liegen bleibt (am Fuss); die glatte Flanke
+## dazwischen bleibt frei. Das ist derselbe Gedanke wie beim Fels-Anstrich ueber die Hoehe —
+## die Form entscheidet, nicht eine Liste von Koordinaten.
+const AUSGUCK_STEINE: int = 90
+func _dress_ausguck() -> void:
+	var f: Dictionary = _feature("ausguck")
+	if f.is_empty():
+		return
+	var mitte: Vector3 = WorldManager.feature_center(f)
+	var reich: float = WorldManager.feature_reach(f) + 8.0
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4711
+	for i in AUSGUCK_STEINE:
+		var w: float = rng.randf() * TAU
+		var d: float = sqrt(rng.randf()) * reich
+		var x: float = mitte.x + cos(w) * d
+		var z: float = mitte.z + sin(w) * d
+		var y: float = WorldManager.height_at(x, z)
+		if y < 0.3:
+			continue   # draussen im Sand liegt kein Felsschutt
+		# Steilheit an dieser Stelle: die Neigung der Gelaendenormalen.
+		var steil: float = 1.0 - WorldManager.normal_at(x, z).y
+		# An der Kante Broecken, am Fuss Findlinge, auf der glatten Flanke nichts.
+		var art: String = ""
+		if steil > 0.30:
+			art = "rock_small"
+		elif y < 4.0 and rng.randf() < 0.55:
+			art = "rock_boulder"
+		if art == "":
+			continue
+		var hoehe: float = AssetRegistry.height_of(art) * rng.randf_range(0.35, 1.05)
+		var n: Node3D = AssetRegistry.instantiate(art, hoehe)
+		if n == null:
+			continue
+		n.position = Vector3(x, y, z)
+		n.rotation.y = rng.randf() * TAU
+		add_child(n)
+
+
 ## Rustwater betreten beendet den Prolog — einmalig.
 ##
 ## Ohne das wird `GameState.prolog_done` zwar gelesen (es entscheidet, wo eine Runde beginnt)
@@ -853,6 +899,7 @@ func _ready() -> void:
 	_build_moon()
 	_spawn_pack()
 	_build_chests()
+	_dress_ausguck()
 	_hp = float(PlayerStats.max_hp())
 	# Das Erwachen haengt an `saw_wake`, NICHT daran, ob ein Spielstand geladen wurde. Vorher
 	# hing es am Spielstand — und weil das Spiel automatisch speichert, bekam man die Szene nach
@@ -1234,8 +1281,17 @@ func _build_environment() -> void:
 	# duenn — Kraterrand und Eisernes Herz sollen als Landmarken am Horizont sichtbar bleiben.
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.62, 0.62, 0.52)
-	env.fog_density = 0.0007
-	env.fog_aerial_perspective = 0.5
+	# Doppelt so dicht wie vorher, und aus einem Grund, den erst eine flache Kamera gezeigt hat:
+	# Bei 0,0007 liegt auf 570 m ein Drittel Dunst — zu wenig, um die 350 m hohe Kraterwand am
+	# Weltrand zu einem fernen Grat zu machen. Sie stand als brauner Klotz im Bild. Und Rustwater
+	# war auf 255 m rasiermesserscharf, also so gross und so scharf wie ein Modell auf dem Tisch.
+	#
+	# Bei 0,0016 sind es auf 570 m zwei Drittel und auf 255 m ein Drittel: Die Weltgrenze wird
+	# zum Dunststreifen, die Stadt bekommt Tiefe, und im Spielabstand (unter 40 m) merkt man
+	# nichts davon. Luftperspektive hoch, damit der Dunst die Himmelsfarbe annimmt statt grau
+	# davorzuliegen.
+	env.fog_density = 0.0016
+	env.fog_aerial_perspective = 0.85
 	env.fog_sky_affect = 0.0
 	we.environment = env
 	add_child(we)
