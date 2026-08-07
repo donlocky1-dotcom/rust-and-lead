@@ -1644,11 +1644,28 @@ func _test_orbit() -> void:
 	#    Richtung +X.
 	var richtung_stadt := Vector3(-1.0, 0.0, 0.0)
 	var s_start: Vector3 = um + richtung_stadt * 27.0 + Vector3(0.0, 15.0, 0.0)
-	var s_punkte: Array = OW.orbit_punkte(um, s_start, 220.0, 15.0, 22.0, 9.0, 4.8)
+	var s_punkte: Array = OW.orbit_punkte(um, s_start, OW.INTRO_ORBIT_GRAD, 15.0, 22.0, 9.0, 4.8)
 	var ende: Vector3 = s_punkte[-1]["pos"]
 	var raus: float = Vector3(ende.x - um.x, 0.0, ende.z - um.z).normalized().dot(-richtung_stadt)
 	_check("Die Umrundung endet dort, wo die Stadt hinter dem Turm liegt (%.2f)" % raus,
 		raus > 0.6)
+	# 7. Die Fahrt dauert acht Sekunden, und die Verteilung stimmt: Umrundung ueber die Haelfte
+	#    (sonst wirkt sie nicht langsam), Rueckweg der kuerzeste Abschnitt.
+	var ges: float = OW.INTRO_SEK_BLICK + OW.INTRO_SEK_ANFLUG + OW.INTRO_SEK_RUNDE \
+		+ OW.INTRO_SEK_HEIM + OW.INTRO_SEK_EINSCHWENKEN
+	_check("Der Anflug dauert acht Sekunden (%.1f s)" % ges, absf(ges - 8.0) < 0.05)
+	_check("Die Umrundung bekommt mehr als die Haelfte (%.0f %%)" % (100.0 * OW.INTRO_SEK_RUNDE / ges),
+		OW.INTRO_SEK_RUNDE / ges > 0.5)
+	var heimweg: float = OW.INTRO_SEK_HEIM + OW.INTRO_SEK_EINSCHWENKEN
+	_check("Der Rueckweg ist kuerzer als der Hinweg (%.1f s vs. %.1f s)"
+		% [heimweg, OW.INTRO_SEK_ANFLUG], heimweg < OW.INTRO_SEK_ANFLUG)
+	# Und die Umrundung bleibt langsamer als der Anflug: 190° auf 27 m sind gut 89 m Bogen in
+	# 4,2 s; der Anflug legt rund 95 m in 1,4 s zurueck.
+	var bogen_m: float = deg_to_rad(OW.INTRO_ORBIT_GRAD) * OW.INTRO_ORBIT_R
+	var v_runde: float = bogen_m / OW.INTRO_SEK_RUNDE
+	var v_anflug: float = OW.INTRO_SIGHT_M / OW.INTRO_SEK_ANFLUG
+	_check("Die Umrundung ist das langsame Stueck (%.0f m/s gegen %.0f m/s im Anflug)"
+		% [v_runde, v_anflug], v_runde < v_anflug * 0.5)
 
 
 ## Das Flackern von Esse und Fackeln.

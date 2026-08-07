@@ -104,10 +104,10 @@ func _ready() -> void:
 	# rechnerisch pruefen (der Test tut das), aber ob sie ein BILD ergibt, sieht man erst im
 	# Bild — vor allem, ob der Turm bei der Umrundung im Rahmen bleibt.
 	#
-	# Der erste Wert ist 0,13 und nicht 0,0: Zu Beginn blendet die Fahrt noch von der
-	# STANDKAMERA herueber, und die steht hier im Werkzeug woanders als im Spiel. 0,13 ist das
+	# Der erste Wert ist 0,17 und nicht 0,0: Zu Beginn blendet die Fahrt noch von der
+	# STANDKAMERA herueber, und die steht hier im Werkzeug woanders als im Spiel. 0,17 ist das
 	# Ende der ersten Etappe — der reine Blickpunkt des Helden, ohne Beimischung.
-	for anteil in ["0.13", "0.30", "0.48", "0.66", "0.86"]:
+	for anteil in ["0.17", "0.35", "0.60", "0.86", "0.96"]:
 		_views.append(["flug_" + anteil, null, "flug_" + anteil])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
@@ -308,6 +308,12 @@ func _setup_ui(art: String) -> void:
 		# Der Anflug an einer bestimmten Stelle seiner Laufzeit. Die Fahrt wird echt ausgeloest
 		# (nicht nachgebaut), dann die Uhr vorgestellt und das Bild abgegriffen — was hier steht,
 		# ist genau das, was der Spieler sieht.
+		# Aufraeumen, was das vorige Flug-Bild hinterlassen hat: Die Welt steht seit dem letzten
+		# Aufruf still (siehe unten), die Fahrt ist also nie zu Ende gelaufen. Ohne das lehnt
+		# `_maybe_intro_flight` den naechsten Anflug mit „laeuft schon" ab — und dann steht die
+		# Kamera zwar richtig, aber die Bedienoberflaeche liegt wieder ueber dem Bild.
+		ow.set_process(true)
+		ow._end_flight()
 		ow._end_cine()
 		ow._close_character()
 		GameState.hour = 1.5
@@ -320,8 +326,18 @@ func _setup_ui(art: String) -> void:
 		var steh: Vector3 = rwf + Vector3(0.0, 0.0, OverworldView.INTRO_SIGHT_M - 4.0)
 		ow._player.position = Vector3(steh.x, WorldManager.height_at(steh.x, steh.z), steh.z)
 		ow._player.rotation.y = PI
+		# Die SPIELKAMERA erst in ihre normale Haltung bringen. Sie folgt der Figur sonst noch
+		# ueber mehrere Bilder hinweg — und der Anflug merkt sich beim Start genau diese Haltung
+		# als das, wohin er zurueckkehrt. Ohne das endete die Fahrt dort, wo die Kamera beim
+		# Laden zufaellig stand.
+		ow._cam.position = ow._player.position + ow._cam_offset(ow._cam_dist)
+		ow._cam.look_at(ow._player.position + Vector3(0.0, 1.0, 0.0), Vector3.UP)
 		ow._maybe_intro_flight()
 		ow._flight_t = ow._flight_total() * float(art.get_slice("_", 1).to_float())
+		# Und die Welt anhalten. Sonst laeuft `_process` die verbleibenden Wartebilder weiter,
+		# die Fahrt erreicht ihr Ende und raeumt Balken und Bedienoberflaeche wieder ein — das
+		# Bild zeigte dann die richtige Kameraposition mit dem falschen Bildschirm darueber.
+		ow.set_process(false)
 		var ff: Array = ow._flight_frame()
 		_cam.position = ff[0]
 		if ff[0].distance_to(ff[1]) > 0.05:

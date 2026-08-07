@@ -853,18 +853,37 @@ const INTRO_SIGHT_M: float = 95.0
 const INTRO_EYE_M: float = 1.62
 ## Die Umrundung: Abstand, Bogen, Hoehe am Anfang und am Ende.
 ##
-## 220° und nicht 360°: Eine volle Runde kommt genau dort wieder heraus, wo sie angefangen hat,
-## und die letzten neunzig Grad zeigen dasselbe Bild ein zweites Mal. Nach gut einer halben
-## Runde hat man den Turm von allen Seiten gesehen, die Stadt liegt im Bild, und die Kamera
-## steht guenstig fuer den Ruecksprung zur Figur.
+## 190° und nicht 360°: Eine volle Runde kommt genau dort wieder heraus, wo sie angefangen hat,
+## und die letzten neunzig Grad zeigen dasselbe Bild ein zweites Mal. Etwas mehr als eine halbe
+## Runde reicht — sie beginnt auf der Stadtseite des Turms und endet draussen, und mehr braucht
+## es fuer den Umschlag von „Turm vor Nichts" zu „Turm vor der Stadt" nicht.
 ##
 ## Sie STEIGT dabei von 15 auf 22 m. Eine Umrundung auf gleicher Hoehe ist ein Karussell; mit
 ## dem Steigen wird sie zur Aufloesung — am Ende schaut man von oben auf den Ort, und genau
 ## dorthin geht die Spielkamera zurueck.
 const INTRO_ORBIT_R: float = 27.0
-const INTRO_ORBIT_GRAD: float = 220.0
+const INTRO_ORBIT_GRAD: float = 190.0
 const INTRO_ORBIT_H0: float = 15.0
 const INTRO_ORBIT_H1: float = 22.0
+
+## Die Zeiten. Zusammen **acht Sekunden** — so lange darf eine Fahrt dauern, die man einmal im
+## Spiel sieht und danach nie wieder.
+##
+## Die Verteilung ist der eigentliche Inhalt: Nicht jede Etappe bekommt gleich viel, sondern
+## jede bekommt so viel, wie ihr TEMPO sein soll. Der Anflug legt rund 95 m in 1,4 s zurueck —
+## das ist ein Zischen, und es soll eines sein. Die Umrundung schafft 190° in 4,2 s (45°/s),
+## und weil sie mehr als die Haelfte der Fahrt bekommt, wirkt sie langsam, obwohl sie sich
+## dauernd bewegt. Der Rueckweg ist mit einer Sekunde der kuerzeste Abschnitt.
+##
+## Zu „schneller als der Hinflug": In Metern je Sekunde geht das nicht auf. Die Umrundung endet
+## auf der Seite, auf der die Figur steht — es sind nur noch gut 40 m nach Hause, gegenueber
+## 95 m auf dem Hinweg. Der Rueckweg ist deshalb der KUERZESTE Abschnitt der Fahrt, und genau
+## das liest sich als „schnell zurueck".
+const INTRO_SEK_BLICK: float = 1.4
+const INTRO_SEK_ANFLUG: float = 1.4
+const INTRO_SEK_RUNDE: float = 4.2
+const INTRO_SEK_HEIM: float = 0.6
+const INTRO_SEK_EINSCHWENKEN: float = 0.4
 func _maybe_intro_flight() -> void:
 	if GameState.prolog_done or GameState.saw_rustwater or _player == null:
 		return
@@ -894,21 +913,32 @@ func _maybe_intro_flight() -> void:
 	# dann tut es die Anflugrichtung.
 	zur_stadt = (-hin) if zur_stadt.length() < 1.0 else zur_stadt.normalized()
 	var start: Vector3 = turm + zur_stadt * INTRO_ORBIT_R + Vector3(0.0, INTRO_ORBIT_H0, 0.0)
+	# Wohin die Fahrt am Ende zurueckkehrt: GENAU dorthin, wo sie angefangen hat. Nicht „ueber
+	# die Figur nach `_cam_offset` gerechnet" — das waere dieselbe Haltung nur solange niemand
+	# den Zoom verstellt hat. Die Ausgangshaltung merken und wieder anfahren ist die Zusage,
+	# die man geben will: Nach dem Anflug steht das Bild wieder da, wo es stand.
+	var heim: Transform3D = _cam.global_transform
 	var punkte: Array = [
-		# 1. In seine Sicht. Was er sieht, sieht der Spieler.
-		{ "pos": auge, "ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": 1.6 },
-		# 2. Ueber die Wueste auf die Stadt zu, in Kopfhoehe bleibend — der Anflug.
-		{ "pos": auge.lerp(stadt, 0.6) + Vector3(0.0, 7.0, 0.0),
-			"ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": 2.2 },
-		# 3. Ansetzen: hinauf auf Turmhoehe, Blick auf den Turm.
-		{ "pos": start, "ziel": turm + Vector3(0.0, 9.0, 0.0), "sek": 1.6 },
+		# 1. In seine Sicht. Was er sieht, sieht der Spieler — der einzige Punkt, an dem die
+		#    Fahrt STEHT. Alles andere ist Bewegung.
+		{ "pos": auge, "ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": INTRO_SEK_BLICK },
+		# 2. Der Anflug, in einem Zug: ueber die Wueste, ueber die Palisade und hinauf auf
+		#    Turmhoehe. Frueher waren das zwei Etappen — fliegen, dann steigen. Das kostete
+		#    Zeit und sah aus wie ein Aufzug; zusammen ist es ein Schwung. Rund 95 m in
+		#    1,4 s, das schnellste Stueck der Fahrt.
+		{ "pos": start, "ziel": turm + Vector3(0.0, 9.0, 0.0), "sek": INTRO_SEK_ANFLUG },
 	]
-	# 4. Und herum. Ueber die Stadt, nicht ueber die Wueste.
+	# 3. Und herum — das langsame Stueck, 190° in 4,2 s.
 	punkte.append_array(orbit_punkte(turm, start, INTRO_ORBIT_GRAD,
-		INTRO_ORBIT_H0, INTRO_ORBIT_H1, 9.0, 4.8))
-	# 5. Zurueck in die Spielhaltung ueber der Figur.
-	punkte.append({ "pos": _player.position + _cam_offset(_cam_dist),
-		"ziel": _player.position + Vector3(0.0, 1.0, 0.0), "sek": 2.4 })
+		INTRO_ORBIT_H0, INTRO_ORBIT_H1, 9.0, INTRO_SEK_RUNDE))
+	# 4. Der Ruecksprung, zweigeteilt. Erst schnell hinaus — und dabei bleibt der Blick auf der
+	#    STADT: Das letzte, was man von Rustwater sieht, soll Rustwater sein und nicht der
+	#    Hinterkopf der Figur.
+	punkte.append({ "pos": heim.origin.lerp(turm, 0.34) + Vector3(0.0, 9.0, 0.0),
+		"ziel": stadt + Vector3(0.0, 4.0, 0.0), "sek": INTRO_SEK_HEIM })
+	# 5. Und einschwenken: dieselbe Stelle, dieselbe Blickrichtung wie vor der Fahrt.
+	punkte.append({ "pos": heim.origin, "ziel": heim.origin - heim.basis.z * 10.0,
+		"sek": INTRO_SEK_EINSCHWENKEN })
 	_play_flight(punkte)
 	_say("🌙 Rustwater. Licht in der Wüste.", 4.0)
 
@@ -4579,8 +4609,13 @@ func _process_fog(delta: float) -> void:
 
 
 func _process_movement(delta: float) -> void:
-	if _in_cine():
-		return   # waehrend einer Nahaufnahme laeuft niemand aus dem Bild
+	# Waehrend einer Nahaufnahme laeuft niemand aus dem Bild — und waehrend einer KAMERAFAHRT
+	# erst recht nicht. Das war offen und faellt genau im schlimmsten Fall auf: Der Anflug
+	# springt an, WAEHREND man auf die Stadt zulaeuft, der Finger liegt also auf dem Stick. Die
+	# Figur waere acht Sekunden lang weitergelaufen, waehrend die Kamera anderswo ist, und die
+	# Fahrt endete dort, wo sie vor acht Sekunden stand — gut dreissig Meter hinter ihr.
+	if _in_cine() or _in_flight():
+		return
 	var mv: Vector2 = _move_vector()
 	var moving: bool = mv.length() >= 0.05
 	# Animation folgt der Bewegung, sobald ein animiertes Modell da ist. Kennt das Modell den
