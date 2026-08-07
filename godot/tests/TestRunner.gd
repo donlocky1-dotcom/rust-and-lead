@@ -70,7 +70,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_poi_walkable": 22,
 	"_test_town_walkable": 17,
 	"_test_enemy_attacks": 20,
-	"_test_daycycle": 181,
+	"_test_daycycle": 191,
 	"_test_dialog": 22,
 	"_test_memory_manager": 29,
 	"_test_encounter_manager": 24,
@@ -2010,8 +2010,9 @@ func _test_prolog() -> void:
 	# und dann quer zur Kuppe. Also wird gelaufen statt gerechnet.
 	_check("Die Steigung wird auf Schrittlaenge gemessen (%.2f m)" % OW2.STEIGUNG_BASIS_M,
 		OW2.STEIGUNG_BASIS_M >= 0.5)
-	var m_alt: Array = _marsch(r_fuss, spot3, 0.0, false)
-	var m_neu: Array = _marsch(r_fuss, spot3, OW2.STEIGUNG_BASIS_M, true)
+	var weg: Array = [r_fuss, r_kuppe, spot3]
+	var m_alt: Array = _marsch_ueber(weg, 0.0, false)
+	var m_neu: Array = _marsch_ueber(weg, OW2.STEIGUNG_BASIS_M, true)
 	_check("Mit der neuen Regel kommt man vom Rampenfuss in den Ring (%d Stockungen)"
 		% int(m_neu[1]), bool(m_neu[0]))
 	# Und der Vergleich sagt, ob die Aenderung ueberhaupt etwas bewirkt hat. Faellt er gleich
@@ -2022,8 +2023,8 @@ func _test_prolog() -> void:
 		not bool(m_alt[0]) or int(m_alt[1]) > 0)
 	# Und welche der beiden Aenderungen es war. Die Frage ist nicht akademisch: Waere es allein
 	# das laengere Massband, koennte man das Ausweichen wieder ausbauen — und umgekehrt.
-	var m_nur_basis: Array = _marsch(r_fuss, spot3, OW2.STEIGUNG_BASIS_M, false)
-	var m_nur_schraeg: Array = _marsch(r_fuss, spot3, 0.0, true)
+	var m_nur_basis: Array = _marsch_ueber(weg, OW2.STEIGUNG_BASIS_M, false)
+	var m_nur_schraeg: Array = _marsch_ueber(weg, 0.0, true)
 	_check("Das laengere Massband allein reicht %s"
 		% ("aus" if bool(m_nur_basis[0]) else "NICHT"), true)
 	_check("Das schraege Ausweichen allein reicht %s"
@@ -2108,11 +2109,98 @@ func _test_prolog() -> void:
 	_check("Und er ist klein genug, dass man ihn treffen MUSS (%.1f m Radius)" % OW2.VISTA_RING_R_M,
 		OW2.VISTA_RING_R_M <= 3.0)
 	_check("Aber gross genug, dass man ihn trifft", OW2.VISTA_RING_R_M >= 1.5)
-	# Und die Kamera kreist auf Gipfelhoehe: Wenn sie unten anfinge, ginge sie durch den Fels.
-	_check("Die Umrundung setzt ueber dem Standplatz an (%.1f m)" % OW2.VISTA_NAH_H,
-		OW2.VISTA_NAH_H > 0.0)
 	_check("Und im Weitwinkel (%.0f° gegen %.0f° im Spiel)" % [OW2.VISTA_FOV, OW2.CAM_FOV],
 		OW2.VISTA_FOV > OW2.CAM_FOV * 1.3)
+
+	# 6b-2. **Die Rundsicht ist EINE Bewegung.**
+	#
+	# Vorher waren es fuenf Etappen — hoch am Fels, eng herum, weit hinaus, zurueck ins Tal,
+	# heim. Jede fuer sich begruendet, zusammen ein Ruckeln: An jeder Naht sprang die Richtung,
+	# und `_flight_frame` faehrt jeden Abschnitt fuer sich sanft an und wieder aus. Aus fuenf
+	# sauberen Bewegungen wurden vier Bremsungen.
+	#
+	# Geprueft wird deshalb nicht, ob Konstanten bestimmte Werte haben, sondern ob die erzeugte
+	# Bahn FLUESSIG ist: Die Kamera darf von einem Stuetzpunkt zum naechsten ihr Tempo nur um
+	# wenige Prozent aendern. Genau diese Groesse — der Ruck — war vorher gross.
+	var sp_um := Vector3.ZERO
+	var sp_start := Vector3(14.0, 6.0, 0.0)
+	var sp: Array = OW2.spirale_punkte(sp_um, sp_start, OW2.VISTA_GRAD,
+		OW2.VISTA_FELS_M, OW2.VISTA_ENDE_M, OW2.VISTA_FELS_H, OW2.VISTA_ENDE_H,
+		OW2.VISTA_GIPFEL, 1.4, OW2.CAM_FOV, OW2.VISTA_FOV, OW2.VISTA_SEK_RUNDE)
+	_check("Die Spirale hat Stuetzpunkte (%d)" % sp.size(), sp.size() >= 40)
+	if not sp.is_empty():
+		# Kein Abschnitt darf fuer sich weich fahren — die Beschleunigung steckt in der
+		# Verteilung der Punkte, nicht in einer Faltung pro Abschnitt.
+		var alle_hart: bool = true
+		for q in sp:
+			if bool(q.get("weich", true)):
+				alle_hart = false
+		_check("Kein Abschnitt bremst fuer sich", alle_hart)
+		# Der Ruck: Tempoaenderung von einem Stuetzpunkt zum naechsten.
+		var voriges: Vector3 = sp_start
+		var tempi: Array = []
+		for q in sp:
+			tempi.append(voriges.distance_to(Vector3(q["pos"])) / float(q["sek"]))
+			voriges = Vector3(q["pos"])
+		# Gemessen am SPITZENTEMPO der Fahrt, nicht am jeweils vorigen Schritt.
+		#
+		# Der erste Anlauf verglich jeden Schritt mit seinem Vorgaenger und meldete 195 % — was
+		# nichts bedeutete: Am Anfang steht die Kamera fast still (der Winkel laeuft ueber
+		# `smoothstep` an), und von 0,02 auf 0,06 m/s sind nun einmal 200 %, ohne dass ein Auge
+		# das je bemerkt. Wahrgenommen wird eine Tempoaenderung im Verhaeltnis zur GESAMTEN
+		# Bewegung. Genau die bleibt bei einer Spirale klein und war an den alten Etappengrenzen
+		# gross, wo die Kamera bis auf null abbremste und wieder anfuhr.
+		var spitze: float = 0.01
+		for v in tempi:
+			spitze = maxf(spitze, float(v))
+		var groesster_ruck: float = 0.0
+		for i in range(1, tempi.size()):
+			groesster_ruck = maxf(groesster_ruck,
+				absf(float(tempi[i]) - float(tempi[i - 1])) / spitze)
+		_check("Das Tempo aendert sich stetig (groesster Sprung %.1f %% vom Spitzentempo)"
+			% (groesster_ruck * 100.0), groesster_ruck < 0.06)
+		# Sie faehrt HINAUS und wieder HERAN — der Radius hat genau einen Gipfel.
+		var sp_rmax: float = 0.0
+		var sp_beik: float = 0.0
+		for i2 in sp.size():
+			var sp_ri: float = Vector2(Vector3(sp[i2]["pos"]).x, Vector3(sp[i2]["pos"]).z).length()
+			if sp_ri > sp_rmax:
+				sp_rmax = sp_ri
+				sp_beik = float(i2 + 1) / float(sp.size())
+		_check("Sie faehrt hinaus (%.0f m) und wieder heran (%.0f m)"
+			% [sp_rmax, Vector2(Vector3(sp[sp.size() - 1]["pos"]).x,
+				Vector3(sp[sp.size() - 1]["pos"]).z).length()],
+			sp_rmax > 30.0 and Vector2(Vector3(sp[sp.size() - 1]["pos"]).x,
+				Vector3(sp[sp.size() - 1]["pos"]).z).length() < 14.0)
+		_check("Am weitesten ist sie in der Mitte der Drehung (bei %.0f %%)" % (sp_beik * 100.0),
+			sp_beik > 0.4 and sp_beik < 0.7)
+		# Und sie taucht NIE unter den Standplatz. Die erste Fassung fing neun Meter darunter an
+		# und kam von unten am Fels hoch — im Bild ein Hoch-Runter, bevor die Fahrt anfing.
+		var tiefste: float = 1e9
+		for q3 in sp:
+			tiefste = minf(tiefste, Vector3(q3["pos"]).y)
+		_check("Sie taucht nie unter den Standplatz (%.1f m)" % tiefste, tiefste >= 0.0)
+		# Der Bildwinkel zieht auf, statt zu springen: Vorher stand `fov` auf jedem Stuetzpunkt
+		# gleich, also war das Aufziehen nach dem ERSTEN Abschnitt vorbei — bei 60 Stufen ein
+		# Vierteldrittel einer Sekunde. Das ist ein Schnitt, kein Zoom.
+		var fov_ende: float = float(sp[sp.size() - 1]["fov"])
+		_check("Der Bildwinkel zieht ueber die Fahrt auf (%.0f° → %.0f°)"
+			% [float(sp[0]["fov"]), fov_ende],
+			float(sp[0]["fov"]) < OW2.CAM_FOV + 3.0 and absf(fov_ende - OW2.VISTA_FOV) < 0.5)
+	# Eine ganze Runde, und langsam genug: 360° in 14 s sind 26°/s.
+	var v_rund: float = OW2.VISTA_GRAD / OW2.VISTA_SEK_RUNDE
+	_check("Eine ganze Runde (%.0f°) und ruhig (%.0f °/s)" % [OW2.VISTA_GRAD, v_rund],
+		OW2.VISTA_GRAD >= 360.0 and v_rund < 30.0)
+	# Und am Ende bleibt sie auf Rustwater STEHEN. Sechs Sekunden auf einem stehenden Bild sind
+	# viel; genau darum geht es — der Ort ist das Ziel der naechsten Stunde Spielzeit und huschte
+	# bisher in vier Sekunden vorbei, waehrend die Kamera schon wieder unterwegs war.
+	_check("Auf Rustwater wird verweilt (%.1f s)" % OW2.VISTA_SEK_STADT,
+		OW2.VISTA_SEK_STADT >= 5.0)
+	_check("Und dabei steht die Kamera wirklich still",
+		quelle.contains('punkte.append({ "pos": schulter, "ziel": stadt + Vector3(0.0, 6.0, 0.0),\n\t\t"sek": VISTA_SEK_STADT'))
+	# Beim Verweilen enger: Aus 78° Weitwinkel ist der Ort auf 500 m ein Fleck.
+	_check("Beim Verweilen zieht der Bildwinkel zu (%.0f° gegen %.0f°)"
+		% [OW2.VISTA_STADT_FOV, OW2.VISTA_FOV], OW2.VISTA_STADT_FOV < OW2.VISTA_FOV - 15.0)
 
 	# 6c. Die Fussspur fuehrt im Prolog zum Ausguck — vorher gab es waehrend des ganzen Prologs
 	#     GAR KEINE Spur, weil der Wegweiser an `tracked_quest` hing und die erste Quest erst
@@ -4159,7 +4247,26 @@ func _rail_network_connected() -> bool:
 ## weil die Ausweichregel in der Situation nichts findet. Also wird gelaufen.
 ##
 ## `basis_m` ist die Laenge des Massbands fuer die Steigung (0 = Einzelschritt wie frueher),
-## `schraeg` schaltet das Ausweichen quer zum Hang zu. Zurueck kommt [erreicht, Stockungen].
+## `schraeg` schaltet das Ausweichen quer zum Hang zu.
+##
+## `ueber` sind Zwischenziele — und die gehoeren dazu, nicht zur Bequemlichkeit: `_prolog_ziel()`
+## fuehrt die Fussspur erst auf die Felsmitte und von dort in den Ring, weil die gerade Linie
+## vom Rampenfuss quer ueber die Flanke laeuft. Ein Test, der stur geradeaus marschiert, prueft
+## eine Strecke, die im Spiel niemand geht.
+##
+## Zurueck kommt [erreicht, Stockungen].
+func _marsch_ueber(ueber: Array, basis_m: float, schraeg: bool) -> Array:
+	var stockungen: int = 0
+	var stand: Vector3 = ueber[0]
+	for i in range(1, ueber.size()):
+		var teil: Array = _marsch(stand, ueber[i], basis_m, schraeg)
+		stockungen += int(teil[1])
+		stand = teil[2]
+		if not bool(teil[0]):
+			return [false, stockungen]
+	return [true, stockungen]
+
+
 func _marsch(von: Vector3, nach: Vector3, basis_m: float, schraeg: bool) -> Array:
 	var schritt: float = WorldManager.PLAYER_SPEED_MS / 60.0
 	var max_stg: float = load("res://scripts/OverworldView.gd").MAX_STEIGUNG
@@ -4195,4 +4302,4 @@ func _marsch(von: Vector3, nach: Vector3, basis_m: float, schraeg: bool) -> Arra
 			# Wie im Spiel: Position halten. Ohne Ausweg bleibt sie stehen, bis der Spieler
 			# selbst eine andere Richtung drueckt — deshalb hier abbrechen.
 			break
-	return [erreicht, stockungen]
+	return [erreicht, stockungen, Vector3(p.x, WorldManager.height_at(p.x, p.y), p.y)]

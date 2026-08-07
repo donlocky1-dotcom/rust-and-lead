@@ -12,6 +12,22 @@ Nachtwerden, Anflug auf Rustwater, Abschluss beim Betreten der Stadt. Was fehlt,
 
 ## Der Prolog — „Was vom Menschen übrig ist"
 
+**Die Grube liegt südöstlich von Rustwater** (world 400/120), nicht mehr nordwestlich. Das ist
+eine Lichtfrage, und sie lässt sich ausrechnen: Sonne und Mond stehen fest (`DayCycle`), die
+Sonne im Südosten. Der Prolog ist ein 515-m-Fußmarsch zur Stadt, und der lief vorher genau in sie
+hinein — Übereinstimmung von Laufrichtung und Lichtrichtung **−0,99**, also volle Gegenlichtlage.
+Die Kamera steht hinter der Figur, sah also die ganze Zeit ihre Schattenseite, und Rustwater lag
+als Silhouette im Dunst. Von Südosten aus geht man mit dem Licht im Rücken: **+0,99**. Dasselbe
+gilt für den Blick vom Ausguck ins Tal — er geht jetzt vom Licht weg statt hinein.
+
+Der Fels ist mitgezogen (348/214) und **mitgedreht**: Seine drei Buckel stehen in Metern vom
+Mittelpunkt und damit in Weltachsen. Lässt man sie stehen, während er umzieht, ist es derselbe
+Fels aus einer anderen Richtung — Aufstieg an einer Flanke, höherer Gipfel links statt rechts,
+kein Platz mehr für den Leuchtring an der Kante. Um −164,2° gedreht (genau der Winkel, um den
+sich die Anlaufrichtung ändert) sind alle Messwerte wieder die alten: Gipfel 16,0 m, Ring 3,0 m
+rechts der Achse, Rampe 39°, Klippe 77°. Auch der Ausgang der Grube zeigt jetzt zum Fels (119°)
+statt irgendwohin.
+
 Der Held erwacht **in der Lache am Grund der Schrottgrube**. Kein Menü, keine Erklärung. Die
 Lache ist der einzige freie Fleck im Schutt — der einzige Ort, an dem man liegen kann; genau
 deshalb wird sie beim Füllen ausgespart.
@@ -126,7 +142,7 @@ ist rundum 77° steil; eine Spur, die geradewegs nach oben weist, führt gegen e
 dasselbe Problem wie bei der Palisade, wo sie vor der Mauer endete statt durchs Tor zu gehen.
 Erst wenn er am Fels steht, zeigt sie hinauf.
 
-**5b. Der Ausguck.** Auf halbem Weg (276 m von der Grube, 255 m vor der Stadt) ragt ein
+**5b. Der Ausguck.** Auf halbem Weg (269 m von der Grube, 246 m vor der Stadt) ragt ein
 **15 m hoher Fels** aus dem Sand: zwei Kuppen mit einer Senke dazwischen, ringsum steile Kante,
 auf der Grubenseite ein Sporn, über den man hinaufkommt. Wer aus der Grube kommt, sieht ihn vor
 sich und steigt hinauf, um sich zu orientieren.
@@ -245,28 +261,36 @@ heraus kam eine leuchtende Scheibe statt eines Kreises. Die Begründung stimmt f
 Strich; ein 32 cm breites Band ist keiner. Lesbar wird es durch eine schmale, dunklere
 **Innenkante** dicht am inneren Rand: Die gibt dem Band Tiefe, statt die Mitte zu füllen.
 
-Oben übernimmt die Kamera ein zweites Mal — **25 Sekunden im Weitwinkel** (78° statt 50°):
+Oben übernimmt die Kamera ein zweites Mal — **rund 25 Sekunden**, und zwar als **eine einzige
+Bewegung**:
 
-1. Zurück und hoch, hinter ihm (3,4 s)
-2. **Um ihn herum**, 230°, von 3,5 auf 17 m steigend (11,0 s) — er bleibt in der Mitte, der ganze
-   Horizont dreht sich hinter ihm
-3. Schwenk über seine Schulter **hinunter ins Tal auf Rustwater** (4,2 s)
-4. Blick ins Tal (4,0 s), zurück in die Ausgangshaltung (2,4 s)
+1. Sie fährt dort los, wo sie schon steht — die Spielkamera hinter ihm. Kein eigener
+   Anfangspunkt, also am Anfang gar keine Naht.
+2. Eine **ganze Runde** um ihn (360°, 14 s = 26°/s), und dabei schraubt sie sich hinaus und
+   hoch: am weitesten bei 55 % der Drehung (34 m Abstand, 15 m Höhe). Der Bildwinkel zieht dabei
+   von 50° auf 78° auf — das ist das Rauszoomen, und es passiert über die halbe Drehung statt
+   in einem Schnitt.
+3. Zum Ende der Runde kommt sie wieder heran (11 m) und wird langsamer.
+4. Schwenk über seine Schulter **hinunter ins Tal auf Rustwater** (2,6 s), Bildwinkel zieht auf
+   52° zu.
+5. Und dann **bleibt sie sechs Sekunden stehen**. Sonst nichts.
+6. Zurück in die Ausgangshaltung (2,4 s).
 
-**Und die Figur steht dabei still — auch mit den Beinen.** Dass die Bewegung während einer
-Kamerafahrt gesperrt ist, stand längst im Code; der Clip aber nicht. `play_clip()` wird erst
-hinter dem Ausstieg aufgerufen, also behielt den Lauf-Clip, wer beim Start der Fahrt gerade lief:
-Die Figur rannte fünfundzwanzig Sekunden lang auf der Stelle. Beim Anflug auf Rustwater fällt das
-nicht auf, dort ist die Kamera weit weg — hier kreist sie auf 8,5 m um genau diese Figur, und
-sie ist das Motiv. Ausgenommen bleibt das Erwachen: Das hat mit `Stand_Up1` seinen eigenen Clip,
-und der läuft während derselben Fahrt.
+**Warum eine Bewegung und nicht fünf.** Vorher waren es fünf Etappen — von unten am Fels hoch,
+eng herum, in einem Zug weit hinaus, zurück über die Schulter ins Tal, heim. Jede für sich war
+begründet, und zusammen ruckelte es: An jeder Naht sprang die Richtung, und `_flight_frame` fährt
+jeden Abschnitt für sich sanft an und wieder aus. Aus fünf sauberen Bewegungen wurden vier
+Bremsungen. Dazu tauchte die erste Etappe neun Meter *unter* den Standplatz — ein Hoch-Runter,
+bevor die Fahrt überhaupt anfing.
 
-Sie war zu schnell, und der Grund steckt in der Umrundung: 230° in 6,6 s sind **35°/s**. Für die
-Stadtfahrt gilt seit langem 30°/s als Grenze, ab der eine Establishing-Fahrt schmiert statt zu
-zeigen — hier lag sie darüber, und das ausgerechnet auf einem Kreis von 8,5 m Radius, wo der
-Vordergrund viel schneller durchs Bild zieht als bei 64 m um die Palisade. 11,0 s bringen sie auf
-21°/s. Gestreckt wurde die ganze Fahrt und nicht nur die Umrundung: Was zählt, ist das Verhältnis
-der Etappen zueinander.
+Jetzt laufen Winkel, Radius, Höhe und Bildwinkel alle über **denselben Parameter**. Es gibt keine
+Stelle, an der etwas springen könnte. Nachgemessen: Das Tempo ändert sich von einem Stützpunkt
+zum nächsten um höchstens **4,5 % des Spitzentempos** der Fahrt.
+
+> Die erste Fassung dieser Messung verglich jeden Schritt mit seinem Vorgänger und meldete 195 %
+> — was nichts bedeutete. Am Anfang steht die Kamera fast still, und von 0,02 auf 0,06 m/s sind
+> nun einmal 200 %, ohne dass ein Auge das je bemerkt. Wahrgenommen wird eine Tempoänderung im
+> Verhältnis zur *ganzen* Bewegung.
 
 > **DER NAMENLOSE:** „Von hier oben sieht man wenigstens etwas."
 > „Wüste. Wüste. Und noch mal Wüste."

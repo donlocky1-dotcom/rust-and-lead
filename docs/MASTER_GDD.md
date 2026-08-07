@@ -370,7 +370,7 @@ umweltbasierten Toren (§1.7) — **keine unsichtbaren Wände**.
 | Sektor & Akt | POI | Koordinaten (X, Y) | Typ & Kernfunktion |
 | :-- | :-- | :-- | :-- |
 | **Sektor 1** (Kap. 1–4) | **Rustwater Hub & Basis** | (300, 300) | Zentraler Spieler-Hub / Tycoon-Basis |
-| | **Die Schrott-Minen** | (150, 450) | Ressourcen-Dungeon (Schrott & Eisen farmen) — *multilevel* |
+| | **Die Schrott-Minen** | (400, 120) | Ressourcen-Dungeon (Schrott & Eisen farmen) — *multilevel* |
 | | **Das Rattengestrüpp** | (500, 200) | Frühes Jagdrevier (Zielzone `q_rats`) |
 | | **Iron Rail Zugdepot** | (450, 750) | **Hard Gate 1:** Boss-Arena des Kapitel-4-Zugüberfalls |
 | **Sektor 2** (Kap. 5–8) | **Fort Freedom** | (200, 1200) | HQ Rebellengilde (Wehr-Festung) |

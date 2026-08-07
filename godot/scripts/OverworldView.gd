@@ -681,26 +681,42 @@ const VISTA_FOV: float = 78.0
 ## Der ganze Effekt liegt im Verhaeltnis der beiden. Eine Umrundung auf mittlerer Distanz waere
 ## keins von beidem — sie zeigte eine Figur, die zu klein fuer ein Portraet und zu gross fuer
 ## eine Landschaft ist. Genau das war der erste Entwurf.
-const VISTA_NAH_M: float = 8.5
-const VISTA_NAH_H: float = 2.0
-const VISTA_WEIT_M: float = 44.0
-const VISTA_WEIT_H: float = 15.0
-const VISTA_GRAD: float = 250.0
-## Die Zeiten der Rundsicht — durchweg gestreckt.
+## Die Fahrt ist EINE Bewegung, keine Kette.
 ##
-## Sie war zu schnell, und der Grund steht in der Umrundung: 230° in 6,6 s sind **35°/s**. Fuer
-## die Stadtfahrt gilt seit langem 30°/s als Grenze, ab der eine Establishing-Fahrt schmiert
-## statt zu zeigen — hier lag sie darueber, und das ausgerechnet bei einem Kreis mit 8,5 m
-## Radius, wo der Vordergrund noch viel schneller durchs Bild zieht als bei 64 m um die
-## Palisade. 11,0 s bringen sie auf 21°/s.
+## Vorher waren es fuenf Etappen: von unten am Fels hoch, eng herum, in einem Zug weit hinaus,
+## zurueck ueber die Schulter ins Tal, heim. Jede fuer sich war begruendet, und zusammen ruckelte
+## es — weil an jeder Naht die Richtung sprang und `_flight_frame` jeden Abschnitt fuer sich
+## sanft an- und abfaehrt. Aus fuenf sauberen Bewegungen wurden vier Bremsungen. Dazu tauchte die
+## erste Etappe neun Meter UNTER den Standplatz, was aus dem Auftakt ein Hoch-Runter machte.
 ##
-## Gestreckt wird die GANZE Fahrt und nicht nur die Umrundung: Was zaehlt, ist das Verhaeltnis
-## der Etappen zueinander. Wer nur eine davon dehnt, verschiebt die Betonung, statt Zeit zu geben.
-const VISTA_SEK_AUF: float = 3.4
-const VISTA_SEK_RUNDE: float = 11.0
-const VISTA_SEK_WEIT: float = 4.2
-const VISTA_SEK_TAL: float = 4.0
+## Jetzt: eine Spirale. Die Kamera faehrt dort los, wo sie schon steht, dreht eine ganze Runde um
+## die Figur und schraubt sich dabei hinaus und hoch — am weitesten bei etwa 55 % der Drehung —,
+## kommt zum Ende der Runde wieder naeher heran und wird langsamer. Radius, Hoehe, Winkel und
+## Bildwinkel laufen alle ueber DENSELBEN Parameter; es gibt keine Naht, an der etwas springen
+## koennte. Danach nur noch zwei Dinge: der Schwenk auf Rustwater und das Verweilen dort.
+const VISTA_FELS_M: float = 34.0       # groesster Abstand, in der Mitte der Drehung
+const VISTA_FELS_H: float = 15.0       # und die Hoehe dort
+const VISTA_ENDE_M: float = 11.0       # Abstand am Ende der Drehung — wieder nah bei ihr
+const VISTA_ENDE_H: float = 3.2
+## Wo im Bogen die Kamera am weitesten weg ist. 0,55 und nicht 0,5: Der Weg nach draussen darf
+## etwas laenger dauern als der zurueck, sonst wirkt das Herankommen wie ein Rueckzug.
+const VISTA_GIPFEL: float = 0.55
+const VISTA_GRAD: float = 360.0
+## Die Zeiten.
+##
+## 360° in 14 s sind 26°/s — unter der Grenze von 30°/s, ab der eine Establishing-Fahrt schmiert.
+## Vorher waren es 230° in 6,6 s (35°/s), und das auf einem Kreis von 8,5 m Radius, wo der
+## Vordergrund noch viel schneller durchs Bild zieht als bei 64 m um die Palisade.
+const VISTA_SEK_RUNDE: float = 14.0
+const VISTA_SEK_SCHWENK: float = 2.6
+## Und dann bleibt die Kamera auf Rustwater STEHEN. Sechs Sekunden auf einem stehenden Bild sind
+## viel; genau darum geht es. Der Ort ist das Ziel der naechsten Stunde Spielzeit, und bisher
+## huschte er in vier Sekunden vorbei, waehrend die Kamera schon wieder unterwegs war.
+const VISTA_SEK_STADT: float = 6.0
 const VISTA_SEK_HEIM: float = 2.4
+## Beim Verweilen enger: Aus 78° Weitwinkel ist Rustwater auf 500 m ein Fleck. 52° holen den Ort
+## heran, ohne die Spielperspektive vorwegzunehmen.
+const VISTA_STADT_FOV: float = 52.0
 
 ## Der Standplatz: der HÖCHSTE Punkt auf der rechten Kuppe.
 ##
@@ -808,40 +824,32 @@ func _maybe_vista() -> void:
 	if not _auf_ausguck(f):
 		return
 	GameState.saw_vista = true
-	var mitte: Vector3 = WorldManager.feature_center(f)
 	var p: Vector3 = _player.position
 	var stadt: Vector3 = WorldManager.poi_scene_position("rustwater")
 	var zur_stadt := Vector3(stadt.x - p.x, 0.0, stadt.z - p.z).normalized()
-	var quer := Vector3(-zur_stadt.z, 0.0, zur_stadt.x)
 	var heim: Transform3D = _cam.global_transform
 	var brust: Vector3 = p + Vector3(0.0, 1.1, 0.0)
-	# Der Kreis liegt UM DIE FIGUR, nicht um den Fels — sie ist das Motiv.
-	var start: Vector3 = p - zur_stadt * VISTA_NAH_M + Vector3(0.0, VISTA_NAH_H, 0.0)
-	var punkte: Array = [
-		# 1. Von unten am Fels hoch. Sie erscheint gegen den Himmel, bevor man sieht, worauf sie
-		#    steht — dieselbe Ordnung wie beim Erwachen: erst der Mensch, dann der Ort.
-		{ "pos": p - zur_stadt * (VISTA_NAH_M + 4.0) + Vector3(0.0, -9.0, 0.0),
-			"ziel": brust, "sek": VISTA_SEK_AUF, "fov": VISTA_FOV },
-		{ "pos": start, "ziel": brust, "sek": 0.9, "fov": VISTA_FOV },
-	]
-	# 2. Eng um sie herum, knapp ueber Kopfhoehe des Standplatzes.
-	punkte.append_array(orbit_punkte(Vector3(p.x, WorldManager.height_at(p.x, p.z), p.z), start,
-		VISTA_GRAD, VISTA_NAH_H, VISTA_NAH_H + 2.4, 1.1, VISTA_SEK_RUNDE))
-	for q in punkte:
-		q["fov"] = VISTA_FOV
-	# 3. Weit auf: hinaus und hoch, der Blick bleibt an ihr. Sie wird klein, das Land gross.
-	# Weit hinter ihn, aber FLACH. Der erste Versuch ging auf 30 m Hoehe — von dort schaut die
-	# Kamera fast senkrecht nach unten, der Horizont faellt aus dem Bild und aus der Landschaft
-	# wird eine Landkarte. Bei 15 m steht die Figur im unteren Drittel und das Land dahinter
-	# reicht bis zum Rand; geblickt wird zwischen sie und die Stadt, damit beide drin sind.
-	punkte.append({ "pos": p - zur_stadt * VISTA_WEIT_M * 0.88 + quer * VISTA_WEIT_M * 0.34
-		+ Vector3(0.0, VISTA_WEIT_H, 0.0), "ziel": brust.lerp(stadt, 0.10),
-		"sek": VISTA_SEK_WEIT, "fov": VISTA_FOV })
-	# 4. Und hinunter ins Tal: knapp ueber ihre Schulter auf Rustwater. Aus 15 m auf 255 m sind
-	#    das 3° unter der Waagerechten — die Kamera schaut geradeaus unter der Felskante
-	#    hindurch, statt von oben auf eine Landkarte.
-	punkte.append({ "pos": p - zur_stadt * 7.0 + Vector3(0.0, 3.0, 0.0),
-		"ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": VISTA_SEK_TAL, "fov": VISTA_FOV })
+	var boden: Vector3 = Vector3(p.x, WorldManager.height_at(p.x, p.z), p.z)
+	# Losgefahren wird DORT, WO DIE KAMERA STEHT. Kein eigener Anfangspunkt, kein Anfahren aus
+	# einer anderen Ecke: Die erste Fassung tauchte neun Meter unter den Standplatz und kam von
+	# unten am Fels hoch — im Bild ein Hoch-Runter, bevor die Fahrt ueberhaupt anfing. Wer bei
+	# der Spielkamera beginnt, hat am Anfang gar keine Naht.
+	var punkte: Array = spirale_punkte(boden, heim.origin, VISTA_GRAD,
+		VISTA_FELS_M, VISTA_ENDE_M, VISTA_FELS_H, VISTA_ENDE_H, VISTA_GIPFEL,
+		1.4, CAM_FOV, VISTA_FOV, VISTA_SEK_RUNDE)
+	if punkte.is_empty():
+		return
+	# Der Schwenk auf Rustwater. Die Kamera bleibt fast stehen, nur der Blick wandert von ihr
+	# hinueber ins Tal — und der Bildwinkel zieht dabei zu, damit der Ort nicht als Fleck am
+	# Horizont endet. Das ist die einzige Stelle der Fahrt, die WEICH faehrt: ein einzelner,
+	# eigenstaendiger Schwenk, kein Glied einer Kette.
+	var schulter: Vector3 = p - zur_stadt * 6.0 + Vector3(0.0, 3.0, 0.0)
+	punkte.append({ "pos": schulter, "ziel": stadt + Vector3(0.0, 6.0, 0.0),
+		"sek": VISTA_SEK_SCHWENK, "fov": VISTA_STADT_FOV })
+	# Und dann STEHENBLEIBEN. Gleiche Stelle, gleicher Blick, gleicher Bildwinkel — es bewegt
+	# sich nichts, und das ist der Punkt: Der Ort ist das Ziel der naechsten Stunde Spielzeit.
+	punkte.append({ "pos": schulter, "ziel": stadt + Vector3(0.0, 6.0, 0.0),
+		"sek": VISTA_SEK_STADT, "fov": VISTA_STADT_FOV })
 	punkte.append({ "pos": heim.origin, "ziel": heim.origin - heim.basis.z * 10.0,
 		"sek": VISTA_SEK_HEIM, "fov": CAM_FOV })
 	_play_flight(punkte)
@@ -5765,6 +5773,59 @@ func _flight_frame() -> Array:
 ##
 ## `start` ist der Punkt, an dem die Kamera schon steht. Radius und Anfangswinkel kommen daraus,
 ## nicht aus Zahlen — so kann zwischen Anflug und Umrundung kein Sprung entstehen.
+## Ein Wert, der von `a` ueber `b` nach `c` laeuft — mit `gipfel` als Wendepunkt.
+##
+## Beide Haelften laufen ueber `smoothstep`, damit am Gipfel keine Spitze entsteht: Dort ist die
+## Aenderungsrate auf beiden Seiten null, also geht das Hinaus stufenlos ins Herankommen ueber.
+static func _bogen_wert(k: float, a: float, b: float, c: float, gipfel: float) -> float:
+	if k <= gipfel:
+		return lerpf(a, b, smoothstep(0.0, 1.0, k / maxf(gipfel, 0.001)))
+	return lerpf(b, c, smoothstep(0.0, 1.0, (k - gipfel) / maxf(1.0 - gipfel, 0.001)))
+
+
+## Eine SPIRALE um einen Punkt: drehen, dabei hinausfahren und wieder heran.
+##
+## `orbit_punkte` haelt den Radius fest — richtig fuer eine Umrundung, bei der das Motiv gleich
+## gross bleiben soll. Fuer die Rundsicht auf dem Fels ist es falsch: Dort soll die Figur erst
+## gross sein, dann klein werden, waehrend das Land aufgeht, und am Ende wieder gross. Das als
+## drei Etappen zu bauen, hiesse an jeder Naht anhalten und neu anfahren — genau das Ruckeln,
+## das hier weggeht.
+##
+## Alles laeuft ueber DENSELBEN Parameter `k`: der Winkel mit `smoothstep` (langsam an, in der
+## Mitte am schnellsten, langsam aus), Radius und Hoehe ueber `_bogen_wert` mit ihrem Gipfel bei
+## `gipfel`, der Bildwinkel ebenso. Es gibt keine Stelle, an der eine Groesse springen koennte,
+## und die Stuetzpunkte tragen `weich: false` — die Beschleunigung steckt in der Verteilung,
+## nicht in einer Faltung pro Abschnitt.
+static func spirale_punkte(um: Vector3, start: Vector3, bogen_grad: float,
+		radius_bis: float, radius_ende: float, hoehe_bis: float, hoehe_ende: float,
+		gipfel: float, ziel_hoehe: float, fov_von: float, fov_bis: float,
+		sek: float, stufen: int = 60) -> Array:
+	var speiche := Vector3(start.x - um.x, 0.0, start.z - um.z)
+	var radius0: float = speiche.length()
+	if radius0 < 0.5 or stufen < 1:
+		return []
+	var a0: float = atan2(speiche.z, speiche.x)
+	var bogen: float = deg_to_rad(bogen_grad)
+	var hoehe0: float = start.y - um.y
+	var ziel: Vector3 = um + Vector3(0.0, ziel_hoehe, 0.0)
+	var out: Array = []
+	for i in range(1, stufen + 1):
+		var k: float = float(i) / float(stufen)
+		var a: float = a0 + bogen * smoothstep(0.0, 1.0, k)
+		var r: float = _bogen_wert(k, radius0, radius_bis, radius_ende, gipfel)
+		var h: float = _bogen_wert(k, hoehe0, hoehe_bis, hoehe_ende, gipfel)
+		out.append({
+			"pos": um + Vector3(cos(a) * r, h, sin(a) * r),
+			"ziel": ziel,
+			# Der Bildwinkel geht in der ERSTEN Haelfte auf und bleibt dann — das Aufziehen
+			# gehoert zum Hinausfahren, das Herankommen soll nicht doppelt wirken.
+			"fov": lerpf(fov_von, fov_bis, smoothstep(0.0, gipfel, k)),
+			"sek": sek / float(stufen),
+			"weich": false,
+		})
+	return out
+
+
 static func orbit_punkte(um: Vector3, start: Vector3, bogen_grad: float,
 		hoehe_von: float, hoehe_bis: float, ziel_hoehe: float,
 		sek: float, stufen: int = 16) -> Array:

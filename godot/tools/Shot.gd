@@ -120,7 +120,7 @@ func _ready() -> void:
 	# Der Ausguck: die Anhoehe zwischen Grube und Stadt. Einmal von der Seite (steht die Klippe
 	# wirklich steil?) und einmal von oben herab Richtung Rustwater — der Blick, auf den der
 	# ganze Aufstieg hinauslaeuft.
-	var berg: Vector3 = WorldManager.world_to_scene(Vector2(228.0, 372.0))
+	var berg: Vector3 = WorldManager.world_to_scene(Vector2(348.0, 214.0))
 	berg.y = WorldManager.height_at(berg.x, berg.z)
 	var zur_stadt: Vector3 = (rw - berg)
 	zur_stadt.y = 0.0
@@ -421,7 +421,7 @@ func _setup_ui(art: String) -> void:
 		ow._apply_daytime()
 		ow._apply_night_lights()
 		var rwv: Vector3 = WorldManager.poi_scene_position("rustwater")
-		var felsm: Vector3 = WorldManager.world_to_scene(Vector2(228.0, 372.0))
+		var felsm: Vector3 = WorldManager.world_to_scene(Vector2(348.0, 214.0))
 		felsm.y = WorldManager.height_at(felsm.x, felsm.z)
 		ow._player.position = felsm
 		ow._player.rotation.y = atan2(-(rwv.x - felsm.x), -(rwv.z - felsm.z))

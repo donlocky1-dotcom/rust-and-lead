@@ -69,9 +69,12 @@ const TERRAIN: Array = [
 	# Die Rampe im Nordosten ist die einzige Stelle, an der die Wand fehlt — dort geht man
 	# hinein und hinaus. Ohne sie wäre die Grube entweder ein Käfig oder man liefe eine
 	# senkrechte Wand hoch wie eine Fliege.
+	# `ramp_deg` 119° zeigt zum Ausguck: Wer aus der Grube klettert, steht mit dem Gesicht in die
+	# Richtung, in die er ohnehin geht. Vorher zeigte der Ausgang mit 55° irgendwohin — das fiel
+	# nicht auf, solange niemand dort anfing, und faellt auf, seit der Prolog dort anfaengt.
 	{ "id": "schrotthalde", "kind": "crater", "poi": "schrott_minen",
 		"radius": 15.0, "depth": 5.0, "rim": 1.0, "rim_width": 0.36,
-		"floor": 0.78, "ramp_deg": 55.0, "ramp_span": 70.0 },
+		"floor": 0.78, "ramp_deg": 119.0, "ramp_span": 70.0 },
 	# Der Ausguck: eine Anhöhe auf halbem Weg zwischen Schrottgrube und Rustwater.
 	#
 	# Sie ist ein **umgedrehter Krater** — dieselbe Formel, `depth` negativ. Das ist kein Trick,
@@ -104,7 +107,7 @@ const TERRAIN: Array = [
 	# wenn man hinunterschaut.
 	#
 	# `scrap: false`, weil hier kein Müll liegt. Eine Anhöhe in der Wüste ist Fels, keine Halde.
-	{ "id": "ausguck", "kind": "crater", "x": 228, "y": 372, "scrap": false,
+	{ "id": "ausguck", "kind": "crater", "x": 348, "y": 214, "scrap": false,
 		"radius": 27.0, "depth": -15.0, "rim": 0.0, "rim_width": 0.10, "kerb": 0.20, "fels": true, "step": 0.6,
 		# `ramp_span` 96° statt 54°: Der Aufstieg war eine SCHLUCHT. 54° sind bei 27 m Radius am
 		# Fuss zwar 25 m Bogen, aber `_rampen_anteil` blendet mit `smoothstep` von der Mitte nach
@@ -113,7 +116,7 @@ const TERRAIN: Array = [
 		# Aussichtsfelsen soll eine Flanke sein, die man hinaufgeht, keine Spalte, durch die man
 		# sich zwaengt. Die Steigung in der Mitte aendert sich dadurch nicht — dort ist der
 		# Rampenanteil in beiden Faellen 1 —, nur die Breite, auf der sie gilt.
-		"floor": 0.16, "ramp_deg": 135.0, "ramp_span": 96.0,
+		"floor": 0.16, "ramp_deg": 299.0, "ramp_span": 96.0,
 		# Vier Gesteinsbaender mit flachen Absaetzen dazwischen — siehe `_terrassen`.
 		"stufen": 4.0, "terrasse": 0.72,
 		# Aufgesetzte Buckel: [Versatz x, Versatz z, Radius, Hoehe] in Metern vom Mittelpunkt.
@@ -125,10 +128,16 @@ const TERRAIN: Array = [
 		# Loecher und legen zwei Flicken uebereinander — der Boden waere doppelt gezaehlt und die
 		# beiden Netze wuerden um dieselbe Oberflaeche streiten. Als Buckel derselben Form ist es
 		# ein Loch, ein Netz, eine Oberflaeche.
+		# Beim Umzug nach Suedosten MITGEDREHT: −164,2°, genau der Winkel, um den sich die
+		# Anlaufrichtung geaendert hat. Die Versaetze stehen in Metern vom Mittelpunkt und damit
+		# in WELTachsen — laesst man sie stehen, waehrend der Fels umzieht, ist es derselbe Fels
+		# aus einer anderen Richtung: Der Aufstieg laege an einer Flanke, der hoehere Gipfel
+		# links statt rechts, und der Leuchtring faende keinen Platz mehr an der Kante. Gedreht
+		# bleibt alles so, wie es festgezurrt wurde.
 		"buckel": [
-			[-9.0, 7.0, 13.0, 4.5],     # Nebengipfel, etwas tiefer als die Hauptkuppe
-			[11.0, -6.0, 10.0, 3.0],    # Vorsprung ueber der Klippe zur Stadt hin
-			[4.0, 12.0, 15.0, -2.5],    # und eine Scharte, damit es nicht nur nach oben geht
+			[10.6, -4.3, 13.0, 4.5],    # Nebengipfel, etwas tiefer als die Hauptkuppe
+			[-12.2, 2.8, 10.0, 3.0],    # Vorsprung ueber der Klippe zur Stadt hin
+			[-0.6, -12.6, 15.0, -2.5],  # und eine Scharte, damit es nicht nur nach oben geht
 		] },
 	# Das Wellenmeer: ein Dünenfeld östlich von Rustwater, 220 m breit. Nicht an einem Ort
 	# verankert, sondern frei auf der Karte — es IST die Landmarke.
@@ -560,7 +569,19 @@ const BASE_GUILD: Dictionary = {
 const POIS: Dictionary = {
 	# ── Sektor 1 (Kapitel 1–4) ──
 	"rustwater":            { "name": "Rustwater Hub & Basis", "x": 300, "y": 300, "sector": 1, "type": "hub" },
-	"schrott_minen":        { "name": "Die Schrott-Minen", "x": 150, "y": 450, "sector": 1, "type": "dungeon", "multilevel": true, "floors": 3 },
+	# SUEDOESTLICH von Rustwater, nicht nordwestlich — und das ist eine Lichtfrage.
+	#
+	# Sonne und Mond stehen fest (siehe `DayCycle`), die Sonne im Suedosten. Der Prolog ist ein
+	# langer Fussmarsch von der Grube zur Stadt, und der lief bisher genau in sie hinein:
+	# Uebereinstimmung von Laufrichtung und Lichtrichtung −0,99, also volle Gegenlichtlage. Die
+	# Kamera steht hinter der Figur, sah also die ganze Zeit ihre Schattenseite, und Rustwater
+	# lag als Silhouette im Dunst. Von Suedosten aus laeuft man mit dem Licht im Ruecken: +0,99.
+	# Dieselbe Rechnung gilt fuer den Ausguck — der Blick ins Tal geht jetzt vom Licht weg statt
+	# hinein.
+	#
+	# Die Entfernung bleibt fast gleich (515 m statt 530 m), und zum Rattengestruepp sind es
+	# noch 320 m. Die Ecke ist also weder leerer noch enger geworden.
+	"schrott_minen":        { "name": "Die Schrott-Minen", "x": 400, "y": 120, "sector": 1, "type": "dungeon", "multilevel": true, "floors": 3 },
 	"rattengestruepp":      { "name": "Das Rattengestrüpp", "x": 500, "y": 200, "sector": 1, "type": "hunting" },
 	"zugdepot":             { "name": "Iron Rail Zugdepot", "x": 450, "y": 750, "sector": 1, "type": "boss_arena", "gate": "blast" },
 	# ── Sektor 2 (Kapitel 5–8) ──
