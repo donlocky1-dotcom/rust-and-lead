@@ -522,18 +522,21 @@ func _erwachen() -> void:
 	var kopf0: Vector3 = _kopf_welt()
 	if kopf0.x >= INF:
 		kopf0 = p + Vector3(0.0, 0.28, 0.0)
-	_cam.position = kopf0 + Vector3(WACH_NAH_M * 0.62, 0.30, WACH_NAH_M * 0.78)
+	var dreh := Basis(Vector3.UP, _player.rotation.y)
+	_cam.position = kopf0 + dreh * Vector3(0.30, 0.42, -WACH_NAH_M)
 	_cam.look_at(kopf0, Vector3.UP)
+	# Alle Versaetze in SEINEM Bezugssystem: −Z ist vorn. Die Kamera steht also VOR ihm und
+	# etwas ueber ihm — ein Gesicht sieht man von vorn, nicht von hinten.
 	_play_flight([
 		# 1. Am Gesicht. Ein Mann im Dreck, bevor man sieht, wo er liegt.
-		{ "pos": Vector3(WACH_NAH_M * 0.86, 0.34, WACH_NAH_M * 1.05), "kopf": true, "ziel": p,
+		{ "pos": Vector3(0.34, 0.44, -WACH_NAH_M), "kopf": true, "ziel": p,
 			"sek": _wach_total * 0.22 },
 		# 2. Er kommt auf den Arm — die Kamera weicht zurueck, der Kopf bleibt in der Mitte.
-		{ "pos": Vector3(1.5, 0.55, 1.9), "kopf": true, "ziel": p, "sek": _wach_total * 0.24 },
+		{ "pos": Vector3(0.72, 0.62, -1.85), "kopf": true, "ziel": p, "sek": _wach_total * 0.24 },
 		# 3. Auf die Knie. Jetzt ist der Oberkoerper im Bild.
-		{ "pos": Vector3(-1.4, 0.75, 2.6), "kopf": true, "ziel": p, "sek": _wach_total * 0.22 },
+		{ "pos": Vector3(1.15, 0.80, -2.55), "kopf": true, "ziel": p, "sek": _wach_total * 0.22 },
 		# 4. Er steht. Weiter am Kopf, aber der Ausschnitt zeigt schon die Grube.
-		{ "pos": Vector3(-2.4, 1.2, 3.9), "kopf": true, "ziel": p, "sek": _wach_total * 0.20 },
+		{ "pos": Vector3(1.70, 1.15, -3.70), "kopf": true, "ziel": p, "sek": _wach_total * 0.20 },
 		# 5. Und gibt ihn frei.
 		{ "pos": p + _cam_offset(_cam_dist), "ziel": p + Vector3(0.0, 1.0, 0.0),
 			"sek": _wach_total * 0.12 },
@@ -563,9 +566,11 @@ func _wach_licht_setzen(p: Vector3) -> void:
 	l.omni_range = 13.0
 	l.light_energy = WACH_LICHT_ENERGIE
 	l.shadow_enabled = false
-	# Tief und seitlich: streifendes Licht zeichnet Falten und Kanten, ein Licht von oben
-	# macht daraus einen flachen Fleck.
-	l.position = p + Vector3(3.4, 1.5, 2.6)
+	# Tief und seitlich VOR ihm — in seinem Bezugssystem, wie die Kamera. Streifendes Licht
+	# zeichnet Falten und Kanten; von oben wird daraus ein flacher Fleck, und von hinten liegt
+	# genau das im Schatten, was die Szene zeigen soll: sein Gesicht.
+	var yaw: float = _player.rotation.y if _player != null else 0.0
+	l.position = p + Basis(Vector3.UP, yaw) * Vector3(2.4, 1.5, -2.6)
 	add_child(l)
 	_wach_licht = l
 
@@ -5030,7 +5035,11 @@ func _flight_punkt(p: Dictionary) -> Array:
 	var kopf: Vector3 = _kopf_welt()
 	if kopf.x >= INF:
 		kopf = (_player.position + Vector3(0.0, 1.0, 0.0)) if _player != null else Vector3.ZERO
-	return [kopf + Vector3(p["pos"]), kopf]
+	# Der Versatz steht in SEINEM Bezugssystem, nicht in Weltachsen: −Z ist vorn, +X rechts.
+	# Sonst haengt es vom Zufall der Figurendrehung ab, ob man ihr ins Gesicht oder auf den
+	# Ruecken sieht — und beim ersten Versuch war es der Ruecken.
+	var yaw: float = _player.rotation.y if _player != null else 0.0
+	return [kopf + Basis(Vector3.UP, yaw) * Vector3(p["pos"]), kopf]
 
 
 func _flight_frame() -> Array:

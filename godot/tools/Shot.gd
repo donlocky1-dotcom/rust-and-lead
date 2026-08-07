@@ -346,12 +346,26 @@ func _setup_ui(art: String) -> void:
 			ap.speed_scale = 1.0
 			ap.seek(laenge * clampf(anteil / OverworldView.WACH_STEH_ANTEIL, 0.0, 1.0), true)
 			ap.advance(0.0)
+			# Und ANHALTEN. `set_process(false)` friert die Overworld ein, den AnimationPlayer
+			# aber nicht — er hat seinen eigenen Takt. Ohne dies stand die Figur beim Abgreifen
+			# sechzig Bilder spaeter auf, waehrend die Kamera noch auf den liegenden Kopf zielte:
+			# Das Bild zeigte einen Rumpf, obwohl die Rechnung den Kopf punktgenau in der
+			# Bildmitte hatte.
+			ap.pause()
 		ow.set_process(false)
 		var wf: Array = ow._flight_frame()
 		_cam.position = wf[0]
 		if wf[0].distance_to(wf[1]) > 0.05:
 			_cam.look_at(wf[1], Vector3.UP)
 		_cam.current = true
+		# Nachmessen statt beurteilen: Wo landet der Kopfknochen im Bild?
+		var kopf: Vector3 = ow._kopf_welt()
+		var fuss: Vector3 = ow._player.position
+		print("MESSUNG %s  Kopf=%s  Fuss=%s  Kamera=%s  Ziel=%s"
+			% [art, kopf, fuss, wf[0], wf[1]])
+		if kopf.x < INF:
+			print("   Kopf ueber Fuss: %.2f m   Bildpunkt: %s   (Mitte waere 640/360)"
+				% [kopf.y - fuss.y, _cam.unproject_position(kopf)])
 	elif art.begins_with("flug_"):
 		# Der Anflug an einer bestimmten Stelle seiner Laufzeit. Die Fahrt wird echt ausgeloest
 		# (nicht nachgebaut), dann die Uhr vorgestellt und das Bild abgegriffen — was hier steht,

@@ -25,11 +25,19 @@ Spielstunden, Ankunft gegen **01:40**. Im Sattel reicht es gerade für die Dämm
 andersherum. Eine Kamerafahrt mit fester Länge zwingt den Text in ihr Korsett, und dabei kommen
 vier Halbsätze heraus.
 
-**Die Kamera bleibt am Kopf.** Sie fängt dicht am Gesicht an — man sieht einen Mann im Dreck,
-bevor man sieht, wo er liegt. Die Wegpunkte hängen am **Kopfknochen** statt an festen Punkten:
-Der Kopf wandert beim Aufstehen über anderthalb Meter durch den Raum, feste Zielpunkte zielten
-zwangsläufig daneben (der erste Versuch punktgenau auf seine Stiefel). Während er hochkommt,
-wächst der Abstand von 1,2 auf 4,7 m — der Kopf bleibt in der Mitte, der Ausschnitt wird weit.
+**Die Kamera bleibt am Kopf, und zwar von vorn.** Sie fängt dicht am Gesicht an — man sieht
+einen Mann im Dreck, bevor man sieht, wo er liegt. Zwei Dinge mussten dafür stimmen:
+
+* Die Wegpunkte hängen am **Kopfknochen**, nicht an festen Punkten. Der Kopf wandert beim
+  Aufstehen über anderthalb Meter durch den Raum (0,79 m im Sitzen, 1,63 m im Stehen, gemessen);
+  feste Zielpunkte zielten zwangsläufig daneben — der erste Versuch punktgenau auf seine Stiefel.
+* Die Versätze stehen in **seinem** Bezugssystem, nicht in Weltachsen (−Z ist vorn). Sonst hängt
+  es vom Zufall der Figurendrehung ab, ob man ihr ins Gesicht oder auf den Rücken sieht — und
+  beim ersten Versuch war es der Rücken. Dasselbe gilt für das Szenenlicht: Von hinten liegt
+  genau das im Schatten, was die Szene zeigen soll.
+
+Während er hochkommt, wächst der Abstand von 1,2 auf 4,2 m — der Kopf bleibt in der Bildmitte
+(nachgemessen: Bildpunkt 640/360), der Ausschnitt wird weit.
 
 **Er hält zwischendurch inne.** `Stand_Up1` ist eine durchlaufende Bewegung: jemand steht auf,
 fertig. Wer nach Stunden im Schutt aufwacht, tut das nicht am Stück. Zwei **Haltepunkte**, an
