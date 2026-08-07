@@ -108,7 +108,10 @@ func _ready() -> void:
 	# Der erste Wert ist 0,17 und nicht 0,0: Zu Beginn blendet die Fahrt noch von der
 	# STANDKAMERA herueber, und die steht hier im Werkzeug woanders als im Spiel. 0,17 ist das
 	# Ende der ersten Etappe — der reine Blickpunkt des Helden, ohne Beimischung.
-	for anteil in ["0.17", "0.35", "0.60", "0.86", "0.96"]:
+	# Die letzten drei Werte liegen dicht beieinander, und das ist Absicht: Der Rueckflug, der
+	# Blick auf Figur UND Ort, und das Einschwenken in die Spielperspektive machen zusammen nur
+	# das letzte Drittel aus — genau der Teil, der zweimal falsch war.
+	for anteil in ["0.10", "0.30", "0.55", "0.78", "0.88", "0.95"]:
 		_views.append(["flug_" + anteil, null, "flug_" + anteil])
 	# Das Erwachen in der Schrottgrube — der erste Augenblick des Spiels. Zwei Stellen: der
 	# Blick von oben in die Grube und die Haltung, in der man dann spielt.

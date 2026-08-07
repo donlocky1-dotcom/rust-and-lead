@@ -1795,13 +1795,18 @@ const INTRO_EYE_M: float = 1.62
 ## eine feste Zahl waere in dem Moment falsch, in dem jemand im Editor ein Mauerstueck
 ## versetzt.
 ##
-## 230° statt der urspruenglichen 250°: Um den Turm herum war der Bogen kurz und der Radius
-## klein, seit die Palisade umkreist wird liegt die Kamera 64 m draussen — und derselbe
-## Winkel in derselben Zeit heisst dort deutlich mehr Weg. Bei 250° schwenkte das Bild mit
-## knapp 30°/s, und das ist der Punkt, an dem eine Establishing-Fahrt anfaengt zu schmieren
-## statt zu zeigen. 230° reichen immer noch, um den Ort von allen Seiten zu sehen.
+## **Eine GANZE Runde**, und das ist eine Folge des Rueckwegs. 250° schwenkten mit knapp 30°/s —
+## die Grenze, ab der eine Establishing-Fahrt schmiert —, also wurden daraus 230°. Beides endete
+## aber auf der GEGENUEBERLIEGENDEN Seite des Ortes, und damit war der Heimweg 173 m lang. Im
+## Anflugtempo sind das zwoelfeinhalb Sekunden allein fuer den Rueckflug; mit fester kurzer
+## Dauer war es stattdessen ein Sprung mit 48 m/s.
+##
+## Bei 360° endet die Umrundung dort, wo sie angefangen hat — auf der Seite der Figur. Der
+## Rueckweg ist dann der Hinweg rueckwaerts: dieselbe Strecke, dieselbe Dauer, dasselbe Tempo.
+## Das ist nicht nur kuerzer als die 230°-Fassung (26 s statt 30 s), es ist auch der einzige
+## Bogen, bei dem „zurueck wie hin" ueberhaupt eine Bedeutung hat.
 const INTRO_ORBIT_RAND_M: float = 22.0
-const INTRO_ORBIT_GRAD: float = 230.0
+const INTRO_ORBIT_GRAD: float = 360.0
 const INTRO_ORBIT_H0: float = 24.0
 const INTRO_ORBIT_H1: float = 40.0
 ## Worauf geblickt wird: die Stadtmitte, etwas ueber den Daechern. Tiefer und man sieht die
@@ -1821,15 +1826,29 @@ const INTRO_BLICK_H: float = 7.0
 ## weil sie mehr als die Haelfte der Fahrt bekommt, wirkt sie ruhig, obwohl sie sich dauernd
 ## bewegt. Der Rueckweg ist mit zwei Sekunden der kuerzeste Abschnitt.
 ##
-## Zu „schneller als der Hinflug": In Metern je Sekunde geht das nicht auf. Die Umrundung endet
-## auf der Seite, auf der die Figur steht — es sind nur noch gut 40 m nach Hause, gegenueber
-## 95 m auf dem Hinweg. Der Rueckweg ist deshalb der KUERZESTE Abschnitt der Fahrt, und genau
-## das liest sich als „schnell zurueck".
-const INTRO_SEK_BLICK: float = 2.8
+## **Der Rueckweg dauert so lange, wie er braucht.** Er ist als einziger Abschnitt keine feste
+## Zahl, sondern eine Rechnung: Weg geteilt durch das Tempo des Anflugs. Vorher standen dort
+## 1,2 s, und weil die Umrundung auf der anderen Seite des Ortes endet, war das ein Sprung —
+## rund 48 m/s gegen 14 m/s beim Hereinfliegen. Im Bild sah das aus, als haette jemand die Fahrt
+## abgebrochen.
+##
+## Eine feste Zahl kann das auch nicht loesen: Wo die Umrundung endet, haengt am Bogenwinkel,
+## und wie weit es von dort nach Hause ist, am Standort der Figur. Beides darf sich aendern,
+## ohne dass das Tempo kippt — also wird gerechnet und nicht eingetragen.
+const INTRO_SEK_BLICK: float = 2.0
 const INTRO_SEK_ANFLUG: float = 2.8
-const INTRO_SEK_RUNDE: float = 8.4
-const INTRO_SEK_HEIM: float = 1.2
-const INTRO_SEK_EINSCHWENKEN: float = 0.8
+const INTRO_SEK_RUNDE: float = 13.3
+## Untergrenze fuer den Rueckweg, falls die Figur schon fast in der Stadt steht.
+const INTRO_SEK_HEIM_MIN: float = 1.6
+## Der Blick auf Figur UND Stadt, bevor die Fahrt endet.
+const INTRO_SEK_ZEIGEN: float = 1.6
+## Das Einschwenken in die Spielperspektive — kippen und heranziehen, nicht schneiden.
+const INTRO_SEK_EINSCHWENKEN: float = 1.6
+## Wie weit hinter der Figur und wie hoch die Kamera fuer diesen Blick steht. Weiter zurueck als
+## die Spielkamera und hoeher: Anders passen Figur im Vordergrund und Ort am Horizont nicht in
+## dasselbe Bild.
+const INTRO_RUECK_M: float = 26.0
+const INTRO_RUECK_H: float = 13.0
 func _maybe_intro_flight() -> void:
 	if GameState.prolog_done or GameState.saw_rustwater or _player == null:
 		return
@@ -1866,12 +1885,32 @@ func _maybe_intro_flight() -> void:
 	# 3. Und herum um die Mauer, Blick nach innen — das langsame Stueck.
 	punkte.append_array(orbit_punkte(mitte, start, INTRO_ORBIT_GRAD,
 		INTRO_ORBIT_H0, INTRO_ORBIT_H1, INTRO_BLICK_H, INTRO_SEK_RUNDE))
-	# 4. Der Ruecksprung, zweigeteilt. Erst schnell hinaus — und dabei bleibt der Blick auf der
-	#    STADT: Das letzte, was man von Rustwater sieht, soll Rustwater sein und nicht der
-	#    Hinterkopf der Figur.
-	punkte.append({ "pos": heim.origin.lerp(mitte, 0.34) + Vector3(0.0, 14.0, 0.0),
-		"ziel": mitte + Vector3(0.0, INTRO_BLICK_H, 0.0), "sek": INTRO_SEK_HEIM })
-	# 5. Und einschwenken: dieselbe Stelle, dieselbe Blickrichtung wie vor der Fahrt.
+	# 4. RUECKWAERTS hinaus, mit dem Blick weiter auf der Stadt.
+	#
+	#    Die Kamera faehrt zurueck und schaut dabei nach vorn — Rustwater bleibt im Bild und
+	#    wird kleiner, statt aus dem Rahmen zu kippen. Das letzte, was man vom Ort sieht, soll
+	#    der Ort sein und nicht der Hinterkopf der Figur.
+	#
+	#    Und zwar im TEMPO DES ANFLUGS. Vorher stand hier eine feste Sekundenzahl, und weil die
+	#    Umrundung auf der anderen Seite des Ortes endet, wurde daraus ein Sprung: gut 48 m/s
+	#    gegen 14 m/s beim Hereinfliegen. Jetzt wird das Anflugtempo gemessen und der Weg damit
+	#    ausgerechnet.
+	var orbit_ende: Vector3 = punkte[punkte.size() - 1]["pos"]
+	var rueck: Vector3 = _player.position - hin * INTRO_RUECK_M \
+		+ Vector3(0.0, INTRO_RUECK_H, 0.0)
+	var v_anflug: float = maxf(auge.distance_to(start), 1.0) / INTRO_SEK_ANFLUG
+	var sek_heim: float = maxf(orbit_ende.distance_to(rueck) / v_anflug, INTRO_SEK_HEIM_MIN)
+	punkte.append({ "pos": rueck, "ziel": mitte + Vector3(0.0, INTRO_BLICK_H, 0.0),
+		"sek": sek_heim })
+	# 5. Stehenbleiben und BEIDES zeigen: die Figur im Vordergrund, Rustwater am Horizont. Das
+	#    ist der Satz, den die ganze Fahrt sagen soll — da will er hin, und da steht er.
+	#    Der Blickpunkt liegt zwischen beiden, sonst faellt eins davon aus dem Rahmen.
+	punkte.append({ "pos": rueck,
+		"ziel": _player.position.lerp(mitte, 0.30) + Vector3(0.0, 4.0, 0.0),
+		"sek": INTRO_SEK_ZEIGEN })
+	# 6. Und einschwenken: dieselbe Stelle, dieselbe Blickrichtung wie vor der Fahrt. Kippen und
+	#    heranziehen statt schneiden — 1,6 s statt der frueheren 0,8, weil die Kamera jetzt von
+	#    weiter hinten und hoeher kommt.
 	punkte.append({ "pos": heim.origin, "ziel": heim.origin - heim.basis.z * 10.0,
 		"sek": INTRO_SEK_EINSCHWENKEN })
 	_play_flight(punkte)

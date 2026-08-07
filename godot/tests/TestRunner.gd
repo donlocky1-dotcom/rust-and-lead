@@ -70,7 +70,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_poi_walkable": 22,
 	"_test_town_walkable": 17,
 	"_test_enemy_attacks": 20,
-	"_test_daycycle": 165,
+	"_test_daycycle": 169,
 	"_test_dialog": 22,
 	"_test_memory_manager": 29,
 	"_test_encounter_manager": 24,
@@ -2187,16 +2187,58 @@ func _test_orbit() -> void:
 		% [sichtbar * 2.0, stadt_r * 2.0], sichtbar >= stadt_r)
 	_check("Und geblickt wird ueber die Daecher (%.0f m)" % OW.INTRO_BLICK_H,
 		OW.INTRO_BLICK_H >= 4.0 and OW.INTRO_BLICK_H <= 14.0)
-	# 7. Die Fahrt dauert acht Sekunden, und die Verteilung stimmt: Umrundung ueber die Haelfte
-	#    (sonst wirkt sie nicht langsam), Rueckweg der kuerzeste Abschnitt.
+	# 7. **Der Rueckweg faehrt im Tempo des Anflugs.**
+	#
+	#    Hier stand vorher: „Der Rueckweg ist kuerzer als der Hinweg" — 1,2 s fest eingetragen,
+	#    mit der Begruendung, die Umrundung ende ja auf der Seite der Figur. Das stimmte fuer die
+	#    Turm-Fassung und ist mit 230° um die Palisade falsch: Die Fahrt endet gegenueber, und aus
+	#    „kurz" wurde ein Sprung mit gut 48 m/s gegen 14 m/s beim Hereinfliegen. Im Bild las sich
+	#    das, als sei die Fahrt abgebrochen worden.
+	#
+	#    Nachgebaut wird die Geometrie, die `_maybe_intro_flight()` aufspannt: Ort im Ursprung,
+	#    Figur auf Sichtweite davor, Umrundung ueber `INTRO_ORBIT_GRAD`, Rueckflugziel hinter der
+	#    Figur. Geprueft wird, dass am Ende wirklich dasselbe Tempo herauskommt — nicht, dass
+	#    irgendeine Konstante einen bestimmten Wert hat.
+	var g_mitte := Vector3.ZERO
+	var g_hin := Vector3(1.0, 0.0, 0.0)
+	var g_spieler: Vector3 = g_mitte - g_hin * OW.INTRO_SIGHT_M
+	var g_auge: Vector3 = g_spieler + Vector3(0.0, OW.INTRO_EYE_M, 0.0)
+	var g_start: Vector3 = g_mitte - g_hin * kam_r + Vector3(0.0, OW.INTRO_ORBIT_H0, 0.0)
+	# Ende der Umrundung: derselbe Radius, um den Bogenwinkel weitergedreht, auf Endhoehe.
+	var g_a0: float = atan2(g_start.z - g_mitte.z, g_start.x - g_mitte.x)
+	var g_a1: float = g_a0 + deg_to_rad(OW.INTRO_ORBIT_GRAD)
+	var g_ende: Vector3 = g_mitte + Vector3(cos(g_a1) * kam_r, OW.INTRO_ORBIT_H1,
+		sin(g_a1) * kam_r)
+	var g_rueck: Vector3 = g_spieler - g_hin * OW.INTRO_RUECK_M \
+		+ Vector3(0.0, OW.INTRO_RUECK_H, 0.0)
+	var v_an: float = g_auge.distance_to(g_start) / OW.INTRO_SEK_ANFLUG
+	var weg_heim: float = g_ende.distance_to(g_rueck)
+	var sek_heim: float = maxf(weg_heim / v_an, OW.INTRO_SEK_HEIM_MIN)
+	var v_heim: float = weg_heim / sek_heim
+	_check("Der Rueckweg faehrt im Anflugtempo (%.1f m/s gegen %.1f m/s)" % [v_heim, v_an],
+		absf(v_heim - v_an) < 0.5)
+	# Und er ist damit NICHT der kuerzeste Abschnitt mehr — er ist laenger als der Anflug, weil
+	# der Weg laenger ist. Genau das ist der Punkt.
+	_check("Und dauert deshalb laenger als der Anflug (%.1f s gegen %.1f s)"
+		% [sek_heim, OW.INTRO_SEK_ANFLUG], sek_heim > OW.INTRO_SEK_ANFLUG)
+	# Der Blick bleibt dabei auf der Stadt: rueckwaerts hinaus, Rustwater wird kleiner statt aus
+	# dem Rahmen zu kippen.
+	var ow_quelle: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
+	_check("Rueckwaerts, mit Blick auf die Stadt",
+		ow_quelle.contains('"pos": rueck, "ziel": mitte + Vector3(0.0, INTRO_BLICK_H, 0.0)'))
+	# Zum Schluss Figur UND Ort in einem Bild, dann einschwenken.
+	_check("Am Ende stehen Figur und Ort zusammen im Bild",
+		ow_quelle.contains("_player.position.lerp(mitte, 0.30)"))
+	_check("Und es wird gekippt statt geschnitten (%.1f s)" % OW.INTRO_SEK_EINSCHWENKEN,
+		OW.INTRO_SEK_EINSCHWENKEN >= 1.2)
+	# Die Gesamtdauer ist damit keine feste Zahl mehr, sondern haengt am Standort der Figur.
+	# Geprueft wird der Rahmen: lang genug, um zu wirken, kurz genug, um nicht zu langweilen.
 	var ges: float = OW.INTRO_SEK_BLICK + OW.INTRO_SEK_ANFLUG + OW.INTRO_SEK_RUNDE \
-		+ OW.INTRO_SEK_HEIM + OW.INTRO_SEK_EINSCHWENKEN
-	_check("Der Anflug dauert sechzehn Sekunden (%.1f s)" % ges, absf(ges - 16.0) < 0.05)
-	_check("Die Umrundung bekommt mehr als die Haelfte (%.0f %%)" % (100.0 * OW.INTRO_SEK_RUNDE / ges),
-		OW.INTRO_SEK_RUNDE / ges > 0.5)
-	var heimweg: float = OW.INTRO_SEK_HEIM + OW.INTRO_SEK_EINSCHWENKEN
-	_check("Der Rueckweg ist kuerzer als der Hinweg (%.1f s vs. %.1f s)"
-		% [heimweg, OW.INTRO_SEK_ANFLUG], heimweg < OW.INTRO_SEK_ANFLUG)
+		+ sek_heim + OW.INTRO_SEK_ZEIGEN + OW.INTRO_SEK_EINSCHWENKEN
+	_check("Die ganze Fahrt bleibt im Rahmen (%.1f s)" % ges, ges > 15.0 and ges < 28.0)
+	_check("Die Umrundung bleibt der laengste Abschnitt (%.0f %%)"
+		% (100.0 * OW.INTRO_SEK_RUNDE / ges),
+		OW.INTRO_SEK_RUNDE > sek_heim and OW.INTRO_SEK_RUNDE > OW.INTRO_SEK_ANFLUG)
 	# Und die Umrundung schwenkt langsam genug, dass man den Ort SIEHT.
 	#
 	# Hier stand vorher ein Vergleich der Bahngeschwindigkeit in m/s: Die Umrundung musste
@@ -2218,7 +2260,7 @@ func _test_orbit() -> void:
 	# Der Weg bleibt trotzdem interessant — als Gegenprobe, dass Zeit und Radius zusammenpassen
 	# und niemand versehentlich eine Hetzjagd um eine Grossstadt gebaut hat.
 	var bogen_m: float = deg_to_rad(OW.INTRO_ORBIT_GRAD) * kam_r
-	_check("Die Kamera legt dabei %.0f m zurueck" % bogen_m, bogen_m > 120.0 and bogen_m < 400.0)
+	_check("Die Kamera legt dabei %.0f m zurueck" % bogen_m, bogen_m > 120.0 and bogen_m < 460.0)
 
 
 ## Das Flackern von Esse und Fackeln.

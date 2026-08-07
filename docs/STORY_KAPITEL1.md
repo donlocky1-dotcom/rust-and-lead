@@ -225,8 +225,9 @@ Punkt und steigt hoch. Das ist eine Handlung, keine Zwischensequenz — die Kame
 nur. Der Anflug bei 95 m (Punkt 6) bleibt davon unberührt: Der Ausguck sagt *„dahin"*, der
 Anflug sagt *„da bin ich"*.
 
-**6. Der Anblick.** Auf **95 m** übernimmt die Kamera, einmal im ganzen Spiel — **sechzehn
-Sekunden**, jederzeit mit einem Tipp abbrechbar. Solange die Fahrt läuft, steht die Figur; sonst
+**6. Der Anblick.** Auf **95 m** übernimmt die Kamera, einmal im ganzen Spiel — **rund
+sechsundzwanzig Sekunden**, jederzeit mit einem Tipp abbrechbar. Rund, weil die Dauer keine
+feste Zahl mehr ist: Der Rückweg rechnet sich aus dem Standort der Figur. Solange die Fahrt läuft, steht die Figur; sonst
 liefe sie weiter, während die Kamera anderswo ist, und die Fahrt endete dreißig Meter hinter ihr.
 
 Die 95 m sind gemessen, nicht geschätzt: Bei 200 m ist Rustwater nachts ein schwarzer Streifen
@@ -236,30 +237,48 @@ Torfackeln sind einzeln zu erkennen, und der Sand vor der Palisade glüht.
 
 | | Etappe | Dauer | Tempo |
 |---|---|---|---|
-| 1 | **In seine Sicht** — auf Augenhöhe, Blick auf die Stadt | 2,8 s | steht |
-| 2 | **Anflug** — über Wüste und Palisade hinauf auf Turmhöhe, in einem Zug | 2,8 s | ~34 m/s |
-| 3 | **Um die Palisade** — 230°, Blick nach innen, von 24 auf 40 m steigend | 8,4 s | 27°/s |
-| 4 | **Zurück, Blick auf der Stadt** | 1,2 s | schnell |
-| 5 | **Einschwenken** in die Ausgangshaltung | 0,8 s | — |
+| 1 | **In seine Sicht** — auf Augenhöhe, Blick auf die Stadt | 2,0 s | steht |
+| 2 | **Anflug** — über Wüste und Palisade hinauf auf Turmhöhe, in einem Zug | 2,8 s | 14 m/s |
+| 3 | **Um die Palisade** — eine ganze Runde, Blick nach innen, von 24 auf 40 m steigend | 13,3 s | 27°/s |
+| 4 | **Rückwärts hinaus** — Blick bleibt auf Rustwater | ~4,6 s | 14 m/s |
+| 5 | **Figur und Ort in einem Bild** — von hinten über ihre Schulter | 1,6 s | steht |
+| 6 | **Einschwenken** in die Spielperspektive | 1,6 s | — |
 
 **Die Verteilung ist der Inhalt.** Nicht jede Etappe bekommt gleich viel, sondern so viel, wie
-ihr Tempo sein soll: Der Anflug legt 95 m in 2,8 s zurück — das bleibt der schnelle Teil. Die
-Umrundung bekommt mehr als die Hälfte der Fahrt und wirkt dadurch ruhig, obwohl sie sich dauernd
-bewegt.
+ihr Tempo sein soll. Die Umrundung bekommt die Hälfte der Fahrt und wirkt dadurch ruhig, obwohl
+sie sich dauernd bewegt.
+
+**Der Rückweg ist der Hinweg rückwärts.** Er ist als einziger Abschnitt keine feste Zahl,
+sondern eine Rechnung: Weg geteilt durch das Tempo des Anflugs. Vorher standen dort 1,2 s, und
+weil die Umrundung mit 230° auf der *gegenüberliegenden* Seite endete, wurde daraus ein Sprung —
+rund 48 m/s gegen 14 m/s beim Hereinfliegen. Im Bild sah das aus, als hätte jemand die Fahrt
+abgebrochen.
+
+Eine feste Zahl kann das nicht lösen: Wo die Umrundung endet, hängt am Bogenwinkel, und wie weit
+es von dort nach Hause ist, am Standort der Figur. Beides darf sich ändern, ohne dass das Tempo
+kippt.
+
+**Deshalb ist die Runde jetzt geschlossen.** 250° schwenkten mit knapp 30°/s — die Grenze, ab
+der eine Establishing-Fahrt schmiert —, also wurden daraus 230°; beide endeten aber gegenüber,
+und der Heimweg war 173 m lang. Bei **360°** endet die Umrundung dort, wo sie angefangen hat, auf
+der Seite der Figur: Der Rückweg ist dieselbe Strecke, dieselbe Dauer, dasselbe Tempo. Das ist
+nicht nur kürzer als die 230°-Fassung (26 s statt 30 s), es ist auch der einzige Bogen, bei dem
+*„zurück wie hin"* überhaupt eine Bedeutung hat.
 
 **Gemessen wird der Schwenk, nicht die Bahn.** Solange die Fahrt den Wasserturm auf 27 m Abstand
 umkreiste, hieß „langsam in m/s" auch „langsam im Bild". Um die Palisade herum liegt die Kamera
 64 m draußen, und dort ergibt derselbe Bogen in derselben Zeit zwangsläufig die doppelte
 Bahngeschwindigkeit, obwohl das Motiv genauso schnell vorbeizieht — ein Maß, das sich mit dem
-Radius ändert, sagt nichts über den Bildeindruck. Wahrgenommen wird die **Winkelgeschwindigkeit**:
-Über etwa 30°/s verwischt eine Establishing-Fahrt, darunter hat das Auge Zeit mitzugehen. Bei
-250° lag sie mit 29,8°/s genau auf dieser Grenze; 230° bringen sie auf 27°/s und zeigen den Ort
-immer noch von allen Seiten.
+Radius ändert, sagt nichts über den Bildeindruck. Wahrgenommen wird die
+**Winkelgeschwindigkeit**: Über etwa 30°/s verwischt eine Establishing-Fahrt, darunter hat das
+Auge Zeit mitzugehen. Die Fahrt bleibt bei 27°/s.
 
-Erst waren es acht Sekunden, und das war zu schnell: 45°/s ist kein Herumfahren mehr, das ist
-ein Schwenk. Verdoppelt wurde die **ganze** Fahrt, nicht nur die Umrundung — was hier zählt, ist
-das Verhältnis der Etappen zueinander; wer nur eine streckt, verschiebt die Betonung, statt Zeit
-zu geben.
+**Und am Ende steht der Satz, den die ganze Fahrt sagen soll.** Die Kamera fährt rückwärts hinaus
+und behält Rustwater im Bild — das letzte, was man vom Ort sieht, soll der Ort sein und nicht der
+Hinterkopf der Figur. Dann steht sie hinter ihr, 26 m zurück und 13 m hoch, und zeigt beides in
+einem Bild: die Figur im Vordergrund, die Lichter am Horizont. *Da will er hin, und da steht er.*
+Erst danach kippt und zieht sie in die Spielperspektive — 1,6 s, nicht 0,8 wie vorher, weil sie
+jetzt von weiter hinten und höher kommt.
 
 Der Rückweg ist mit zwei Sekunden der **kürzeste** Abschnitt. Schneller als der Hinflug ist er
 in Metern je Sekunde nicht, und kann es nicht sein: Die Umrundung endet auf der Seite, auf der
