@@ -1572,6 +1572,83 @@ func _test_daycycle() -> void:
 		DayCycle.phase_at(ankunft) == DayCycle.NACHT)
 	# 9. Flammen flackern — und zwar so, dass es nicht auffaellt, WIE sie es tun.
 	_test_flacker()
+	# 10. Die Umrundung des Wasserturms ist wirklich eine.
+	_test_orbit()
+
+
+## Der Flug um den Wasserturm.
+##
+## Vorher waren es zwei Stuetzpunkte, zwischen denen `_flight_frame` LINEAR interpoliert — also
+## eine Sehne: 26 m Abstand an den Enden, 21,6 m in der Mitte, und ganze 67° Schwenk. Das ist
+## keine Umrundung, das ist ein Vorbeiflug. Geprueft wird deshalb genau das, was daran neu ist:
+## dass der Abstand rundherum GLEICH bleibt, dass der Bogen wirklich abgefahren wird, und dass
+## die Kamera dabei nicht ruckelt.
+func _test_orbit() -> void:
+	var OW = load("res://scripts/OverworldView.gd")
+	var um := Vector3(10.0, 0.0, -5.0)
+	var start: Vector3 = um + Vector3(27.0, 15.0, 0.0)
+	var bogen: float = 220.0
+	var punkte: Array = OW.orbit_punkte(um, start, bogen, 15.0, 22.0, 9.0, 4.8)
+	_check("Die Umrundung hat Stuetzpunkte (%d)" % punkte.size(), punkte.size() == 16)
+	if punkte.is_empty():
+		return
+	# 1. Der Abstand zum Turm bleibt der Radius — auch MITTEN in einem Abschnitt, denn dort
+	#    schneidet die Gerade den Bogen ab. Genau dieser Fehler war vorher 17 %.
+	var kleinster: float = 1e9
+	var groesster: float = 0.0
+	var vorher: Vector3 = start
+	for p in punkte:
+		for k in 9:
+			var q: Vector3 = vorher.lerp(p["pos"], float(k) / 8.0)
+			var d: float = Vector2(q.x - um.x, q.z - um.z).length()
+			kleinster = minf(kleinster, d)
+			groesster = maxf(groesster, d)
+		vorher = p["pos"]
+	var fehler: float = 1.0 - kleinster / 27.0
+	_check("Der Abstand bleibt rund (%.2f–%.2f m, Fehler %.1f %%)"
+		% [kleinster, groesster, fehler * 100.0], fehler < 0.02)
+	# 2. Der Bogen wird auch wirklich abgefahren.
+	var letzte: Vector3 = punkte[-1]["pos"]
+	var grad: float = rad_to_deg(fposmod(atan2(letzte.z - um.z, letzte.x - um.x)
+		- atan2(start.z - um.z, start.x - um.x), TAU))
+	_check("Es werden %.0f° umrundet" % grad, absf(grad - bogen) < 1.0)
+	_check("Und dabei gestiegen (%.1f m)" % (letzte.y - start.y),
+		absf(letzte.y - start.y - 7.0) < 0.1)
+	# 3. Kein Ruckeln: Die Abschnitte sind linear (sonst bremste jeder einzeln ab), und die
+	#    Beschleunigung steckt in den Winkelschritten — aussen kurz, in der Mitte lang.
+	var weich: bool = false
+	for p in punkte:
+		if bool(p.get("weich", true)):
+			weich = true
+	_check("Die Abschnitte bremsen nicht einzeln ab", not weich)
+	var erster_schritt: float = start.distance_to(punkte[0]["pos"])
+	var mittlerer: float = Vector3(punkte[7]["pos"]).distance_to(punkte[8]["pos"])
+	_check("Die Umrundung faehrt sanft an (%.1f m vs. %.1f m in der Mitte)"
+		% [erster_schritt, mittlerer], mittlerer > erster_schritt * 2.0)
+	# 4. Der Blick haengt am Turm, sonst dreht sich die Kamera um sich selbst statt um ihn.
+	var immer_turm: bool = true
+	for p in punkte:
+		if Vector3(p["ziel"]).distance_to(um + Vector3(0.0, 9.0, 0.0)) > 0.01:
+			immer_turm = false
+	_check("Der Blick bleibt am Turm", immer_turm)
+	# 5. Ein Kreis mit Radius null ist keiner — lieber gar keine Punkte als eine Division.
+	_check("Ohne Radius gibt es keine Umrundung",
+		OW.orbit_punkte(um, um + Vector3(0.0, 5.0, 0.0), 220.0, 5.0, 5.0, 2.0, 3.0).is_empty())
+	# 6. Und der Punkt, um den es beim Anflug geht: Die Fahrt ENDET auf der Seite, von der aus
+	#    die Stadt hinter dem Turm liegt.
+	#
+	#    Der Wasserturm steht am Ortsrand, nicht in der Mitte. Von innen sieht man ihn vor
+	#    leerer Wueste, von aussen vor der beleuchteten Stadt — es gibt also eine richtige und
+	#    eine falsche Seite, und die Fahrt muss auf der richtigen AUFHOEREN statt dort
+	#    anzufangen. Hier liegt die Stadt bei −X vom Turm: Start also bei −X (innen), Ende
+	#    Richtung +X.
+	var richtung_stadt := Vector3(-1.0, 0.0, 0.0)
+	var s_start: Vector3 = um + richtung_stadt * 27.0 + Vector3(0.0, 15.0, 0.0)
+	var s_punkte: Array = OW.orbit_punkte(um, s_start, 220.0, 15.0, 22.0, 9.0, 4.8)
+	var ende: Vector3 = s_punkte[-1]["pos"]
+	var raus: float = Vector3(ende.x - um.x, 0.0, ende.z - um.z).normalized().dot(-richtung_stadt)
+	_check("Die Umrundung endet dort, wo die Stadt hinter dem Turm liegt (%.2f)" % raus,
+		raus > 0.6)
 
 
 ## Das Flackern von Esse und Fackeln.

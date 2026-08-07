@@ -42,15 +42,31 @@ Kilometer weit; zu Fuß sind das vier Minuten, im Sattel gut eine.
 **5. Der Weg.** Die Fußspur führt aus der Grube nach Rustwater — und, seit die Palisade steht,
 **durch das Tor** statt gegen die Mauer.
 
-**6. Der Anblick.** Auf 210 m übernimmt die Kamera, einmal im ganzen Spiel:
+**6. Der Anblick.** Auf **95 m** übernimmt die Kamera, einmal im ganzen Spiel — 12,6 Sekunden,
+jederzeit mit einem Tipp abbrechbar.
 
-1. **In seine Sicht** (1,6 s) — auf Augenhöhe, Blick auf die Stadt. Was er sieht, sieht der
-   Spieler: eine beleuchtete Stadt in einer dunklen Wüste.
-2. **Anflug** (2,6 s) über die Wüste, in Kopfhöhe bleibend.
-3. **Um den Wasserturm** (2,2 + 2,0 s, zwei Punkte — mit einem würde aus der Kurve eine Ecke).
-   Der Turm ist die Landmarke, an der man Rustwater von weitem erkennt; die Fahrt sagt „das ist
-   der Ort, auf den du zuläufst", ohne ein Wort dafür zu brauchen.
-4. **Zurück in die Spielhaltung** (2,4 s) über der Figur.
+Die 95 m sind gemessen, nicht geschätzt: Bei 200 m ist Rustwater nachts ein schwarzer Streifen
+am Horizont. Die Nachtlichter reichen 11 bis 23 m weit; was davon auf 200 m ankommt, sind ein
+paar Pixel unter der Nebelgrenze. Bei 95 m steht der Wasserturm als Silhouette im Bild, die vier
+Torfackeln sind einzeln zu erkennen, und der Sand vor der Palisade glüht.
+
+1. **In seine Sicht** (1,6 s) — auf Augenhöhe. Was er sieht, sieht der Spieler: eine
+   beleuchtete Stadt in einer dunklen Wüste.
+2. **Anflug** (2,2 s) über die Wüste, in Kopfhöhe bleibend, bis über den Stadtplatz.
+3. **Ansetzen** (1,6 s) — hinauf auf Turmhöhe.
+4. **Um den Wasserturm** (4,8 s, 220°, dabei von 15 auf 22 m steigend). Der Turm ist die
+   Landmarke, an der man Rustwater von weitem erkennt; die Fahrt sagt „das ist der Ort, auf den
+   du zuläufst", ohne ein Wort dafür zu brauchen.
+5. **Zurück in die Spielhaltung** (2,4 s) über der Figur.
+
+**Die Richtung der Umrundung ist keine Geschmacksfrage.** Der Turm steht am *Rand* von
+Rustwater, nicht in der Mitte: Von innen sieht man ihn vor leerer Wüste, von außen vor der
+beleuchteten Stadt. Die Fahrt beginnt deshalb innen — Turm vor schwarzem Nichts, ein
+geschlossenes Bild — und endet außen, wo er sich vor dem Ort auflöst. Andersherum finge der
+Anflug mit seinem besten Bild an und arbeitete sich davon weg.
+
+220° und nicht 360°: Eine volle Runde kommt dort wieder heraus, wo sie angefangen hat, und die
+letzten neunzig Grad zeigen dasselbe Bild ein zweites Mal.
 
 Dazu die Zeile: *„🌙 Rustwater. Licht in der Wüste."* Der Flug merkt sich in
 `GameState.saw_rustwater`, dass er gelaufen ist — er kommt nicht wieder.

@@ -186,6 +186,11 @@ const WEAPON_GRIP_ROT: Vector3 = Vector3(0.0, PI * 0.5, 0.0)   # Radiant (X, Y, 
 const PLAYER_RADIUS_M: float = 0.6
 ## Breite der Meldungszeile. Fest, damit sie mittig bleibt und nicht aus dem Bild waechst.
 const TOAST_W: float = 720.0
+## Wo die Meldungszeile sitzt — und wohin sie rutscht, solange der Kinobalken steht. Der reicht
+## bis 78 px hinunter und deckte sie sonst zur Haelfte ab; ausgerechnet die Zeile zum Anflug
+## („Rustwater. Licht in der Wueste.") war so nicht zu lesen.
+const TOAST_TOP: float = 64.0
+const TOAST_TOP_CINE: float = 92.0
 ## Aufloesung des Gelaendenetzes. Verfeinert von 0,5 auf 0,35 m, als aus der Schuessel eine
 ## Grube mit 66°-Waenden wurde: Bei 0,5 m Schrittweite steigt eine solche Wand je Viereck um
 ## 1,1 m — sichtbar treppig. Mit 0,35 m sind es 0,79 m, und die Kanten lesen sich als
@@ -234,6 +239,10 @@ const TOWN_LAYOUT: Array = [
 ]
 ## Der Turm steht NEBEN dem Kopfende der Straße, nicht darauf: mit 9,4 m Breite würde er die
 ## zwölf Meter Gasse dichtmachen. Bei 18 m Höhe sieht man ihn von überall, auch von der Seite.
+##
+## Das gilt für die vom Code gebaute Stadt. Steht `Rustwater.tscn` zur Verfügung, ist SIE die
+## Wahrheit — dort hat der Turm einen anderen Platz. Wer die Position braucht, fragt deshalb
+## `_turm_punkt()` und nicht diese Konstante.
 const TOWER_SPOT: Vector2 = Vector2(-14.0, -18.0)
 ## Hüttenplätze: zwei Reihen an der Straße, zwei Zeilen hinter den Kernbauten.
 ## Die editierbare Stadt-Szene. Liegt sie vor, wird sie geladen statt gebaut.
@@ -830,8 +839,32 @@ func _light_tower(r: Dictionary) -> void:
 ## Der Turm ist nicht zufaellig das Ziel der Kurve: Er ist die Landmarke, an der man Rustwater
 ## von weitem erkennt, und die Fahrt sagt „das ist der Ort, auf den du zulaeufst", ohne ein
 ## Wort dafuer zu brauchen.
-const INTRO_SIGHT_M: float = 210.0
+## Ab welcher Entfernung uebernimmt die Kamera?
+##
+## GEMESSEN, nicht geschaetzt: Bei 200 m ist Rustwater nachts ein schwarzer Streifen am
+## Horizont. Die Nachtlichter haben 11 bis 23 m Reichweite; was davon auf 200 m ankommt, sind
+## ein paar Pixel unterhalb der Nebelgrenze. Der Held sollte „eine beleuchtete Stadt in dunkler
+## Wueste" sehen und sah nichts.
+##
+## Bei 95 m steht der Wasserturm als Silhouette im Bild, die vier Torfackeln sind einzeln zu
+## erkennen und der Sand vor der Palisade glueht warm. Das ist das Bild, auf das der Anfang
+## zulaeuft — also faengt der Anflug dort an.
+const INTRO_SIGHT_M: float = 95.0
 const INTRO_EYE_M: float = 1.62
+## Die Umrundung: Abstand, Bogen, Hoehe am Anfang und am Ende.
+##
+## 220° und nicht 360°: Eine volle Runde kommt genau dort wieder heraus, wo sie angefangen hat,
+## und die letzten neunzig Grad zeigen dasselbe Bild ein zweites Mal. Nach gut einer halben
+## Runde hat man den Turm von allen Seiten gesehen, die Stadt liegt im Bild, und die Kamera
+## steht guenstig fuer den Ruecksprung zur Figur.
+##
+## Sie STEIGT dabei von 15 auf 22 m. Eine Umrundung auf gleicher Hoehe ist ein Karussell; mit
+## dem Steigen wird sie zur Aufloesung — am Ende schaut man von oben auf den Ort, und genau
+## dorthin geht die Spielkamera zurueck.
+const INTRO_ORBIT_R: float = 27.0
+const INTRO_ORBIT_GRAD: float = 220.0
+const INTRO_ORBIT_H0: float = 15.0
+const INTRO_ORBIT_H1: float = 22.0
 func _maybe_intro_flight() -> void:
 	if GameState.prolog_done or GameState.saw_rustwater or _player == null:
 		return
@@ -843,24 +876,39 @@ func _maybe_intro_flight() -> void:
 		return
 	GameState.saw_rustwater = true
 	var hin: Vector3 = flach.normalized()
-	var quer := Vector3(-hin.z, 0.0, hin.x)
-	var turm: Vector3 = stadt + Vector3(TOWER_SPOT.x, 0.0, TOWER_SPOT.y)
+	var turm3: Vector3 = _turm_punkt(stadt)
+	var turm := Vector3(turm3.x, WorldManager.height_at(turm3.x, turm3.z), turm3.z)
 	var auge: Vector3 = _player.position + Vector3(0.0, INTRO_EYE_M, 0.0)
+	# Wo die Umrundung anfaengt, entscheidet die Achse Turm–Stadt, nicht die Anflugrichtung.
+	#
+	# Der Wasserturm steht am RAND von Rustwater, nicht in der Mitte. Bei 27 m Radius liegt die
+	# halbe Kreisbahn deshalb ausserhalb der Palisade und die andere Haelfte drinnen — und was
+	# man sieht, haengt daran, auf welcher Seite man gerade ist: von aussen steht die Stadt
+	# HINTER dem Turm, von innen die leere Wueste.
+	#
+	# Also faengt die Fahrt auf der Stadtseite an (Turm vor schwarzem Nichts, ein geschlossenes,
+	# dunkles Bild) und endet draussen — dort loest sich der Turm vor der beleuchteten Stadt
+	# auf. Andersherum faengt der Anflug mit seinem besten Bild an und arbeitet sich davon weg.
+	var zur_stadt := Vector3(stadt.x - turm.x, 0.0, stadt.z - turm.z)
+	# Steht der Turm in der Mitte (die vom Code gebaute Stadt), gibt es keine solche Achse —
+	# dann tut es die Anflugrichtung.
+	zur_stadt = (-hin) if zur_stadt.length() < 1.0 else zur_stadt.normalized()
+	var start: Vector3 = turm + zur_stadt * INTRO_ORBIT_R + Vector3(0.0, INTRO_ORBIT_H0, 0.0)
 	var punkte: Array = [
 		# 1. In seine Sicht. Was er sieht, sieht der Spieler.
 		{ "pos": auge, "ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": 1.6 },
 		# 2. Ueber die Wueste auf die Stadt zu, in Kopfhoehe bleibend — der Anflug.
-		{ "pos": auge.lerp(stadt, 0.55) + Vector3(0.0, 7.0, 0.0),
-			"ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": 2.6 },
-		# 3. Um den Wasserturm herum. Zwei Punkte, sonst wird aus der Kurve eine Ecke.
-		{ "pos": turm + quer * 26.0 + Vector3(0.0, 16.0, 0.0),
-			"ziel": turm + Vector3(0.0, 9.0, 0.0), "sek": 2.2 },
-		{ "pos": turm - hin * 24.0 + quer * 10.0 + Vector3(0.0, 21.0, 0.0),
-			"ziel": turm + Vector3(0.0, 9.0, 0.0), "sek": 2.0 },
-		# 4. Zurueck in die Spielhaltung ueber der Figur.
-		{ "pos": _player.position + _cam_offset(_cam_dist),
-			"ziel": _player.position + Vector3(0.0, 1.0, 0.0), "sek": 2.4 },
+		{ "pos": auge.lerp(stadt, 0.6) + Vector3(0.0, 7.0, 0.0),
+			"ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": 2.2 },
+		# 3. Ansetzen: hinauf auf Turmhoehe, Blick auf den Turm.
+		{ "pos": start, "ziel": turm + Vector3(0.0, 9.0, 0.0), "sek": 1.6 },
 	]
+	# 4. Und herum. Ueber die Stadt, nicht ueber die Wueste.
+	punkte.append_array(orbit_punkte(turm, start, INTRO_ORBIT_GRAD,
+		INTRO_ORBIT_H0, INTRO_ORBIT_H1, 9.0, 4.8))
+	# 5. Zurueck in die Spielhaltung ueber der Figur.
+	punkte.append({ "pos": _player.position + _cam_offset(_cam_dist),
+		"ziel": _player.position + Vector3(0.0, 1.0, 0.0), "sek": 2.4 })
 	_play_flight(punkte)
 	_say("🌙 Rustwater. Licht in der Wüste.", 4.0)
 
@@ -1690,8 +1738,24 @@ func _build_township() -> void:
 	else:
 		_build_township_from_code(c)
 	_build_town_ground(c, umriss)
-	_label(c + Vector3(TOWER_SPOT.x, 21.0, TOWER_SPOT.y), "RUSTWATER",
+	_label(_turm_punkt(c) + Vector3(0.0, 21.0, 0.0), "RUSTWATER",
 		Color(0.95, 0.82, 0.55), LBL_ORT, 350.0)
+
+
+## Wo steht der Wasserturm? Die Landmarke, an der man Rustwater von weitem erkennt — daran
+## haengen die Ortsbeschriftung und die Umrundung im Anflug.
+##
+## Aus der SZENE, sobald sie eine hergibt: `_register_town_rects` merkt sich die tatsaechliche
+## Position, wenn es dort ein `water_tower` findet. Nur wenn der Code die Stadt selbst baut
+## (oder jemand den Turm aus der Szene entfernt hat), gilt der Platz aus dem Stadtplan.
+##
+## Vorher stand hier `TOWER_SPOT` fest im Code. Das war 46 m daneben: Die Beschriftung schwebte
+## neben dem Ort, und die Kamera umrundete beim Anflug ein Stueck leere Wueste.
+var _turm_welt: Vector3 = Vector3.INF
+func _turm_punkt(c: Vector3) -> Vector3:
+	if _turm_welt.x < INF:
+		return _turm_welt
+	return c + Vector3(TOWER_SPOT.x, 0.0, TOWER_SPOT.y)
 
 
 ## Der Umriss der Palisade, als **Radius je Winkel**.
@@ -2092,6 +2156,11 @@ func _register_town_rects(sperren: Array) -> void:
 			"gate":
 				_light_gate(r)
 			"water_tower":
+				# Wo der Turm WIRKLICH steht. `TOWER_SPOT` ist sein Platz im Stadtplan des
+				# Codes; in `Rustwater.tscn` steht er 46 m weiter noerdlich — und die Szene
+				# ist die Wahrheit. An dieser Stelle haengen die Ortsbeschriftung und der
+				# Anflug; beide zielten vorher auf leeren Sand neben der Stadt.
+				_turm_welt = Vector3(r["c"].x, stadt.y, r["c"].y)
 				_light_tower(r)
 		var text: String = String(r["label"])
 		if text != "":
@@ -3139,7 +3208,7 @@ func _build_hud() -> void:
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_toast.offset_left = -TOAST_W * 0.5
 	_toast.offset_right = TOAST_W * 0.5
-	_toast.offset_top = 64.0
+	_toast.offset_top = TOAST_TOP
 	_toast.add_theme_font_size_override("font_size", 16)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3775,10 +3844,13 @@ func _input(event: InputEvent) -> void:
 	# Eine Sequenz, die man aussitzen MUSS, ist beim zweiten Mal eine Zumutung. Jeder Tipp und
 	# jede Taste bricht ab — und wird dabei verbraucht, damit derselbe Tipp nicht gleich noch
 	# den Joystick startet.
-	if _in_cine() and ((event is InputEventScreenTouch and event.pressed)
+	if (_in_cine() or _in_flight()) and ((event is InputEventScreenTouch and event.pressed)
 			or (event is InputEventMouseButton and event.pressed)
 			or (event is InputEventKey and event.pressed and not event.echo)):
-		_end_cine()
+		if _in_flight():
+			_end_flight()
+		else:
+			_end_cine()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventScreenTouch:
@@ -4176,6 +4248,11 @@ func _show_bars(an: bool) -> void:
 		_bars.append(r)
 	for b in _bars:
 		(b as ColorRect).visible = an
+	# Die Meldungszeile sitzt bei 64 px, der Balken reicht bis 78 — waehrend einer Fahrt
+	# verschwindet sie also zur Haelfte darunter. Genau die Zeile, die den Anflug betextet,
+	# war so nicht zu lesen. Sie rutscht deshalb tiefer, solange der Balken steht.
+	if _toast != null:
+		_toast.offset_top = TOAST_TOP_CINE if an else TOAST_TOP
 
 
 ## Alles wegnehmen, was in einer Nahaufnahme nicht vorkommt.
@@ -4355,12 +4432,62 @@ func _flight_frame() -> Array:
 	for p in _flight:
 		var sek: float = maxf(float(p["sek"]), 0.05)
 		if t <= sek:
-			var k: float = smoothstep(0.0, 1.0, t / sek)
+			var roh: float = t / sek
+			# `weich` (Vorgabe) faehrt den Abschnitt sanft an und wieder aus. Das ist richtig
+			# fuer einen einzelnen Standortwechsel und FALSCH fuer eine Kette von Stuetzpunkten,
+			# die zusammen EINE Bewegung ergeben: Zwoelf Bogenstuecke, die jedes fuer sich
+			# anfahren und abbremsen, sind kein Kreis, sondern ein Stottern. Solche Ketten
+			# setzen `weich` auf false und tragen ihre Beschleunigung in der Verteilung der
+			# Stuetzpunkte (siehe `orbit_punkte`).
+			var k: float = smoothstep(0.0, 1.0, roh) if bool(p.get("weich", true)) else roh
 			return [von_pos.lerp(p["pos"], k), von_ziel.lerp(p["ziel"], k)]
 		t -= sek
 		von_pos = p["pos"]
 		von_ziel = p["ziel"]
 	return [von_pos, von_ziel]
+
+
+## Stuetzpunkte fuer eine Umrundung — eine echte Kurve, keine Gerade daran vorbei.
+##
+## `_flight_frame` interpoliert LINEAR zwischen zwei Standpunkten. Zwei Punkte auf einem Kreis
+## ergeben damit die Sehne, nicht den Bogen: Die Kamera zieht an dem Ding vorbei, um das sie
+## kreisen soll, und kommt ihm dabei in der Mitte naeher. Bei den urspruenglichen zwei Punkten
+## um den Wasserturm waren das 26 m an den Enden und 21,6 m in der Mitte — sichtbar keine
+## Umrundung.
+##
+## Also wird der Bogen in `stufen` Sehnen zerlegt. Bei sechzehn Stufen ueber 220° bleibt der
+## groesste Abstandsfehler bei 0,43 m auf 27 m — 1,6 %, und das an der Stelle, an der die
+## Kamera am schnellsten ist. Das sieht kein Mensch. (Zwoelf waeren 2,8 %, zwanzig 1,0 % — die
+## Stuetzpunkte kosten nichts, aber irgendwo ist Schluss.)
+##
+## Die Beschleunigung steckt in der VERTEILUNG der Winkel, nicht in der Zeit: Alle Stufen
+## dauern gleich lang, aber die Winkelschritte sind an den Enden kurz und in der Mitte lang
+## (`smoothstep`). Dadurch faehrt die Umrundung als Ganzes sanft an und aus — waehrend jede
+## einzelne Stufe mit gleichbleibendem Tempo laeuft und die Naht zur naechsten nicht auffaellt.
+##
+## `start` ist der Punkt, an dem die Kamera schon steht. Radius und Anfangswinkel kommen daraus,
+## nicht aus Zahlen — so kann zwischen Anflug und Umrundung kein Sprung entstehen.
+static func orbit_punkte(um: Vector3, start: Vector3, bogen_grad: float,
+		hoehe_von: float, hoehe_bis: float, ziel_hoehe: float,
+		sek: float, stufen: int = 16) -> Array:
+	var speiche := Vector3(start.x - um.x, 0.0, start.z - um.z)
+	var radius: float = speiche.length()
+	if radius < 0.5 or stufen < 1:
+		return []
+	var a0: float = atan2(speiche.z, speiche.x)
+	var bogen: float = deg_to_rad(bogen_grad)
+	var ziel: Vector3 = um + Vector3(0.0, ziel_hoehe, 0.0)
+	var out: Array = []
+	for i in range(1, stufen + 1):
+		var k: float = smoothstep(0.0, 1.0, float(i) / float(stufen))
+		var a: float = a0 + bogen * k
+		out.append({
+			"pos": um + Vector3(cos(a) * radius, lerpf(hoehe_von, hoehe_bis, k), sin(a) * radius),
+			"ziel": ziel,
+			"sek": sek / float(stufen),
+			"weich": false,
+		})
+	return out
 
 
 func _flight_total() -> float:

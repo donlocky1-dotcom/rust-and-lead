@@ -100,6 +100,15 @@ func _ready() -> void:
 	# aus Augenhoehe auf die Schmiede.
 	_views.append(["nacht_stadt", null, "nachtstadt"])
 	_views.append(["nacht_schmiede", null, "nachtschmiede"])
+	# Der Anflug auf Rustwater, an fuenf Stellen abgegriffen. Eine Kamerafahrt laesst sich
+	# rechnerisch pruefen (der Test tut das), aber ob sie ein BILD ergibt, sieht man erst im
+	# Bild — vor allem, ob der Turm bei der Umrundung im Rahmen bleibt.
+	#
+	# Der erste Wert ist 0,13 und nicht 0,0: Zu Beginn blendet die Fahrt noch von der
+	# STANDKAMERA herueber, und die steht hier im Werkzeug woanders als im Spiel. 0,13 ist das
+	# Ende der ersten Etappe — der reine Blickpunkt des Helden, ohne Beimischung.
+	for anteil in ["0.13", "0.30", "0.48", "0.66", "0.86"]:
+		_views.append(["flug_" + anteil, null, "flug_" + anteil])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -294,6 +303,29 @@ func _setup_ui(art: String) -> void:
 		# Stadtplatz aus schraeg darauf, damit Fassade UND Vorplatz im Bild sind.
 		_cam.position = rw2 + Vector3(6.0, 5.0, 17.0)
 		_cam.look_at(rw2 + Vector3(-11.0, 2.0, 0.0), Vector3.UP)
+		_cam.current = true
+	elif art.begins_with("flug_"):
+		# Der Anflug an einer bestimmten Stelle seiner Laufzeit. Die Fahrt wird echt ausgeloest
+		# (nicht nachgebaut), dann die Uhr vorgestellt und das Bild abgegriffen — was hier steht,
+		# ist genau das, was der Spieler sieht.
+		ow._end_cine()
+		ow._close_character()
+		GameState.hour = 1.5
+		GameState.prolog_done = false
+		GameState.saw_rustwater = false
+		ow._apply_daytime()
+		ow._apply_night_lights()
+		var rwf: Vector3 = WorldManager.poi_scene_position("rustwater")
+		# Knapp innerhalb der Sichtweite, damit die Fahrt beim naechsten Aufruf anspringt.
+		var steh: Vector3 = rwf + Vector3(0.0, 0.0, OverworldView.INTRO_SIGHT_M - 4.0)
+		ow._player.position = Vector3(steh.x, WorldManager.height_at(steh.x, steh.z), steh.z)
+		ow._player.rotation.y = PI
+		ow._maybe_intro_flight()
+		ow._flight_t = ow._flight_total() * float(art.get_slice("_", 1).to_float())
+		var ff: Array = ow._flight_frame()
+		_cam.position = ff[0]
+		if ff[0].distance_to(ff[1]) > 0.05:
+			_cam.look_at(ff[1], Vector3.UP)
 		_cam.current = true
 	elif art == "nachtstadt" or art == "nachtschmiede":
 		# Die Nachtbeleuchtung im Zusammenhang. Ein Bild vom Saloon allein beantwortet nicht die
