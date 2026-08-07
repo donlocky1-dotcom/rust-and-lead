@@ -126,6 +126,9 @@ func _ready() -> void:
 		berg + Vector3(0.0, 5.0, 0.0)])
 	_views.append(["ausguck_oben", berg + Vector3(0.0, 3.0, 0.0) - zur_stadt * 8.0,
 		rw + Vector3(0.0, 6.0, 0.0)])
+	# Die Rundsicht oben auf dem Fels, an vier Stellen. Gleiche Bauweise wie `flug_`/`wach_`.
+	for anteil in ["0.16", "0.42", "0.68", "0.90"]:
+		_views.append(["vista_" + anteil, null, "vista_" + anteil])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
 	var ratten: Vector3 = WorldManager.poi_scene_position("rattengestruepp")
@@ -320,6 +323,34 @@ func _setup_ui(art: String) -> void:
 		# Stadtplatz aus schraeg darauf, damit Fassade UND Vorplatz im Bild sind.
 		_cam.position = rw2 + Vector3(6.0, 5.0, 17.0)
 		_cam.look_at(rw2 + Vector3(-11.0, 2.0, 0.0), Vector3.UP)
+		_cam.current = true
+	elif art.begins_with("vista_"):
+		# Oben auf dem Fels. Der Aufstieg wird uebersprungen — die Figur wird auf das Plateau
+		# gesetzt, dann laeuft dieselbe Pruefung wie im Spiel.
+		ow.set_process(true)
+		ow._end_flight()
+		ow._end_cine()
+		ow._close_character()
+		GameState.hour = DayCycle.START_HOUR
+		GameState.prolog_done = false
+		GameState.saw_vista = false
+		ow._apply_daytime()
+		ow._apply_night_lights()
+		var rwv: Vector3 = WorldManager.poi_scene_position("rustwater")
+		var felsm: Vector3 = WorldManager.world_to_scene(Vector2(228.0, 372.0))
+		felsm.y = WorldManager.height_at(felsm.x, felsm.z)
+		ow._player.position = felsm
+		ow._player.rotation.y = atan2(-(rwv.x - felsm.x), -(rwv.z - felsm.z))
+		ow._cam.position = felsm + ow._cam_offset(ow._cam_dist)
+		ow._cam.look_at(felsm + Vector3(0.0, 1.0, 0.0), Vector3.UP)
+		ow._maybe_vista()
+		ow._flight_t = ow._flight_total() * float(art.get_slice("_", 1).to_float())
+		ow.set_process(false)
+		var vf: Array = ow._flight_frame()
+		_cam.position = vf[0]
+		if vf[0].distance_to(vf[1]) > 0.05:
+			_cam.look_at(vf[1], Vector3.UP)
+		_cam.fov = float(vf[2])
 		_cam.current = true
 	elif art.begins_with("wach_"):
 		# Der Anfang: die Figur liegt am Grund der Grube und steht auf, waehrend die Kamera von
