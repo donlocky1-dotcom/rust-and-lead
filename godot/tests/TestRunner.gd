@@ -70,7 +70,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_poi_walkable": 22,
 	"_test_town_walkable": 17,
 	"_test_enemy_attacks": 20,
-	"_test_daycycle": 180,
+	"_test_daycycle": 181,
 	"_test_dialog": 22,
 	"_test_memory_manager": 29,
 	"_test_encounter_manager": 24,
@@ -2058,6 +2058,13 @@ func _test_prolog() -> void:
 	# Entscheidung da, die ihn erklaert.
 	_check("Die Fussspur wartet den Monolog ab",
 		quelle.contains("and _wach_left <= 0.0 and not _in_flight() and not _in_cine()"))
+	# Und die Figur STEHT waehrend einer Fahrt — auch mit den Beinen. Das Anhalten der Bewegung
+	# stand laengst im Code, der Clip aber nicht: `play_clip()` kommt erst hinter dem Ausstieg,
+	# also behielt den Lauf-Clip, wer beim Start der Fahrt gerade lief. Die Figur rannte auf der
+	# Stelle weiter. Beim Anflug auf Rustwater faellt das nicht auf — die Kamera ist weit weg —,
+	# auf dem Ausguck dagegen kreist sie auf 8,5 m um genau diese Figur.
+	_check("Waehrend einer Kamerafahrt stehen auch die Beine still",
+		quelle.contains('if _wach_left <= 0.0:\n\t\t\tAssetRegistry.play_clip(_player_model, "idle")'))
 	# Und die Fussspur fuehrt auch wirklich ueber die Kuppe, statt quer ueber die Flanke zu zeigen.
 	_check("Und die Fussspur nimmt den Umweg ueber die Kuppe",
 		quelle.contains("AUSGUCK_OBEN_M"))

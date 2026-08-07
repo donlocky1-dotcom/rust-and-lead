@@ -5891,6 +5891,19 @@ func _process_movement(delta: float) -> void:
 	# Figur waere acht Sekunden lang weitergelaufen, waehrend die Kamera anderswo ist, und die
 	# Fahrt endete dort, wo sie vor acht Sekunden stand — gut dreissig Meter hinter ihr.
 	if _in_cine() or _in_flight():
+		# Und zwar auch die BEINE.
+		#
+		# Das Anhalten stand hier schon, der Clip aber nicht: `play_clip()` wird erst weiter
+		# unten aufgerufen, also hinter diesem Ausstieg. Wer gerade lief, als die Fahrt ansprang,
+		# behielt den Lauf-Clip — die Figur stand auf der Stelle und rannte weiter.
+		#
+		# Beim Anflug auf Rustwater faellt das nicht auf, die Kamera ist dabei weit weg. Auf dem
+		# Ausguck schon: Dort kreist sie auf 8,5 m um die Figur, und die ist das Motiv.
+		#
+		# Das Erwachen ist ausgenommen — es hat seinen eigenen Clip (`Stand_Up1`), und der laeuft
+		# waehrend derselben Fahrt.
+		if _wach_left <= 0.0:
+			AssetRegistry.play_clip(_player_model, "idle")
 		return
 	if _wach_left > 0.0:
 		return   # das Erwachen gehoert der Szene; `_process_wach` zaehlt es herunter

@@ -253,6 +253,14 @@ Oben übernimmt die Kamera ein zweites Mal — **25 Sekunden im Weitwinkel** (78
 3. Schwenk über seine Schulter **hinunter ins Tal auf Rustwater** (4,2 s)
 4. Blick ins Tal (4,0 s), zurück in die Ausgangshaltung (2,4 s)
 
+**Und die Figur steht dabei still — auch mit den Beinen.** Dass die Bewegung während einer
+Kamerafahrt gesperrt ist, stand längst im Code; der Clip aber nicht. `play_clip()` wird erst
+hinter dem Ausstieg aufgerufen, also behielt den Lauf-Clip, wer beim Start der Fahrt gerade lief:
+Die Figur rannte fünfundzwanzig Sekunden lang auf der Stelle. Beim Anflug auf Rustwater fällt das
+nicht auf, dort ist die Kamera weit weg — hier kreist sie auf 8,5 m um genau diese Figur, und
+sie ist das Motiv. Ausgenommen bleibt das Erwachen: Das hat mit `Stand_Up1` seinen eigenen Clip,
+und der läuft während derselben Fahrt.
+
 Sie war zu schnell, und der Grund steckt in der Umrundung: 230° in 6,6 s sind **35°/s**. Für die
 Stadtfahrt gilt seit langem 30°/s als Grenze, ab der eine Establishing-Fahrt schmiert statt zu
 zeigen — hier lag sie darüber, und das ausgerechnet auf einem Kreis von 8,5 m Radius, wo der
