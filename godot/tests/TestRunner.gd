@@ -1713,7 +1713,23 @@ func _test_prolog() -> void:
 		return
 	var a_mitte: Vector3 = WorldManager.feature_center(aus)
 	var a_oben: float = WorldManager.height_at(a_mitte.x, a_mitte.z)
-	_check("Sie ist hoch genug fuer eine Aussicht (%.0f m)" % a_oben, a_oben > 15.0)
+	_check("Sie ist hoch genug fuer eine Aussicht (%.0f m)" % a_oben, a_oben >= 10.0)
+	# Und es ist ein FELS, kein Kegel: Der Umriss ist nicht rund.
+	var r_min: float = 1e9
+	var r_max: float = 0.0
+	for g in 72:
+		var w: float = deg_to_rad(float(g) * 5.0)
+		var richt := Vector2(cos(w), -sin(w))
+		# Vom Rand nach innen suchen, wo der Fels anfaengt.
+		for j in 120:
+			var rr: float = float(aus["radius"]) * 1.4 * (1.0 - float(j) / 120.0)
+			var q := Vector3(a_mitte.x + richt.x * rr, 0.0, a_mitte.z + richt.y * rr)
+			if WorldManager.height_at(q.x, q.z) > 0.5:
+				r_min = minf(r_min, rr)
+				r_max = maxf(r_max, rr)
+				break
+	_check("Der Umriss ist unregelmaessig (%.0f–%.0f m)" % [r_min, r_max],
+		r_max > r_min * 1.25)
 	# Zwischen Grube und Stadt, nicht daneben: Wer den einen Weg geht, kommt daran vorbei.
 	var a_grube: Vector3 = WorldManager.poi_scene_position("schrott_minen")
 	var stadt2: Vector3 = WorldManager.poi_scene_position("rustwater")
@@ -1722,6 +1738,10 @@ func _test_prolog() -> void:
 	var a_direkt: float = Vector2(stadt2.x - a_grube.x, stadt2.z - a_grube.z).length()
 	_check("Sie liegt auf dem Weg (%.0f + %.0f m gegen %.0f m direkt)" % [d_g, d_s, a_direkt],
 		d_g + d_s < a_direkt * 1.10)
+	# Aber kein Aussichtsturm: Aus dieser Hoehe liegt Rustwater fast waagerecht im Blick, man
+	# schaut unter der Felskante hindurch in die Ebene statt von oben auf eine Landkarte.
+	var senkung: float = rad_to_deg(atan(a_oben / d_s))
+	_check("Rustwater liegt fast waagerecht im Blick (%.1f°)" % senkung, senkung < 8.0)
 	# Die Klippe ist zu steil zum Hochlaufen, die Rampe nicht. Gemessen am Profil selbst.
 	var r_a: float = float(aus["radius"])
 	var steilste: float = 0.0

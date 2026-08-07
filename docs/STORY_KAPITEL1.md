@@ -97,18 +97,36 @@ im Sattel gut eine.
 **5. Der Weg.** Die Fußspur führt aus der Grube nach Rustwater — und, seit die Palisade steht,
 **durch das Tor** statt gegen die Mauer.
 
-**5b. Der Ausguck.** Auf halbem Weg (276 m von der Grube, 255 m vor der Stadt) liegt eine
-**24 m hohe Anhöhe**: flaches Plateau, ringsum steile Klippe, auf der Grubenseite eine Rampe.
-Wer aus der Grube kommt, sieht sie vor sich und steigt hinauf, um sich zu orientieren.
+**5b. Der Ausguck.** Auf halbem Weg (276 m von der Grube, 255 m vor der Stadt) ragt ein
+**15 m hoher Fels** aus dem Sand: flaches Plateau, ringsum steile Kante, auf der Grubenseite ein
+Sporn, über den man hinaufkommt. Wer aus der Grube kommt, sieht ihn vor sich und steigt hinauf,
+um sich zu orientieren.
 
-Das ist **Gelände, kein 3D-Objekt** — und zwar ein *umgedrehter Krater*: dieselbe Formel,
-`depth` negativ. Das Höhenprofil eines Kraters ist ein flacher Boden, eine steile Wand und ein
+**Ein Fels, kein Hügel** — der Unterschied steckt in drei Dingen:
+
+* **Der Umriss ist nicht rund** (`kerb` 0,27): Der Radius schwankt je nach Richtung zwischen 18
+  und 30 m, mit Vorsprüngen und Einbuchtungen. Ein Kegel liest sich als Hügel, egal wie steil er
+  ist. Der größte Vorsprung liegt auf dem Aufstieg — wo ein Fels einen Sporn hat, läuft der Weg
+  hinauf, und dort ist er am flachsten.
+* **Die Oberkante ist eine Kante.** `smoothstep` setzt an beiden Enden waagerecht an — für eine
+  ausgewaschene Erdwand richtig, für Fels falsch: Genau diese abgerundete Oberkante macht ihn im
+  Bild zur Kuppel. Stattdessen `(1−u)^1,8`: am Rand am steilsten (63–74°), nach unten
+  abflachend, wo sich der Sand anlegt. Das ist die Silhouette einer Tafelberg-Kuppe.
+* **Er ist steinfarben.** Scheitelfarben auf dem vorhandenen Sand-Shader, über die Höhe
+  eingeblendet: unten Sand, ab gut vier Metern Stein. Keine zweite Textur, kein zweites Netz.
+
+**15 m, nicht 24.** Man will darüber stehen, nicht darauf thronen: Aus 15 m liegt Rustwater in
+255 m Entfernung 3,4° unter der Waagerechten — die Kamera schaut also praktisch geradeaus unter
+der Felskante hindurch in die Ebene, statt von oben auf eine Landkarte.
+
+Und es ist **Gelände, kein 3D-Objekt** — ein *umgedrehter Krater*: dieselbe Formel, `depth`
+negativ. Das Höhenprofil eines Kraters ist ein flacher Boden, eine steile Wand und ein
 Sektor, in dem die Wand fehlt; Vorzeichen gedreht ergibt genau das Gesuchte. `height_at()` ist
 die einzige Wahrheit für Bodenhöhe im ganzen Spiel — daran hängen Laufen, Fußspuren, Streuung,
 jede Figur und jede Kiste. Ein aufgestelltes Modell wüsste davon nichts: Man liefe hindurch, die
 Fußspur ginge darunter her, Gegner ständen in der Luft.
 
-Gemessen: **Klippe 58°, Rampe 38°.** Dazwischen liegt die neue **Steigungsgrenze von 45°** — bis
+Gemessen: **Kante 63–74°, Aufstieg 38°.** Dazwischen liegt die neue **Steigungsgrenze von 45°** — bis
 jetzt gab es keine, man lief die 66°-Wand der Schrottgrube hoch wie eine Fliege und ihre Rampe
 war reine Deko. Gesperrt wird nur *bergauf*; wer von der Kante springt, hat sich dafür
 entschieden.
@@ -116,7 +134,7 @@ entschieden.
 Oben übernimmt die Kamera ein zweites Mal — **15 Sekunden im Weitwinkel** (78° statt 50°):
 
 1. Zurück und hoch, hinter ihm (2,6 s)
-2. **Um ihn herum**, 230°, von 5 auf 26 m steigend (7,4 s) — er bleibt in der Mitte, der ganze
+2. **Um ihn herum**, 230°, von 3,5 auf 17 m steigend (7,4 s) — er bleibt in der Mitte, der ganze
    Horizont dreht sich hinter ihm
 3. Schwenk über seine Schulter **hinunter ins Tal auf Rustwater** (3,2 s)
 4. Zurück in die Ausgangshaltung (1,8 s)

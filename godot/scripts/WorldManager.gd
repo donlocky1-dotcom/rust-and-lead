@@ -86,16 +86,26 @@ const TERRAIN: Array = [
 	# her, und Gegner ständen in der Luft. Als Formel gilt es überall, ohne dass irgendwo eine
 	# Zeile dafür geschrieben wird.
 	#
-	# Die Zahlen: 24 m hoch bei 46 m Radius, Plateau bis 52 % — das sind rund 22 m Wand auf 22 m
-	# Waagerechte, im Mittel 48° und an der steilsten Stelle über 60°. Da kommt niemand hoch.
+	# Es ist ein FELS, kein Hügel. Der Unterschied steckt in drei Zahlen:
+	#
+	#  • **15 m statt 24.** Man will darüber stehen, nicht darauf thronen. Aus 15 m sieht man
+	#    Rustwater in 255 m Entfernung unter einem Winkel von 3° — praktisch waagerecht, also
+	#    unter der Felskante hindurch in die Ebene. Genau der Blick, um den es geht.
+	#  • **27 m Radius statt 46, Plateau bis 60 %.** Das sind 11 m Wand auf 15 m senkrecht: im
+	#    Mittel 54°, an der steilsten Stelle über 65°. Ein 32 m breiter Klotz mit 15 m hohen
+	#    Wänden ist ein Felsen; dieselbe Höhe auf 92 m Breite wäre eine Bodenwelle.
+	#  • **`kerb` 0,27.** Der Umriss ist NICHT rund, sondern um bis zu 27 % je nach Richtung
+	#    verzogen — Vorsprünge und Einbuchtungen statt eines Kegels. Ohne das bleibt jede
+	#    Erhebung ein Hügel, egal wie steil sie ist.
+	#
 	# Die Rampe zeigt mit 135° zur Schrottgrube: Wer von dort kommt, findet den Aufstieg vor
 	# sich; die Klippe liegt auf der Seite von Rustwater (−45°), also genau dort, wo man steht,
 	# wenn man hinunterschaut.
 	#
 	# `scrap: false`, weil hier kein Müll liegt. Eine Anhöhe in der Wüste ist Fels, keine Halde.
 	{ "id": "ausguck", "kind": "crater", "x": 228, "y": 372, "scrap": false,
-		"radius": 46.0, "depth": -24.0, "rim": 0.0, "rim_width": 0.10,
-		"floor": 0.52, "ramp_deg": 135.0, "ramp_span": 62.0 },
+		"radius": 27.0, "depth": -15.0, "rim": 0.0, "rim_width": 0.10, "kerb": 0.27, "fels": true, "step": 0.6,
+		"floor": 0.60, "ramp_deg": 135.0, "ramp_span": 54.0 },
 	# Das Wellenmeer: ein Dünenfeld östlich von Rustwater, 220 m breit. Nicht an einem Ort
 	# verankert, sondern frei auf der Karte — es IST die Landmarke.
 	#
@@ -212,7 +222,10 @@ static func height_at(x: float, z: float) -> float:
 static func _feature_height(f: Dictionary, off: Vector2) -> float:
 	if String(f.get("kind", "crater")) == "dunes":
 		return _dune_height(f, off)
-	var radius: float = float(f["radius"])
+	# Der Umriss muss nicht rund sein. `kerb` verzieht den Radius je nach Richtung — aus dem
+	# Kreis wird eine unregelmaessige Form mit Vorspruengen und Einbuchtungen. Ohne das ist
+	# jede Erhebung ein Kegel, und ein Kegel liest sich als Huegel, nie als Fels.
+	var radius: float = float(f["radius"]) * _kerbung(f, off)
 	var t: float = off.length() / radius
 	var w: float = float(f["rim_width"])
 	if t >= 1.0 + w:
@@ -224,6 +237,18 @@ static func _feature_height(f: Dictionary, off: Vector2) -> float:
 	if t <= boden:
 		return -float(f["depth"])
 	var u: float = (t - boden) / maxf(1.0 - boden, 0.0001)
+	# Zwei Wandprofile, und der Unterschied ist der zwischen Düne und Fels.
+	#
+	# `smoothstep` setzt an BEIDEN Enden waagerecht an. Für eine ausgewaschene Erdwand ist das
+	# richtig — oben rundet die Kante ab, unten läuft sie in den Boden. Für einen Felsen ist es
+	# falsch: Die abgerundete Oberkante ist genau das, was ihn im Bild zur Kuppel macht, egal
+	# wie steil die Flanke dazwischen ist.
+	#
+	# Deshalb für `fels` eine Potenz: `(1−u)^1,8` steht an der Oberkante am steilsten (68° bei
+	# der Anhöhe) und flacht nach unten ab — die Kante ist eine Kante, und am Fuß legt sich der
+	# Sand an. Das ist die Silhouette einer Tafelberg-Kuppe, und die erkennt man als Stein.
+	if bool(f.get("fels", false)):
+		return -float(f["depth"]) * pow(1.0 - u, 1.8)
 	return -float(f["depth"]) * (1.0 - smoothstep(0.0, 1.0, u))
 
 
@@ -260,6 +285,30 @@ static func _dune_height(f: Dictionary, off: Vector2) -> float:
 ##
 ## Der Übergang läuft über `smoothstep` statt hart auf den Sektor — sonst stünde links und
 ## rechts der Rampe je eine senkrechte Kante im Gelände, an der man entlangschrammt.
+## Verzerrung des Radius je Richtung (1,0 = rund).
+##
+## Zwei Sinus mit unrunden Vielfachen (3 und 5) statt eines einzelnen: Ein einzelner ergibt eine
+## Ellipse, drei Perioden allein eine gleichseitige Form, die man als Muster erkennt. Die
+## Ueberlagerung wiederholt sich erst nach einer vollen Umdrehung und liest sich als gewachsen.
+##
+## Kein Rauschen: Das Gelaende ist eine FORMEL, die an tausend Stellen im Spiel abgefragt wird
+## (Laufen, Fussspuren, Streuung, jede Figur). Sie muss ueberall dasselbe liefern und darf
+## nichts kosten — zwei Sinus tun beides, eine Rauschtextur keins von beidem.
+static func _kerbung(f: Dictionary, off: Vector2) -> float:
+	var k: float = float(f.get("kerb", 0.0))
+	if k <= 0.0 or off.length_squared() < 0.000001:
+		return 1.0
+	# Der groesste VORSPRUNG liegt auf der Rampe. Das ist keine Feinabstimmung, sondern die
+	# Regel dahinter: Wo ein Fels einen Sporn hat, laeuft der Weg hinauf — und umgekehrt ist der
+	# Aufstieg dort am flachsten, wo am meisten Material liegt.
+	#
+	# Ohne das war die Rampe steiler als die Steigungsgrenze und damit selbst gesperrt: Bei
+	# gleicher Hoehe faellt der Anstieg umso steiler aus, je kuerzer die Strecke bis zum Fuss
+	# ist — und die Verzerrung hatte den Radius ausgerechnet dort verkuerzt.
+	var a: float = atan2(-off.y, off.x) - deg_to_rad(float(f.get("ramp_deg", 0.0)))
+	return 1.0 + k * (sin(a * 3.0 + PI * 0.5) * 0.62 + sin(a * 5.0 + PI * 0.5) * 0.38)
+
+
 static func _floor_share(f: Dictionary, off: Vector2) -> float:
 	var boden: float = float(f.get("floor", 0.0))
 	if boden <= 0.0 or off.length_squared() < 0.000001:

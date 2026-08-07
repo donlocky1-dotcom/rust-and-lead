@@ -660,9 +660,9 @@ func _process_wach(delta: float) -> void:
 ## (`VISTA_FOV`) statt der engen Spielkamera — ein Ueberblick, der durch ein Fernrohr
 ## stattfindet, ist keiner.
 const VISTA_FOV: float = 78.0
-const VISTA_R_M: float = 17.0
-const VISTA_H0: float = 5.0
-const VISTA_H1: float = 26.0
+const VISTA_R_M: float = 14.0
+const VISTA_H0: float = 3.5
+const VISTA_H1: float = 17.0
 const VISTA_GRAD: float = 230.0
 const VISTA_SEK_AUF: float = 2.6
 const VISTA_SEK_RUNDE: float = 7.4
@@ -700,8 +700,12 @@ func _maybe_vista() -> void:
 		q["fov"] = VISTA_FOV
 	# Und hinunter ins Tal: ueber seine Schulter auf Rustwater. Der Punkt, auf den der ganze
 	# Aufstieg hinauslaeuft.
-	punkte.append({ "pos": p - zur_stadt * 9.0 + Vector3(0.0, 7.0, 0.0),
-		"ziel": stadt + Vector3(0.0, 4.0, 0.0), "sek": VISTA_SEK_TAL, "fov": VISTA_FOV })
+	# Der Blick ins Tal: knapp ueber Kopfhoehe hinter ihm, damit die Felskante unten im Bild
+	# steht und Rustwater darunter in der Ebene liegt. Aus 15 m auf 255 m sind das 3° unter der
+	# Waagerechten — die Kamera muss also gar nicht kippen, sie schaut geradeaus hinaus. Ein
+	# steiler Blick von oben herab machte aus der Ebene eine Landkarte.
+	punkte.append({ "pos": p - zur_stadt * 7.0 + Vector3(0.0, 3.0, 0.0),
+		"ziel": stadt + Vector3(0.0, 6.0, 0.0), "sek": VISTA_SEK_TAL, "fov": VISTA_FOV })
 	punkte.append({ "pos": heim.origin, "ziel": heim.origin - heim.basis.z * 10.0,
 		"sek": VISTA_SEK_HEIM, "fov": CAM_FOV })
 	_play_flight(punkte)
@@ -1099,6 +1103,24 @@ func _add_ground_quad(r: Rect2, mat: Material) -> void:
 ## Verformter Flicken ueber einer Gelaendeform. Die Hoehe kommt aus `WorldManager.height_at`,
 ## die Normale aus `normal_at` — also aus DERSELBEN Formel, aus der auch die Spielerhoehe
 ## kommt. Gemittelte Dreiecksnormalen waeren an der Naht zur flachen Flaeche sichtbar.
+## Farbe und Übergangshöhe des Gesteins. Graubraun und entsättigt: Auf den hellen Sand
+## multipliziert ergibt das Stein, ohne dass er sich vom Wüstenton löst — ein grauer Fels in
+## gelbem Sand sähe aus wie hineinkopiert.
+const FELS_TON: Color = Color(0.52, 0.45, 0.40)
+const FELS_HOEHE_M: float = 4.5
+var _fels_mat: BaseMaterial3D = null
+func _fels_material(sand: Material) -> Material:
+	if _fels_mat != null:
+		return _fels_mat
+	var m: BaseMaterial3D = (sand as BaseMaterial3D).duplicate() as BaseMaterial3D
+	# Ohne das bleiben die Scheitelfarben ungenutzt und der Fels ist wieder Sand.
+	m.vertex_color_use_as_albedo = true
+	# Gestein ist matter als Flugsand — sonst glaenzt die Wand wie eine Duene.
+	m.roughness = minf(1.0, m.roughness + 0.18)
+	_fels_mat = m
+	return m
+
+
 func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	var c: Vector3 = WorldManager.feature_center(f)
 	var reach: float = WorldManager.feature_reach(f) + TERRAIN_MARGIN_M
@@ -1108,6 +1130,17 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	var schritt: float = float(f.get("step", TERRAIN_STEP_M))
 	var n: int = maxi(8, int(ceil(reach * 2.0 / schritt)))
 	var step: float = reach * 2.0 / float(n)
+	# FELS statt Sand — aber ohne zweite Textur und ohne zweites Netz.
+	#
+	# Die Form allein macht keinen Felsen: Das Bild zeigte eine Sanddüne mit steilen Flanken,
+	# weil überall dieselbe helle Sandtextur liegt. Eine eigene Gesteinstextur wäre ein zweiter
+	# PBR-Satz und ein zweites Netz obendrauf; das ist viel Aufwand für eine Einfärbung.
+	#
+	# Stattdessen SCHEITELFARBEN. Der Boden-Shader multipliziert sie auf den Sand: Weiß lässt
+	# ihn unverändert, ein graubraunes Grau macht daraus Stein. Der Übergang läuft über die
+	# HÖHE — was mehr als vier Meter über der Ebene liegt, ist Fels, darunter blendet es in den
+	# Sand. Genau das ist „aus dem Sand ragend": unten Sand, der sich anlegt, oben nackter Stein.
+	var fels: bool = bool(f.get("fels", false))
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for iz in n:
@@ -1122,9 +1155,13 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 					Vector2(0, 0), Vector2(1, 1), Vector2(0, 1)]:
 				var px: float = x0 + q.x * step
 				var pz: float = z0 + q.y * step
+				var py: float = WorldManager.height_at(px, pz)
 				st.set_normal(WorldManager.normal_at(px, pz))
 				st.set_uv(Vector2(px, pz) / _ground_tile_m)
-				st.add_vertex(Vector3(px, WorldManager.height_at(px, pz), pz))
+				if fels:
+					st.set_color(Color.WHITE.lerp(FELS_TON,
+						smoothstep(0.8, FELS_HOEHE_M, py)))
+				st.add_vertex(Vector3(px, py, pz))
 	# Tangenten erzeugen, BEVOR das Netz festgeschrieben wird: Der Sandboden ist ein PBR-Satz
 	# MIT Normalmap, und die wird im Tangentenraum gelesen. Ohne Tangenten rechnet der Shader
 	# mit undefinierten Vektoren. (Gesucht war damit der Helligkeitsunterschied zwischen Boden
@@ -1132,7 +1169,7 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	st.generate_tangents()
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
-	mi.material_override = mat
+	mi.material_override = _fels_material(mat) if fels else mat
 	mi.name = "terrain_" + String(f["id"])
 	add_child(mi)
 

@@ -122,9 +122,9 @@ func _ready() -> void:
 	var zur_stadt: Vector3 = (rw - berg)
 	zur_stadt.y = 0.0
 	zur_stadt = zur_stadt.normalized()
-	_views.append(["ausguck_seite", berg + zur_stadt * 120.0 + Vector3(0.0, 26.0, 0.0),
-		berg + Vector3(0.0, 6.0, 0.0)])
-	_views.append(["ausguck_oben", berg + Vector3(0.0, 9.0, 0.0) - zur_stadt * 14.0,
+	_views.append(["ausguck_seite", berg + zur_stadt * 78.0 + Vector3(0.0, 14.0, 0.0),
+		berg + Vector3(0.0, 5.0, 0.0)])
+	_views.append(["ausguck_oben", berg + Vector3(0.0, 3.0, 0.0) - zur_stadt * 8.0,
 		rw + Vector3(0.0, 6.0, 0.0)])
 	_buehne = buehne
 	# Am Ziel selbst: Hier stand die Platzhalter-Saeule mitten im Weg.
