@@ -1714,3 +1714,14 @@ Funktion leitet live aus `GameState.upgrades`, `EquipManager` (Stats + Set-Boni 
   × Kesselschädel), `move_speed`, `regen_rate`, `magnet_dist`, `loot_mul` (Plünderer + Sohlen + NG+).
 * **Kapstein-Auflösung:** `_cap(zweig)` gilt, wenn der Perk-Kapstein **gewählt** *oder* von einem Set
   **verliehen** ist (`EquipManager.has_power("cap_"+zweig)`) — Sets und Perks greifen identisch.
+
+---
+
+## Weiterführende Blätter
+
+| Blatt | was drinsteht |
+|---|---|
+| `STORY_KAPITEL1.md` | der Prolog als Fluss — Titel, Film, Erwachen, Weg, Ausguck, Ankunft |
+| `TITEL_UND_GRENZEN.md` | Titelbildschirm, die Szene mit dem ersten Gegner, **der Riss** |
+| `assets/audio/README.md` | wie die Waffengeräusche gebaut sind und warum synthetisch |
+| `assets/video/README.md` | der Intro-Film, Theora und warum |

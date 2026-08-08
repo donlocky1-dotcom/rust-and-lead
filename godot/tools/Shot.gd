@@ -394,11 +394,16 @@ func _setup_ui(art: String) -> void:
 		# Der Titelbildschirm. Er laedt seine eigene Welt — also wird hier die des Werkzeugs
 		# beiseitegeschoben und die echte Titelszene davorgesetzt. Alles andere waere ein
 		# Nachbau, und ein Nachbau prueft sich selbst statt des Bildes, das der Spieler sieht.
-		# Der Titel ist ein Bild und keine Welt: Die Overworld des Werkzeugs wird abgeschaltet
-		# und ihre Oberflaeche mit, sonst laege deren HUD ueber dem Titelbild.
-		ow.set_process(false)
-		ow.visible = false
-		ow._set_hud_hidden(true)
+		# Die Overworld des Werkzeugs wird WEGGEWORFEN, nicht versteckt.
+		#
+		# Erst stand hier `visible = false` plus `_set_hud_hidden(true)`, und im Bild lagen
+		# trotzdem Lebensbalken, Kleinkarte und Schussknopf ueber dem Titel: Die Oberflaeche
+		# haengt in eigenen `CanvasLayer`n, die weder an der Sichtbarkeit des Node3D noch an
+		# jener einen Umschaltung haengen. Im Spiel gibt es das Problem nicht — dort laedt der
+		# Titel die Welt gar nicht mehr. Ein Pruefbild, das etwas zeigt, was es im Spiel nicht
+		# gibt, prueft aber nichts.
+		ow.queue_free()
+		_welt = null
 		var titel: Node = load("res://scenes/Title.tscn").instantiate()
 		add_child(titel)
 		_wait = 20

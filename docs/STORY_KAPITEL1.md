@@ -4,9 +4,18 @@ Was hier steht, ist der **Fluss**: wo man aufwacht, was man findet, mit wem man 
 man geschickt wird. Die Zahlen und Tabellen dahinter stehen im MASTER_GDD (§3 Kampagne,
 §4.3 NPCs, §5 Mini-Quests); dieses Blatt ist die Reihenfolge.
 
-Stand: Der Prolog **läuft**, und die **Dialoge sind Daten** (`DialogData.gd`) — Aufwachen, erste Sätze, leere Hände, Truhe, Pferd, Fußspur,
-Nachtwerden, Anflug auf Rustwater, Abschluss beim Betreten der Stadt. Was fehlt, ist das
-**Gespräch**: Die Dialoge sind hier als Text formuliert und noch nicht als Daten verdrahtet.
+Stand: Der Prolog **läuft** von vorn bis hinten — Titelbildschirm, Intro-Film, Aufwachen, erste
+Sätze, leere Hände, Truhe, Pferd, **der erste Gegner**, Fußspur, Ausguck mit Rundsicht,
+Nachtwerden, Anflug auf Rustwater, Abschluss beim Betreten der Stadt. Die **Dialoge sind Daten**
+(`DialogData.gd`), der **Ton** ist da (`assets/audio/`).
+
+Was fehlt, ist nichts Erzählerisches mehr, sondern Material:
+
+* die **Schuss-Animation** — bis dahin läuft in der Erst-Gegner-Szene der vorhandene
+  Angriffs-Clip, und der Tote kippt als sichtbarer Platzhalter auf die Seite;
+* die **Sprachaufnahmen** — die Standzeit jeder Zeile wird bis dahin aus der Zeichenzahl
+  geschätzt (`speech_dauer()`) statt aus der Cliplänge genommen;
+* die **Modelle**, die in `docs/PROMPTS_ITEMS.md` und `assets/CREDITS.md` aufgelistet sind.
 
 ---
 
@@ -147,6 +156,12 @@ stattfindet. Dazu Gold, Munition, ein Ausrüstungsteil.
 erscheint **🐎 Aufsitzen** in der Aktionsleiste (oder `[E]`): **dreifaches Tempo, kein Schuss aus
 dem Sattel.** Der Weg in die Stadt ist gut einen Kilometer weit; zu Fuß sind das vier Minuten,
 im Sattel gut eine.
+
+**4b. Der erste Gegner.** Beim Verlassen des Kraters, und nur mit Waffe in der Hand. Einer statt
+des üblichen Rudels, seitlich vor ihm, hat ihn noch nicht gesehen. **Er schießt selbst** — der
+Spieler drückt nicht. Danach die Kamera langsam auf den Toten, und **erst dann** liegt Beute da.
+Die ganze Szene steht in `docs/TITEL_UND_GRENZEN.md`; der Kern ist die letzte Sprechzeile, die
+das Plündern begründet statt es als Spielfunktion zu erklären.
 
 **5. Der Weg.** Die Fußspur führt aus der Grube **zuerst auf den Ausguck**, danach nach
 Rustwater — und dort, seit die Palisade steht, **durch das Tor** statt gegen die Mauer.
