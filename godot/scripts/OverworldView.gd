@@ -1178,11 +1178,7 @@ func _ready() -> void:
 	# Das Erwachen haengt an `saw_wake`, NICHT daran, ob ein Spielstand geladen wurde. Vorher
 	# hing es am Spielstand — und weil das Spiel automatisch speichert, bekam man die Szene nach
 	# dem allerersten Start nie wieder zu sehen, auch nicht nach einem Zuruecksetzen.
-	if im_titel:
-		# Hinter dem Titel weder Film noch Erwachen — und auch keine Begruessung. Das Bild ist
-		# der Ort, sonst nichts.
-		_set_hud_hidden(true)
-	elif not GameState.saw_wake and not GameState.prolog_done:
+	if not GameState.saw_wake and not GameState.prolog_done:
 		# Erst der Film, dann das Erwachen — und wenn der Film fehlt, eben gleich das Erwachen.
 		if not _vorspann_starten():
 			_erwachen()
@@ -5140,8 +5136,6 @@ func sfx_equip() -> void:
 # ── Eingabe: virtueller Joystick (Touch) + Schuss-Knopf + Tastatur ────────────
 
 func _input(event: InputEvent) -> void:
-	if im_titel:
-		return   # im Titel gehoert jede Eingabe dem Menue
 	# Eine Sequenz, die man aussitzen MUSS, ist beim zweiten Mal eine Zumutung. Jeder Tipp und
 	# jede Taste bricht ab — und wird dabei verbraucht, damit derselbe Tipp nicht gleich noch
 	# den Joystick startet.
@@ -5927,20 +5921,7 @@ func _process_camera(delta: float) -> void:
 	_cam.position = _cam.position.lerp(want, clampf(delta * CAM_FOLLOW, 0.0, 1.0))
 
 
-## Laeuft die Welt nur als BILD hinter dem Titelbildschirm?
-##
-## Eine einzige Flagge statt einer zweiten, abgespeckten Weltinstanz. Zwei Welten zu pflegen
-## klingt sicherer und ist es nicht: Die zweite wird still falsch, sobald jemand die erste
-## aendert. So gibt es genau einen Aufbauweg, und der laeuft auch beim Start aus dem Titel.
-var im_titel: bool = false
-
-
 func _process(delta: float) -> void:
-	# Hinter dem Titelbildschirm ruht alles. Sonst liefe das Spiel im Menue mit: Der Held stuende
-	# auf und redete, waehrend niemand hinsieht, und wer dann „Neues Spiel" waehlt, faenge
-	# mitten in einer Szene an, die schon gelaufen ist.
-	if im_titel:
-		return
 	# Der Vorspann liegt VOR allem. Solange er laeuft, gibt es keine Welt, die etwas tun
 	# koennte: keine Bewegung, keine Gegner, keine Ausloeser. Sonst spielte das Spiel hinter
 	# dem Film weiter, und wer ihn zu Ende sieht, faende die Figur woanders vor als der, der

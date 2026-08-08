@@ -6,92 +6,33 @@ extends Node3D
 ## ausgegraut statt versteckt — ein Eintrag, der auftaucht und verschwindet, lässt den ganzen
 ## Bildschirm springen.
 ##
-## ## Das Bild ist die Welt
+## ## Ein festes Bild, und zwar das LETZTE des Films
 ##
-## Kein gemaltes Titelbild und kein gerendertes Standbild, sondern **Rustwater selbst**: dieselbe
-## Kamerahaltung wie bei der Intro-Umrundung — gut sechzig Meter Abstand, dreißig Meter Höhe,
-## Blick nach innen —, und die Kamera dreht sich sehr langsam weiter. Zwei Gründe:
+## Der erste Entwurf ließ die echte Welt hinter dem Menü sehr langsam rotieren. Das Argument
+## dafür war, dass ein Standbild gegen das Spiel altert, sobald jemand die Palisade umbaut. Das
+## stimmt und wiegt trotzdem leichter als das, was dabei herauskam: Ein Titelbild soll STEHEN.
+## Es ist das erste Versprechen, das ein Spiel gibt, und ein Versprechen, das sich dreht, ist
+## eine Bildschirmschoner-Ansicht.
 ##
-##  * **Es altert nicht gegen das Spiel.** Ein gerendertes Standbild hätte in dem Moment
-##    gelogen, in dem jemand die Palisade umbaut oder eine Hütte versetzt. Was hier zu sehen
-##    ist, ist die Welt, in die man gleich hineingeht.
-##  * **Bewegung verrät Echtheit.** Zwei bis drei Grad je Sekunde: Es steht nicht still, aber es
-##    passiert auch nichts. Eine ganze Runde dauert gut zwei Minuten — länger, als irgendjemand
-##    im Menü verbringt.
+## Genommen wird deshalb das **letzte Bild des Intro-Films** — und das ist mehr als eine
+## Notlösung: Wer „Neues Spiel" wählt, sieht den Film laufen, und der endet genau dort, wo der
+## Titel angefangen hat. Das Standbild ist damit kein Aushang neben dem Spiel, sondern sein
+## erster Bildinhalt.
 ##
-## **Nacht**, weil dann Esse, Torfackeln und Turmlaterne brennen und der Ort aus der Dunkelheit
-## heraussteht. Bei Tag ist Rustwater ein brauner Fleck in brauner Wüste.
-##
-## ## Wie die Welt hier stillgehalten wird
-##
-## Geladen wird die richtige `Overworld` — und dann über **eine einzige Flagge** alles gesperrt,
-## was sonst von selbst anspringt: Bewegung, Gegner, Auslöser, Autospeichern, das Erwachen, der
-## Vorspann. Dieselbe Bauweise wie `_im_vorspann()`, die dafür schon steht. Die Alternative wäre
-## eine zweite, abgespeckte Weltinstanz gewesen: weniger Risiko im Einzelfall, aber zwei Welten
-## zu pflegen — und die zweite wird still falsch, sobald jemand die erste ändert.
+## Die Welt wird hier gar nicht mehr geladen. Der Titel startet sofort, und die Overworld hat
+## keinen Sonderzustand mehr zu kennen — die Flagge dafür ist mit diesem Entwurf weggefallen.
 
 const OVERWORLD := preload("res://scenes/Overworld.tscn")
+const TITELBILD := preload("res://assets/ui/titelbild.webp")
 const SAVE_SLOT: int = 0
 
-## Wie schnell sich das Bild dreht. 2,4°/s = eine Runde in zweieinhalb Minuten.
-const DREH_GRAD_S: float = 2.4
-## Woher geschaut wird. Dieselben Werte wie die Intro-Umrundung, nur etwas höher: Dort dreht
-## sich die Kamera um einen Helden, hier um einen Ort.
-const ABSTAND_M: float = 78.0
-const HOEHE_M: float = 32.0
-const BLICK_H: float = 7.0
-## Die Stunde, zu der der Titel spielt. Tief in der Nacht, damit die Lichter tragen.
-const STUNDE: float = 1.6
-
-var _welt: Node3D = null
-var _cam: Camera3D = null
-var _mitte: Vector3 = Vector3.ZERO
-var _winkel: float = 0.0
 var _wurzel: Control = null
 var _eintraege: Array = []          # [Button, Kennung]
 var _blatt: Control = null          # das gerade offene Unterblatt (Einstellungen/Steuerung/…)
 
 
 func _ready() -> void:
-	_welt = OVERWORLD.instantiate() as Node3D
-	# Die Flagge wird gesetzt, BEVOR die Welt in den Baum kommt: `_ready()` der Overworld baut
-	# alles auf und stösst dabei das Erwachen und den Vorspann an. Eine Zeile später wäre der
-	# Film schon gestartet.
-	_welt.set("im_titel", true)
-	add_child(_welt)
-	# Die Stunde wird NACH dem Aufbau gesetzt, und die Beleuchtung dann von Hand angestossen.
-	#
-	# Davor stand sie davor, und das Bild war trotzdem taghell: `_ready()` der Overworld laedt
-	# den Spielstand, und darin steht die Uhrzeit der letzten Runde. Wer abends aufgehoert hat,
-	# bekam einen Titelbildschirm im Abendrot; wer mittags aufgehoert hat, einen in der
-	# Mittagssonne. Der Titel soll aber immer dasselbe Bild sein — Nacht, weil dann Esse,
-	# Torfackeln und Turmlaterne brennen und der Ort aus der Dunkelheit heraussteht.
-	#
-	# Angestossen werden muss es, weil `_process` hinter dem Titel ruht: Die Beleuchtung wird
-	# sonst nie nachgezogen.
-	GameState.hour = STUNDE
-	_welt.call("_apply_daytime")
-	_welt.call("_apply_night_lights")
-	_mitte = WorldManager.poi_scene_position("rustwater")
-	_mitte.y = WorldManager.height_at(_mitte.x, _mitte.z)
-	_cam = Camera3D.new()
-	_cam.fov = 46.0
-	_cam.current = true
-	add_child(_cam)
-	_setze_kamera(0.0)
 	_bau_oberflaeche()
-
-
-func _process(delta: float) -> void:
-	_winkel += deg_to_rad(DREH_GRAD_S) * delta
-	_setze_kamera(_winkel)
-
-
-func _setze_kamera(w: float) -> void:
-	if _cam == null:
-		return
-	_cam.position = _mitte + Vector3(cos(w) * ABSTAND_M, HOEHE_M, sin(w) * ABSTAND_M)
-	_cam.look_at(_mitte + Vector3(0.0, BLICK_H, 0.0), Vector3.UP)
 
 
 # ── Die Oberfläche ────────────────────────────────────────────────────────────
@@ -105,28 +46,23 @@ func _bau_oberflaeche() -> void:
 	_wurzel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_wurzel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lage.add_child(_wurzel)
-	# Der Verlauf: oben und unten dunkel, in der Mitte offen. Kein flächiges Abdunkeln — das
-	# nähme dem Bild genau das, wofür es da ist.
-	var farbe := ColorRect.new()
-	farbe.set_anchors_preset(Control.PRESET_FULL_RECT)
-	farbe.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var lauf := GradientTexture2D.new()
-	var g := Gradient.new()
-	g.set_offset(0, 0.0)
-	g.set_color(0, Color(0.02, 0.02, 0.03, 0.86))
-	g.set_offset(1, 1.0)
-	g.set_color(1, Color(0.02, 0.02, 0.03, 0.0))
-	lauf.gradient = g
-	lauf.fill_from = Vector2(0.0, 0.0)
-	lauf.fill_to = Vector2(0.0, 0.62)
-	var oben := TextureRect.new()
-	oben.texture = lauf
-	oben.set_anchors_preset(Control.PRESET_FULL_RECT)
-	oben.stretch_mode = TextureRect.STRETCH_SCALE
-	oben.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_wurzel.add_child(oben)
-	farbe.queue_free()
-
+	# Das Bild fuellt den Rahmen und behaelt sein Seitenverhaeltnis. `COVERED` und nicht
+	# `SCALE`: Auf einem Telefon im Hochformat wuerde ein gestrecktes Bild die Figur in die
+	# Breite ziehen, und ein Titelbild mit verzerrtem Gesicht ist schlimmer als ein
+	# beschnittenes.
+	var bild := TextureRect.new()
+	bild.texture = TITELBILD
+	bild.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bild.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bild.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_wurzel.add_child(bild)
+	# Zwei weiche Schleier, keiner flaechig: einer von oben fuer den Titel, einer von rechts
+	# fuer die Menuespalte. Nachgemessen liegt die Helligkeit dort bei 64 bzw. 85 von 255 —
+	# hell genug, dass helle Schrift ohne Hilfe verschwaende, dunkel genug, dass ein leichter
+	# Schleier reicht. Ein flaechiges Abdunkeln haette dem Bild genau das genommen, wofuer es
+	# da ist.
+	_wurzel.add_child(_schleier(Vector2(0.0, 0.0), Vector2(0.0, 0.42), 0.72))
+	_wurzel.add_child(_schleier(Vector2(1.0, 0.0), Vector2(0.52, 0.0), 0.78))
 	var titel := Label.new()
 	titel.text = "RUST & LEAD"
 	titel.add_theme_font_size_override("font_size", 78)
@@ -221,10 +157,6 @@ func _starten(frisch: bool, tutorial: bool) -> void:
 	GameState.tutorial = tutorial
 	if frisch:
 		SaveManager.delete_slot(SAVE_SLOT)
-	_welt.set("im_titel", false)
-	# Die Welt steht schon — sie muss nur neu aufgebaut werden, damit sie mit den richtigen
-	# Flaggen anfängt. Die Szene neu zu laden ist dafür der ehrlichste Weg: Es gibt genau einen
-	# Aufbauweg, und der läuft dann auch beim Start aus dem Titel.
 	get_tree().change_scene_to_packed(OVERWORLD)
 
 
@@ -265,6 +197,25 @@ func _blatt_zeigen(art: String) -> void:
 	box.add_child(zu)
 	_wurzel.add_child(tafel)
 	_blatt = tafel
+
+
+## Ein weicher Verlauf von einer Bildkante nach innen.
+func _schleier(von: Vector2, bis: Vector2, deckung: float) -> TextureRect:
+	var lauf := GradientTexture2D.new()
+	var g := Gradient.new()
+	g.set_offset(0, 0.0)
+	g.set_color(0, Color(0.03, 0.02, 0.02, deckung))
+	g.set_offset(1, 1.0)
+	g.set_color(1, Color(0.03, 0.02, 0.02, 0.0))
+	lauf.gradient = g
+	lauf.fill_from = von
+	lauf.fill_to = bis
+	var t := TextureRect.new()
+	t.texture = lauf
+	t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 
 func _text(s: String) -> Label:

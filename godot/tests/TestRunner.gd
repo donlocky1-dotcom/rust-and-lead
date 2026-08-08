@@ -1025,26 +1025,30 @@ func _test_titel_und_erster() -> void:
 	_check("Die Regler haengen an echten Bussen", q.contains("AudioServer.set_bus_volume_db"))
 	_check("Und bei null wird stummgeschaltet statt −inf gerechnet",
 		q.contains("AudioServer.set_bus_mute"))
-	# Das Bild ist die WELT und kein Standbild — sonst altert es gegen das Spiel.
-	_check("Das Titelbild ist die laufende Welt", q.contains("OVERWORLD.instantiate()"))
-	_check("Und sie dreht sich langsam (%.1f °/s)" % 2.4, q.contains("DREH_GRAD_S"))
-	# Und es ist IMMER Nacht. Die Stunde wird nach dem Aufbau gesetzt und die Beleuchtung dann
-	# von Hand angestossen: `_ready()` der Overworld laedt den Spielstand, und darin steht die
-	# Uhrzeit der letzten Runde. Ohne das bekam, wer abends aufgehoert hat, einen
-	# Titelbildschirm im Abendrot — nachgemessen an einem Bild, auf dem 18:57 stand.
-	_check("Der Titel spielt immer nachts",
-		q.find("GameState.hour = STUNDE") > q.find("add_child(_welt)")
-		and q.contains('_welt.call("_apply_daytime")'))
-	# Hinter dem Titel ruht die Welt vollstaendig. Sonst liefe das Spiel im Menue mit: Der Held
-	# stuende auf und redete, waehrend niemand hinsieht.
+	# Das Titelbild STEHT, und zwar auf dem letzten Bild des Intro-Films.
+	#
+	# Der erste Entwurf liess die echte Welt dahinter langsam rotieren, mit dem Argument, ein
+	# Standbild altere gegen das Spiel, sobald jemand die Palisade umbaut. Das stimmt und wiegt
+	# leichter als das Ergebnis: Ein Titelbild soll stehen — es ist das erste Versprechen eines
+	# Spiels, und ein Versprechen, das sich dreht, ist eine Bildschirmschoner-Ansicht.
+	#
+	# Das letzte Filmbild ist dabei mehr als eine Notloesung: Wer „Neues Spiel" waehlt, sieht
+	# den Film laufen, und der endet genau dort, wo der Titel angefangen hat.
+	_check("Das Titelbild liegt vor", FileAccess.file_exists("res://assets/ui/titelbild.webp"))
+	_check("Und es steht", not q.contains("DREH_GRAD_S") and not q.contains("func _process"))
+	# Die Welt wird gar nicht mehr geladen — der Titel startet sofort, und die Overworld hat
+	# keinen Sonderzustand mehr zu kennen.
+	_check("Der Titel laedt die Welt nicht mehr", not q.contains("OVERWORLD.instantiate()"))
 	var ow_q: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
-	_check("Hinter dem Titel ruht die Welt",
-		ow_q.contains("if im_titel:\n\t\treturn"))
-	_check("Und es laeuft dort weder Film noch Erwachen", ow_q.contains("\tif im_titel:\n\t\t#"))
-	# Die Flagge wird gesetzt, BEVOR die Welt in den Baum kommt — `_ready()` stoesst sonst schon
-	# den Film an.
-	_check("Die Sperre steht vor dem Aufbau",
-		q.find('_welt.set("im_titel", true)') < q.find("add_child(_welt)"))
+	_check("Und die Overworld kennt keinen Titelzustand", not ow_q.contains("im_titel"))
+	# Das Bild fuellt den Rahmen, ohne die Figur zu verzerren: Auf einem Telefon im Hochformat
+	# waere ein gestrecktes Titelbild ein verzerrtes Gesicht.
+	_check("Es fuellt den Rahmen ohne zu verzerren",
+		q.contains("STRETCH_KEEP_ASPECT_COVERED"))
+	# Zwei weiche Schleier statt flaechigem Abdunkeln — sonst waere dem Bild genau das genommen,
+	# wofuer es da ist.
+	_check("Die Schrift bekommt Schleier statt eines Kastens",
+		q.contains("func _schleier") and not q.contains("PanelContainer.new()\n\tvar hintergrund"))
 
 	# ── Der erste Gegner ──────────────────────────────────────────────────────
 	var OW4 = load("res://scripts/OverworldView.gd")

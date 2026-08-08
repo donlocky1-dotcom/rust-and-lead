@@ -394,11 +394,14 @@ func _setup_ui(art: String) -> void:
 		# Der Titelbildschirm. Er laedt seine eigene Welt — also wird hier die des Werkzeugs
 		# beiseitegeschoben und die echte Titelszene davorgesetzt. Alles andere waere ein
 		# Nachbau, und ein Nachbau prueft sich selbst statt des Bildes, das der Spieler sieht.
+		# Der Titel ist ein Bild und keine Welt: Die Overworld des Werkzeugs wird abgeschaltet
+		# und ihre Oberflaeche mit, sonst laege deren HUD ueber dem Titelbild.
 		ow.set_process(false)
 		ow.visible = false
+		ow._set_hud_hidden(true)
 		var titel: Node = load("res://scenes/Title.tscn").instantiate()
 		add_child(titel)
-		_wait = 30
+		_wait = 20
 	elif art == "markeoben":
 		# Senkrecht von oben auf den Ring: Nur so sieht man, ob er RUND ist und wie gross.
 		ow.set_process(true)
