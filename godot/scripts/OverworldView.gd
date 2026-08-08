@@ -1168,6 +1168,7 @@ func _ready() -> void:
 	_build_trail()
 	_build_horse()
 	_build_sfx()
+	_build_riss()
 	_build_moon()
 	_spawn_pack()
 	_build_chests()
@@ -1177,7 +1178,11 @@ func _ready() -> void:
 	# Das Erwachen haengt an `saw_wake`, NICHT daran, ob ein Spielstand geladen wurde. Vorher
 	# hing es am Spielstand — und weil das Spiel automatisch speichert, bekam man die Szene nach
 	# dem allerersten Start nie wieder zu sehen, auch nicht nach einem Zuruecksetzen.
-	if not GameState.saw_wake and not GameState.prolog_done:
+	if im_titel:
+		# Hinter dem Titel weder Film noch Erwachen — und auch keine Begruessung. Das Bild ist
+		# der Ort, sonst nichts.
+		_set_hud_hidden(true)
+	elif not GameState.saw_wake and not GameState.prolog_done:
 		# Erst der Film, dann das Erwachen — und wenn der Film fehlt, eben gleich das Erwachen.
 		if not _vorspann_starten():
 			_erwachen()
@@ -1254,6 +1259,7 @@ func _prolog_zuruecksetzen() -> void:
 	GameState.saw_rustwater = false
 	GameState.saw_wake = false
 	GameState.saw_vista = false
+	GameState.erst_gegner_done = false
 	GameState.hour = DayCycle.START_HOUR
 	GameState.weapons = []
 	GameState.equip.erase("weapon")
@@ -1396,8 +1402,10 @@ func _ground_rects() -> Array:
 	var rects: Array = [Rect2(Vector2(0.0, -w), Vector2(w, w))]
 	for f in WorldManager.TERRAIN:
 		var c: Vector3 = WorldManager.feature_center(f)
-		var reach: float = WorldManager.feature_reach(f) + TERRAIN_MARGIN_M
-		var hole := Rect2(Vector2(c.x - reach, c.z - reach), Vector2(reach * 2.0, reach * 2.0))
+		# HALBAUSDEHNUNG, nicht Reichweite: Der Riss ist 10 m breit und 1900 m lang. Als Quadrat
+		# um seine Reichweite gerechnet waere das Loch im Boden ein Drittel der Welt gross.
+		var halb: Vector2 = WorldManager.feature_halb(f) + Vector2.ONE * TERRAIN_MARGIN_M
+		var hole := Rect2(Vector2(c.x - halb.x, c.z - halb.y), halb * 2.0)
 		var next: Array = []
 		for r in rects:
 			next.append_array(_subtract_rect(r, hole))
@@ -1480,13 +1488,26 @@ func _fels_material(sand: Material) -> Material:
 
 func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	var c: Vector3 = WorldManager.feature_center(f)
-	var reach: float = WorldManager.feature_reach(f) + TERRAIN_MARGIN_M
+	var halb: Vector2 = WorldManager.feature_halb(f) + Vector2.ONE * TERRAIN_MARGIN_M
+	# Der Flicken deckt GENAU das Loch. Bei runden Formen ist er quadratisch wie bisher; beim
+	# Riss ist er ein langer Streifen, und die Auflösung wird je Achse getrennt gerechnet —
+	# sonst haette ein 1900 m langer Streifen quer dieselbe Punktdichte wie laengs und damit
+	# gut anderthalb Millionen Dreiecke fuer einen zehn Meter breiten Spalt.
 	# Auflösung je Form, nicht global: Die Grube braucht 0,35 m fuer ihre 66°-Wand, ein 220 m
 	# breites Duenenfeld waere damit 940.000 Dreiecke — bei 19 m Wellenlaenge sieht man dort
 	# 2 m nicht.
+	#
+	# Und je ACHSE, seit es den Riss gibt: Quer zu ihm zaehlt jeder halbe Meter, laengs sieht
+	# man auf zweihundert nichts. `step_laengs` trennt beides; ohne die Trennung haette ein
+	# 1900 m langer Streifen bei 0,5 m Punktabstand 45 Millionen Dreiecke.
 	var schritt: float = float(f.get("step", TERRAIN_STEP_M))
-	var n: int = maxi(8, int(ceil(reach * 2.0 / schritt)))
-	var step: float = reach * 2.0 / float(n)
+	var schritt_l: float = float(f.get("step_laengs", schritt))
+	var schritt_x: float = schritt if halb.x <= halb.y else schritt_l
+	var schritt_z: float = schritt if halb.y <= halb.x else schritt_l
+	var nx: int = maxi(8, int(ceil(halb.x * 2.0 / schritt_x)))
+	var nz: int = maxi(8, int(ceil(halb.y * 2.0 / schritt_z)))
+	var step_x: float = halb.x * 2.0 / float(nx)
+	var step_z: float = halb.y * 2.0 / float(nz)
 	# FELS statt Sand — aber ohne zweite Textur und ohne zweites Netz.
 	#
 	# Die Form allein macht keinen Felsen: Das Bild zeigte eine Sanddüne mit steilen Flanken,
@@ -1500,18 +1521,18 @@ func _add_terrain_patch(f: Dictionary, mat: Material) -> void:
 	var fels: bool = bool(f.get("fels", false))
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for iz in n:
-		for ix in n:
-			var x0: float = c.x - reach + float(ix) * step
-			var z0: float = c.z - reach + float(iz) * step
+	for iz in nz:
+		for ix in nx:
+			var x0: float = c.x - halb.x + float(ix) * step_x
+			var z0: float = c.z - halb.y + float(iz) * step_z
 			# Dieselbe umgekehrte Umlaufrichtung wie beim flachen Bodenviereck — und derselbe
 			# Grund, warum es nicht auffiel. Bei einer 66°-Wand wiegt es schwerer als beim
 			# flachen Boden: Ohne Sonne hat die Wand keine Schattierung, und dann sieht man
 			# die Grube ueberhaupt nicht mehr als Grube.
 			for q in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1),
 					Vector2(0, 0), Vector2(1, 1), Vector2(0, 1)]:
-				var px: float = x0 + q.x * step
-				var pz: float = z0 + q.y * step
+				var px: float = x0 + q.x * step_x
+				var pz: float = z0 + q.y * step_z
 				var py: float = WorldManager.height_at(px, pz)
 				st.set_normal(WorldManager.normal_at(px, pz))
 				st.set_uv(Vector2(px, pz) / _ground_tile_m)
@@ -5119,6 +5140,8 @@ func sfx_equip() -> void:
 # ── Eingabe: virtueller Joystick (Touch) + Schuss-Knopf + Tastatur ────────────
 
 func _input(event: InputEvent) -> void:
+	if im_titel:
+		return   # im Titel gehoert jede Eingabe dem Menue
 	# Eine Sequenz, die man aussitzen MUSS, ist beim zweiten Mal eine Zumutung. Jeder Tipp und
 	# jede Taste bricht ab — und wird dabei verbraucht, damit derselbe Tipp nicht gleich noch
 	# den Joystick startet.
@@ -5904,7 +5927,20 @@ func _process_camera(delta: float) -> void:
 	_cam.position = _cam.position.lerp(want, clampf(delta * CAM_FOLLOW, 0.0, 1.0))
 
 
+## Laeuft die Welt nur als BILD hinter dem Titelbildschirm?
+##
+## Eine einzige Flagge statt einer zweiten, abgespeckten Weltinstanz. Zwei Welten zu pflegen
+## klingt sicherer und ist es nicht: Die zweite wird still falsch, sobald jemand die erste
+## aendert. So gibt es genau einen Aufbauweg, und der laeuft auch beim Start aus dem Titel.
+var im_titel: bool = false
+
+
 func _process(delta: float) -> void:
+	# Hinter dem Titelbildschirm ruht alles. Sonst liefe das Spiel im Menue mit: Der Held stuende
+	# auf und redete, waehrend niemand hinsieht, und wer dann „Neues Spiel" waehlt, faenge
+	# mitten in einer Szene an, die schon gelaufen ist.
+	if im_titel:
+		return
 	# Der Vorspann liegt VOR allem. Solange er laeuft, gibt es keine Welt, die etwas tun
 	# koennte: keine Bewegung, keine Gegner, keine Ausloeser. Sonst spielte das Spiel hinter
 	# dem Film weiter, und wer ihn zu Ende sieht, faende die Figur woanders vor als der, der
@@ -5920,6 +5956,9 @@ func _process(delta: float) -> void:
 	_process_camera(delta)
 	_process_combat(delta)
 	_process_sfx(delta)
+	_process_riss(delta)
+	_process_erst(delta)
+	_maybe_erst_gegner()
 	_process_enemies(delta)
 	_process_hazards(delta)
 	_process_spawns(delta)
@@ -6022,7 +6061,8 @@ func _process_movement(delta: float) -> void:
 	# geht durch denselben Test — nur ist die Blocker-Liste in der Wildnis leer, weshalb sich
 	# dort nichts anfühlt wie eine Wand. Achsenweise nachgeben, damit man an einer Hausecke
 	# entlanggleitet statt hängenzubleiben.
-	if not WorldManager.is_walkable(to_rel) or _blocked(next) or _zu_steil(_player.position, next):
+	if not WorldManager.is_walkable(to_rel) or _blocked(next) or _zu_steil(_player.position, next) \
+			or _am_riss(next):
 		# Erst SCHRAEG zum Hang ausweichen, dann achsenweise.
 		#
 		# Das achsenweise Nachgeben ist fuer Hausecken gebaut und dort richtig: Waende stehen in
@@ -6040,7 +6080,8 @@ func _process_movement(delta: float) -> void:
 			kand.x = clampf(kand.x, 2.0, WorldManager.WORLD_METERS - 2.0)
 			kand.z = clampf(kand.z, -(WorldManager.WORLD_METERS - 2.0), -2.0)
 			if WorldManager.is_walkable(WorldManager.scene_to_world(kand)) \
-					and not _blocked(kand) and not _zu_steil(_player.position, kand):
+					and not _blocked(kand) and not _zu_steil(_player.position, kand) \
+					and not _am_riss(kand):
 				next = kand
 				gefunden = true
 				break
@@ -6048,10 +6089,10 @@ func _process_movement(delta: float) -> void:
 			var slide_x: Vector3 = Vector3(next.x, 0.0, _player.position.z)
 			var slide_z: Vector3 = Vector3(_player.position.x, 0.0, next.z)
 			if WorldManager.is_walkable(WorldManager.scene_to_world(slide_x)) and not _blocked(slide_x) \
-					and not _zu_steil(_player.position, slide_x):
+					and not _zu_steil(_player.position, slide_x) and not _am_riss(slide_x):
 				next = slide_x
 			elif WorldManager.is_walkable(WorldManager.scene_to_world(slide_z)) and not _blocked(slide_z) \
-					and not _zu_steil(_player.position, slide_z):
+					and not _zu_steil(_player.position, slide_z) and not _am_riss(slide_z):
 				next = slide_z
 			else:
 				return   # in eine Ecke gelaufen — Position halten
@@ -6895,3 +6936,284 @@ func _process_sfx(delta: float) -> void:
 	if _repetier_t <= 0.0:
 		_repetier_t = -1.0
 		_spiel_ton(_sfx_repetieren, SFX_REPETIEREN, randf_range(-0.06, 0.06))
+
+# ── Der Riss ──────────────────────────────────────────────────────────────────
+## Wie tief unter der Ebene die Sperre greift.
+##
+## Die Steigungsgrenze hilft hier NICHT, und das ist der ganze Punkt: Sie sperrt nur bergauf,
+## weil sich niemand festsetzen soll, der schon auf einem steilen Stueck steht. An einem Riss
+## laeuft man aber HINUNTER — und stuerbe unten, wenn es dort etwas zum Sterben gaebe. Es
+## braucht also eine eigene Sperre, und sie haengt an der Hoehe, nicht an der Neigung.
+##
+## 1,2 m: Die Kante bricht ueber sieben Meter waagerecht um vierzig senkrecht ab. Wer 1,2 m
+## unter der Ebene steht, ist noch keinen halben Schritt hinein und kommt jederzeit zurueck;
+## einen Schritt weiter waere er im freien Fall.
+const RISS_SPERRE_M: float = 1.2
+## Wie weit vor der Kante das Warnband liegt.
+const RISS_BAND_M: float = 2.6
+var _riss: Dictionary = {}
+
+
+## Steht dieser Punkt schon im Riss?
+##
+## ZWEI Fragen, und die erste ist die wichtige: Liegt der Punkt ueberhaupt in der Naehe des
+## Risses? Erst danach zaehlt die Hoehe.
+##
+## Die Hoehe allein war der erste Entwurf, und er haette den Prolog vollstaendig gesperrt: Die
+## Schrottgrube ist fuenf Meter tief, der Held erwacht an ihrem Grund — und `height_at()` meldet
+## dort −5 m. Mit einer reinen Hoehenpruefung waere jeder Schritt in der Grube ein Schritt „in
+## den Riss" gewesen, und das Spiel haette mit einer bewegungslosen Figur angefangen. Der Test
+## hat es gefunden, bevor es jemand spielen musste.
+##
+## Die Hoehe wird trotzdem gebraucht, sobald man in der Naehe ist: Der Riss schlaengelt, und
+## eine reine Abstandsrechnung muesste den Schlenker noch einmal nachbauen. `height_at()` weiss
+## ihn schon.
+func _am_riss(p: Vector3) -> bool:
+	if _riss.is_empty():
+		return false
+	var c: Vector3 = WorldManager.feature_center(_riss)
+	var halb: Vector2 = WorldManager.feature_halb(_riss)
+	if absf(p.x - c.x) > halb.x or absf(p.z - c.z) > halb.y:
+		return false
+	return WorldManager.height_at(p.x, p.z) < -RISS_SPERRE_M
+
+
+## Ein Warnband entlang beider Kanten.
+##
+## Eine unsichtbare Sperre an einem Abgrund ist derselbe Fehler wie damals an der Palisade, wo
+## die Fussspur vor der Mauer endete: Der Spieler laeuft dagegen und weiss nicht, warum. Also
+## bekommt die Kante etwas, das man SIEHT — kein Zaun (den haette jemand gebaut), sondern das,
+## was ein Abbruch von selbst hat: eine Linie, an der der Sand aufhoert und der Fels anfaengt.
+func _build_riss() -> void:
+	for f in WorldManager.TERRAIN:
+		if String(f.get("kind", "crater")) == "spalt":
+			_riss = f
+			break
+	if _riss.is_empty():
+		return
+	var c: Vector3 = WorldManager.feature_center(_riss)
+	var halb: Vector2 = WorldManager.feature_halb(_riss)
+	var nord: bool = String(_riss.get("achse", "nord")) == "nord"
+	var laenge: float = float(_riss["laenge"])
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.10, 0.09, 0.10)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var schritte: int = 260
+	for seite in [-1.0, 1.0]:
+		for i in schritte:
+			var streifen: Array = []
+			for j in [0, 1]:
+				var t: float = (float(i + j) / float(schritte) - 0.5) * laenge
+				# Die Kante wird GESUCHT, nicht gerechnet: von aussen nach innen tasten, bis der
+				# Boden abfaellt. Damit stimmt das Band auch dann noch, wenn jemand den
+				# Schlenker aendert — dieselbe Regel wie beim Leuchtring auf dem Ausguck.
+				var kante: float = 0.0
+				var d: float = float(_riss.get("schlenker", 0.0)) + float(_riss["breite"])
+				while d > 0.0:
+					var px: float = c.x + (seite * d if nord else t)
+					var pz: float = c.z + (t if nord else seite * d)
+					if WorldManager.height_at(px, pz) < -0.35:
+						kante = d
+						break
+					d -= 0.25
+				if kante == 0.0:
+					kante = float(_riss["breite"]) * 0.5
+				for aussen in [kante + RISS_BAND_M, kante]:
+					var qx: float = c.x + (seite * aussen if nord else t)
+					var qz: float = c.z + (t if nord else seite * aussen)
+					streifen.append(Vector3(qx, WorldManager.height_at(qx, qz) + 0.08, qz))
+			if streifen.size() == 4:
+				for idx in [0, 1, 3, 0, 3, 2]:
+					st.add_vertex(streifen[idx])
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.name = "riss_band"
+	add_child(mi)
+	# Und ein Name dafuer. Ohne den ist es ein Loch; mit ihm ist es ein Ort, an dem man schon
+	# einmal war, wenn man das naechste Mal davon hoert.
+	var lbl: Vector3 = c + (Vector3(0.0, 6.0, 0.0))
+	_label(lbl, "☰ DER RISS", Color(0.72, 0.74, 0.80), LBL_LANDMARKE, 700.0)
+
+
+## Meldung an der Kante — einmal, und dann eine Weile nicht wieder.
+var _riss_hinweis: float = 0.0
+func _process_riss(delta: float) -> void:
+	_riss_hinweis = maxf(_riss_hinweis - delta, 0.0)
+	if _riss.is_empty() or _player == null or _riss_hinweis > 0.0:
+		return
+	if _in_cine() or _in_flight() or _overlay_open():
+		return
+	if not _am_riss(_player.position):
+		return
+	_riss_hinweis = 12.0
+	_say("☰ Der Riss. Zehn Meter Nichts — hier kommt niemand hinüber.", 3.0)
+
+# ── Der erste Gegner ──────────────────────────────────────────────────────────
+## Die Szene, in der aus der Welt ein Spiel wird.
+##
+## **Wann:** wenn er den Krater verlaesst — nicht vorher. In der Grube geht es um ihn selbst;
+## draussen faengt die Welt an.
+##
+## **Einer**, nicht das uebliche Rudel. Wer zum ersten Mal etwas sieht, das hier herumlaeuft,
+## soll es ANSEHEN koennen. Ein Wegelagerer und kein Kessel-Klaeffer: Der kommt nie allein, und
+## die Frage „was bist du gewesen" traegt nur bei etwas Menschlichem.
+##
+## **Er schiesst selbst.** Der Spieler drueckt nicht. Das ist der Kern und keine Bequemlichkeit:
+## Die Figur kann etwas, was der Spieler noch nicht kann, und weiss selbst nicht, woher —
+## dieselbe Frage wie beim Karabiner in der Truhe (*„als haettest du das schon tausendmal
+## gemacht"*).
+##
+## **Und die Beute ist erst DANACH da.** Nicht vorher: Der Sinn der Szene ist, dass man es
+## lernt, und wer vorher schon einsammeln kann, lernt nichts.
+const ERST_ABSTAND_M: float = 26.0     # so weit vor ihm taucht der eine Gegner auf
+const ERST_AUSLOESER_M: float = 34.0   # so weit vom Kraterrand weg springt die Szene an
+const ERST_SEK_SEHEN: float = 3.2      # sehen, bevor geschossen wird
+const ERST_SEK_SCHUSS: float = 1.6
+const ERST_SEK_HIN: float = 3.4        # hinuebergehen und sich buecken
+const ERST_SEK_LEICHE: float = 4.6     # die Kamera auf den Toten
+const ERST_SEK_HEIM: float = 2.0
+var _erst_gegner: Dictionary = {}
+var _erst_phase: int = 0               # 0 = steht aus, 1 = laeuft, 2 = vorbei
+
+
+## Springt an, sobald er weit genug vom Krater weg ist.
+func _maybe_erst_gegner() -> void:
+	if GameState.erst_gegner_done or _erst_phase != 0 or _player == null:
+		return
+	if GameState.prolog_done or _in_cine() or _in_flight() or _overlay_open():
+		return
+	if _weapon_id == "":
+		return   # ohne Waffe waere es eine Hinrichtung ohne Werkzeug
+	var f: Dictionary = _feature("schrotthalde")
+	if f.is_empty():
+		return
+	var c: Vector3 = WorldManager.feature_center(f)
+	var d: float = Vector2(_player.position.x - c.x, _player.position.z - c.z).length()
+	if d < WorldManager.feature_reach(f) + ERST_AUSLOESER_M:
+		return
+	_erst_starten()
+
+
+func _erst_starten() -> void:
+	_erst_phase = 1
+	GameState.erst_gegner_done = true
+	var blick: Vector3 = -_player.global_transform.basis.z
+	blick.y = 0.0
+	if blick.length() < 0.1:
+		blick = Vector3(0.0, 0.0, -1.0)
+	blick = blick.normalized()
+	var quer := Vector3(-blick.z, 0.0, blick.x)
+	# SEITLICH vor ihm, nicht frontal: Er kommt aus dem Blech heraus und hat den Helden noch
+	# nicht gesehen. Frontal waere es ein Duell; so ist es eine Begegnung.
+	var wo: Vector3 = _player.position + blick * ERST_ABSTAND_M + quer * 7.0
+	wo.y = WorldManager.height_at(wo.x, wo.z)
+	_erst_gegner = _make_enemy("outlaw")
+	var n: Node3D = _erst_gegner["node"] as Node3D
+	n.position = wo
+	n.rotation.y = atan2(-quer.x, -quer.z)
+	add_child(n)
+	_enemies.append(_erst_gegner)
+	var brust: Vector3 = _player.position + Vector3(0.0, 1.3, 0.0)
+	var ziel_brust: Vector3 = wo + Vector3(0.0, 1.2, 0.0)
+	# Die Kamera setzt sich SEITLICH HINTER seine Schulter — beide im Bild, der Gegner klein und
+	# deutlich. Kein Weitwinkel: Hier ist die Frage nicht „wo bin ich", sondern „was ist das".
+	var schulter: Vector3 = _player.position - blick * 4.2 + quer * 2.6 + Vector3(0.0, 2.1, 0.0)
+	var punkte: Array = [
+		{ "pos": schulter, "ziel": brust.lerp(ziel_brust, 0.55), "sek": ERST_SEK_SEHEN,
+			"fov": 44.0 },
+		{ "pos": schulter + blick * 1.2, "ziel": ziel_brust, "sek": ERST_SEK_SCHUSS,
+			"fov": 38.0 },
+	]
+	_play_flight(punkte)
+	_play_speech(HELD_NAME, "held", [
+		"„…was bist du denn.“",
+		"„Blech über Fleisch. Oder Fleisch über Blech.“",
+	])
+	_erst_schuss_t = ERST_SEK_SEHEN + ERST_SEK_SCHUSS * 0.55
+
+
+var _erst_schuss_t: float = -1.0
+var _erst_leiche_t: float = -1.0
+
+
+func _process_erst(delta: float) -> void:
+	if _erst_phase != 1:
+		return
+	if _erst_schuss_t >= 0.0:
+		_erst_schuss_t -= delta
+		if _erst_schuss_t <= 0.0:
+			_erst_schuss_t = -1.0
+			_erst_abdruecken()
+	if _erst_leiche_t >= 0.0:
+		_erst_leiche_t -= delta
+		if _erst_leiche_t <= 0.0:
+			_erst_leiche_t = -1.0
+			_erst_beute()
+
+
+## Er drueckt ab, ohne dass jemand den Knopf gedrueckt haette.
+##
+## Die Schuss-ANIMATION fehlt noch; bis sie da ist, laeuft der vorhandene Angriffs-Clip. Der
+## Rest der Szene haengt nicht daran: Muendungsfeuer, Leuchtspur und Ton stehen, und das ist
+## das, was man hoert und sieht.
+func _erst_abdruecken() -> void:
+	if _erst_gegner.is_empty():
+		return
+	var n: Node3D = _erst_gegner["node"] as Node3D
+	if not is_instance_valid(n):
+		return
+	_player.look_at(Vector3(n.position.x, _player.position.y, n.position.z), Vector3.UP)
+	AssetRegistry.play_clip(_player_model, "attack", false)
+	_spawn_tracer(n.position)
+	_schuss_ton()
+	# Der Gegner faellt. Bis eine Sterbe-Animation da ist: `idle` weiterlaufen lassen und das
+	# Modell auf die Seite kippen. Das ist ein Platzhalter und sieht auch so aus — besser als
+	# eine Leiche, die steht.
+	n.rotation.x = -PI * 0.5
+	n.position.y = WorldManager.height_at(n.position.x, n.position.z) + 0.35
+	var e_ziel: Vector3 = n.position + Vector3(0.0, 0.5, 0.0)
+	var blick: Vector3 = Vector3(n.position.x - _player.position.x, 0.0,
+		n.position.z - _player.position.z).normalized()
+	# Er geht hinueber und beugt sich darueber, und die Kamera faehrt langsam auf den Toten zu,
+	# bis er das Bild fuellt. Erst hier sieht man, dass in ihm etwas steckt.
+	_play_flight([
+		{ "pos": _player.position - blick * 5.0 + Vector3(0.0, 2.4, 0.0),
+			"ziel": e_ziel, "sek": ERST_SEK_HIN, "fov": 46.0 },
+		{ "pos": n.position - blick * 2.6 + Vector3(0.0, 1.5, 0.0),
+			"ziel": e_ziel, "sek": ERST_SEK_LEICHE, "fov": 40.0 },
+		{ "pos": _player.position + _cam_offset(_cam_dist),
+			"ziel": _player.position + Vector3(0.0, 1.0, 0.0),
+			"sek": ERST_SEK_HEIM, "fov": CAM_FOV },
+	])
+	_play_speech(HELD_NAME, "held", [
+		"„Das ging schnell. Zu schnell.“",
+		"„Ich hab nicht nachgedacht. Meine Hände schon.“",
+		"„Da klappert was.“",
+		"„Schrauben. Ein Kern. Und Patronen — Patronen für was?“",
+		"„Er hat sie getragen wie einer, der weiß, dass er sie braucht.“",
+		"„Also nehm ich sie. Er braucht sie nicht mehr, und ich schon.“",
+	])
+	_erst_leiche_t = ERST_SEK_HIN + ERST_SEK_LEICHE
+
+
+## Und ERST JETZT liegt etwas da.
+func _erst_beute() -> void:
+	_erst_phase = 2
+	if _erst_gegner.is_empty():
+		return
+	var n: Node3D = _erst_gegner["node"] as Node3D
+	if not is_instance_valid(n):
+		return
+	var at: Vector3 = n.position
+	var pool: String = AmmoData.pool_for(_weapon_id)
+	_drop(at, "ammo", { "pool": pool, "amount": AmmoData.roll_drop(pool) })
+	_drop(at + Vector3(1.1, 0.0, 0.4), "material", { "id": "schrott", "amount": 2 })
+	_drop(at + Vector3(-0.9, 0.0, 0.8), "material", { "id": "zahnrad", "amount": 1 })
+	n.queue_free()
+	_enemies.erase(_erst_gegner)
+	_erst_gegner = {}
+	_say("🎒 Aufheben: darüberlaufen.", 3.0)

@@ -9,7 +9,7 @@ config_version=5
 [application]
 
 config/name="Rust & Lead"
-run/main_scene="res://scenes/Overworld.tscn"
+run/main_scene="res://scenes/Title.tscn"
 config/features=PackedStringArray("4.3")
 
 [display]

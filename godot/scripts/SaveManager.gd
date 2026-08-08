@@ -42,6 +42,7 @@ static func serialize() -> Dictionary:
 		"saw_rustwater": GameState.saw_rustwater,
 		"saw_wake": GameState.saw_wake,
 		"saw_vista": GameState.saw_vista,
+		"erst_gegner_done": GameState.erst_gegner_done,
 		"met": GameState.met.duplicate(),
 		"hour": GameState.hour,
 		"quest_base": GameState.quest_base.duplicate(true),
@@ -98,6 +99,7 @@ static func deserialize(data: Dictionary) -> void:
 	GameState.saw_rustwater = bool(data.get("saw_rustwater", false))
 	GameState.saw_wake = bool(data.get("saw_wake", false))
 	GameState.saw_vista = bool(data.get("saw_vista", false))
+	GameState.erst_gegner_done = bool(data.get("erst_gegner_done", false))
 	GameState.met = (data.get("met", {}) as Dictionary).duplicate()
 	GameState.hour = float(data.get("hour", 7.5))
 	GameState.quest_base = _int_dict(data.get("quest_base", {}))

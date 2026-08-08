@@ -161,6 +161,28 @@ const TERRAIN: Array = [
 	# und der Nordrand des Dünenfelds lag bei 564 — mitten drin. Ein Dünenkamm, der aus einem
 	# Moor ragt, ist keine Landschaft, sondern zwei Formeln, die sich nicht abgesprochen haben.
 	# 26 Welteinheiten Abstand (65 m) sind genug, damit beides für sich steht.
+	# ── Der Riss ──────────────────────────────────────────────────────────────
+	#
+	# Ein Spalt quer durch die Karte, zehn Meter breit, den man zunaechst nicht ueberquert.
+	#
+	# Sektor 1 und 2 trennen die Sprengtore, Sektor 2 und 3 die Smog-Linie. Beides sind
+	# Bauwerke des Konzerns — Grenzen, die jemand gezogen hat. Der Riss ist die dritte Sorte
+	# und die interessanteste: eine Grenze, die NIEMAND gezogen hat. Das gibt ihm eine Aufgabe,
+	# die die anderen beiden nicht haben koennen — er ist der erste Hinweis darauf, dass mit
+	# dieser Welt etwas nicht stimmt, lange bevor jemand erklaert, wer den Krater gemacht hat.
+	#
+	# Er laeuft nach Norden bei x = 700 und liegt damit rund einen Kilometer oestlich von
+	# Rustwater: weit genug, dass der Prolog ihn nie beruehrt (Grube, Fels und Stadt liegen
+	# alle westlich davon), nah genug, dass man ihn findet, sobald man sich umsieht. Zum
+	# Rattengestruepp sind es 500 m, zum naechsten Sumpfloch 72 m.
+	#
+	# `schlenker` ist kein Schmuck: Ein schnurgerader Riss liest sich als Graben, den jemand
+	# gezogen hat. Und `step_laengs` ist keine Feinabstimmung, sondern Notwendigkeit — quer
+	# zaehlt jeder halbe Meter, laengs sieht man auf zweihundert nichts.
+	{ "id": "ripple", "kind": "spalt", "x": 700, "y": 400, "achse": "nord",
+		"laenge": 1900.0, "breite": 10.0, "tiefe": 40.0, "kante_m": 7.0,
+		"schlenker": 26.0, "welle_m": 260.0, "auslauf_m": 110.0,
+		"step": 0.6, "step_laengs": 6.0, "scrap": false },
 	{ "id": "wellenmeer", "kind": "dunes", "x": 600, "y": 430,
 		"radius": 160.0, "amp": 5.0, "wave": 42.0, "skew": 0.55,
 		"dir_deg": 24.0, "step": 2.0 },
@@ -236,6 +258,61 @@ static func height_at(x: float, z: float) -> float:
 	return h
 
 
+## Das Höhenprofil des RISSES.
+##
+## Gerechnet wird nicht der Abstand zu einem Punkt, sondern der Abstand zu einer **Linie** —
+## sonst dieselbe Rechnung wie bei allen anderen Formen, und deshalb gilt sie automatisch für
+## Laufen, Fußspuren, Streuung, Figuren und Kisten. Ein aufgestelltes Modell wüsste davon nichts:
+## Man liefe hindurch, die Fußspur ginge darüber weg, Gegner ständen in der Luft.
+##
+## Drei Zonen quer zur Achse:
+##
+##   1. **Innen** (bis `breite`/2): der Abgrund, flach bei −`tiefe`. So tief, dass unten nichts
+##      mehr zu erkennen ist — was man sieht, ist Schwärze, und das ist die Absicht.
+##   2. **Die Kante** (`breite`/2 … + `kante_m`): der Abbruch. Über `kante_m` Meter geht es von
+##      null auf volle Tiefe, mit waagerechtem Anschluss oben, damit man nicht schon drei Meter
+##      vorher zu rutschen anfängt.
+##   3. **Außen**: die Ebene, unberührt.
+##
+## Der **Schlenker** ist kein Schmuck. Ein schnurgerader Riss liest sich als Graben, den jemand
+## gezogen hat; genau das ist er nicht. Zwei überlagerte Sinuswellen mit unterschiedlicher Länge
+## geben ihm einen Verlauf, der keine Periode erkennen lässt.
+static func _spalt_height(f: Dictionary, off: Vector2) -> float:
+	var laengs: float = off.y if _spalt_laeuft_nord(f) else off.x
+	var quer: float = off.x if _spalt_laeuft_nord(f) else off.y
+	var halb_l: float = float(f["laenge"]) * 0.5
+	if absf(laengs) > halb_l:
+		return 0.0
+	# Der Verlauf: zwei Wellen, deren Längen nicht ineinander aufgehen.
+	var schlenker: float = float(f.get("schlenker", 0.0))
+	if schlenker > 0.0:
+		var w1: float = float(f.get("welle_m", 260.0))
+		quer -= schlenker * (sin(laengs / w1 * TAU) * 0.62
+			+ sin(laengs / (w1 * 0.37) * TAU + 1.1) * 0.38)
+	var d: float = absf(quer)
+	var innen: float = float(f["breite"]) * 0.5
+	var kante: float = float(f.get("kante_m", 6.0))
+	if d >= innen + kante:
+		return 0.0
+	var tiefe: float = float(f["tiefe"])
+	if d <= innen:
+		var t_ende: float = 1.0
+		# An den beiden ENDEN läuft der Riss aus, statt als Rechteck aufzuhören. Ein Abgrund mit
+		# senkrechter Stirnwand mitten in der Ebene wäre ein Bauteil, kein Riss.
+		var aus: float = float(f.get("auslauf_m", 90.0))
+		if halb_l - absf(laengs) < aus:
+			t_ende = smoothstep(0.0, 1.0, (halb_l - absf(laengs)) / aus)
+		return -tiefe * t_ende
+	# Die Kante. `smoothstep` setzt an beiden Enden waagerecht an — oben also kein Knick, an dem
+	# man hängenbleibt, unten kein Trichter, der zum Hineinrutschen einlädt.
+	var k: float = smoothstep(0.0, 1.0, 1.0 - (d - innen) / kante)
+	var t_ende2: float = 1.0
+	var aus2: float = float(f.get("auslauf_m", 90.0))
+	if halb_l - absf(laengs) < aus2:
+		t_ende2 = smoothstep(0.0, 1.0, (halb_l - absf(laengs)) / aus2)
+	return -tiefe * k * t_ende2
+
+
 ## Höhenprofil einer Form über den Abstand zur Mitte — jetzt richtungsabhängig (Rampe).
 ##
 ## Drei Abschnitte, alle mit waagerechtem Anschluss; es gibt also keine Kante, an der man
@@ -253,8 +330,11 @@ static func height_at(x: float, z: float) -> float:
 ## Abschnitt 1 weg und Abschnitt 2 zieht sich über den ganzen Radius. Das ist exakt das alte
 ## Schüsselprofil (höchstens 27° bei 5 m Tiefe), nur eben nicht mehr rundum.
 static func _feature_height(f: Dictionary, off: Vector2) -> float:
-	if String(f.get("kind", "crater")) == "dunes":
+	var art: String = String(f.get("kind", "crater"))
+	if art == "dunes":
 		return _dune_height(f, off)
+	if art == "spalt":
+		return _spalt_height(f, off)
 	# Der Umriss muss nicht rund sein. `kerb` verzieht den Radius je nach Richtung — aus dem
 	# Kreis wird eine unregelmaessige Form mit Vorspruengen und Einbuchtungen. Ohne das ist
 	# jede Erhebung ein Kegel, und ein Kegel liest sich als Huegel, nie als Fels.
@@ -419,12 +499,49 @@ static func normal_at(x: float, z: float, eps: float = 0.25) -> Vector3:
 
 ## Aussenradius einer Form inklusive Wall — bis hierhin muss ein Geländeflicken reichen.
 static func feature_reach(f: Dictionary) -> float:
-	if String(f.get("kind", "crater")) == "dunes":
+	var art: String = String(f.get("kind", "crater"))
+	if art == "dunes":
 		return float(f["radius"])
+	# Beim Riss ist „Reichweite" die QUERausdehnung — das ist die Zahl, die alle Aufrufer
+	# brauchen, die nach einem Sicherheitsabstand fragen. Für Flächen gibt es `feature_halb()`.
+	if art == "spalt":
+		return _spalt_reichweite(f)
 	# `kerb` MUSS hier hinein: Es verlaengert den Radius je nach Richtung, und ein Loch, das
 	# davon nichts weiss, ist auf der breitesten Seite zu klein — dort laege die flache
 	# Bodenplatte ueber dem Fels.
 	return float(f["radius"]) * (1.0 + float(f["rim_width"]) + float(f.get("kerb", 0.0)))
+
+
+## Halbe Ausdehnung einer Form in x und z (Szenenmeter).
+##
+## Bis hierher war jede Geländeform rund, und ein einziger `feature_reach()` reichte für alles:
+## das Loch im Boden, den verformten Flicken darüber, die Streuung. Der **Riss** ist die erste
+## Form, die nicht rund ist — 10 m breit und 1900 m lang. Mit `reach` als Quadrat wäre das Loch
+## im Boden 1900 × 1900 m groß, also ein Drittel der Welt.
+##
+## Deshalb fragt alles, was eine FLÄCHE braucht, ab jetzt hier nach und nicht mehr bei `reach`.
+## Für runde Formen kommt dasselbe heraus wie vorher; nur der Riss antwortet mit einem Streifen.
+static func feature_halb(f: Dictionary) -> Vector2:
+	if String(f.get("kind", "crater")) == "spalt":
+		var halb_l: float = float(f["laenge"]) * 0.5
+		var halb_b: float = _spalt_reichweite(f)
+		return Vector2(halb_b, halb_l) if _spalt_laeuft_nord(f) else Vector2(halb_l, halb_b)
+	var r: float = feature_reach(f)
+	return Vector2(r, r)
+
+
+## Läuft der Riss nach Norden (entlang z) oder nach Osten (entlang x)?
+static func _spalt_laeuft_nord(f: Dictionary) -> bool:
+	return String(f.get("achse", "nord")) == "nord"
+
+
+## Wie weit der Riss quer zu seiner Achse reicht: halbe Breite, Kante und der ganze Schlenker.
+##
+## Der Schlenker muss mit hinein. Ein Riss, der schnurgerade läuft, sieht aus wie ein Graben, den
+## jemand gezogen hat — und genau das soll er nicht sein. Er schlängelt also, und das Loch im
+## Boden muss den ganzen Schlenker fassen, sonst liegt die flache Platte über dem Spalt.
+static func _spalt_reichweite(f: Dictionary) -> float:
+	return float(f["breite"]) * 0.5 + float(f.get("kante_m", 6.0)) + float(f.get("schlenker", 0.0))
 
 
 ## Mittelpunkt einer Form in Szenenmetern.

@@ -104,6 +104,17 @@ var weapon_id: String = ""
 
 ## Prolog abgeschlossen? Steuert, wo eine Runde ANFAENGT: erst die Grube, danach Rustwater.
 var prolog_done: bool = false
+## Laeuft die Runde als TUTORIAL? Dann bekommt der Prolog Hinweistafeln.
+##
+## Das Tutorial ist derselbe Prolog und kein zweiter Inhalt: Ein eigener Tutorial-Abschnitt
+## hiesse zwei Anfaenge zu pflegen, und einer davon wird schlechter. Der Unterschied sind
+## eingeblendete Saetze, nicht eine andere Welt.
+var tutorial: bool = false
+## Ist die Szene mit dem ersten Gegner schon gelaufen?
+##
+## Sie darf genau einmal stattfinden — sie erklaert das Pluendern, und was erklaert ist, muss
+## nicht noch einmal erklaert werden.
+var erst_gegner_done: bool = false
 
 ## Hat er Rustwater schon einmal von weitem gesehen? Steuert den einmaligen Kameraflug.
 var saw_rustwater: bool = false

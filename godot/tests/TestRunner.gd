@@ -50,6 +50,8 @@ const TEST_UMFANG: Dictionary = {
 	"_test_ammo": 12,
 	"_test_reload": 18,
 	"_test_weapons": 13,
+	"_test_titel_und_erster": 27,
+	"_test_riss": 15,
 	"_test_terrain": 25,
 	"_test_winding": 4,
 	"_test_inventory_grid": 16,
@@ -992,6 +994,180 @@ func _test_camera_zoom() -> void:
 ## Ein modelliertes Gelaende waere Kulisse geblieben, durch die man hindurchspaziert. Diese
 ## Tests halten die Eigenschaften fest, auf die sich alles andere verlaesst: exakt flach
 ## ausserhalb, stetig ueberall, begehbar steil.
+## Der Riss.
+##
+## Er ist die erste Gelaendeform, die nicht rund ist, und damit die erste, bei der „Reichweite"
+## und „Ausdehnung" auseinanderfallen. Genau daran haengen die Pruefungen hier.
+## Der Titelbildschirm und die Szene mit dem ersten Gegner.
+func _test_titel_und_erster() -> void:
+	print("· Titelbildschirm & erster Gegner")
+	var q: String = FileAccess.get_file_as_string("res://scripts/TitleScreen.gd")
+	var p: String = FileAccess.get_file_as_string("res://project.godot")
+	# Damit startet das Spiel IMMER. Ein Titelbild, das je nach Speicherstand mal da ist und mal
+	# nicht, ist kein Anfang, sondern ein Dialogfeld.
+	_check("Das Spiel startet mit dem Titelbildschirm",
+		p.contains('run/main_scene="res://scenes/Title.tscn"'))
+	_check("Die Titelszene liegt vor", FileAccess.file_exists("res://scenes/Title.tscn"))
+	# „Spiel laden" wird AUSGEGRAUT, nicht versteckt: Ein Eintrag, der auftaucht und
+	# verschwindet, laesst den ganzen Bildschirm springen.
+	_check("Spiel laden wird ausgegraut statt versteckt",
+		q.contains('["laden", "Spiel laden", not hat_stand]'))
+	for eintrag in ["Neues Spiel", "Spiel laden", "Tutorial", "Einstellungen", "Steuerung",
+			"Credits"]:
+		_check("Es gibt den Eintrag %s" % String(eintrag),
+			q.contains('"%s"' % String(eintrag)))
+	# „Beenden" nur auf dem Rechner: Auf dem Handy beendet man Apps anders, und ein Knopf, der
+	# dort nichts Sinnvolles tut, ist schlimmer als keiner.
+	_check("Beenden nur auf dem Rechner", q.contains('if not OS.has_feature("mobile"):'))
+	# Die Lautstaerkeregler gehen auf einen echten Audio-Bus. Ein Regler, der nur eine Zahl in
+	# einer Einstellungsdatei verschiebt, ist eine Attrappe — und die faellt spaetestens auf,
+	# wenn jemand sie benutzt.
+	_check("Die Regler haengen an echten Bussen", q.contains("AudioServer.set_bus_volume_db"))
+	_check("Und bei null wird stummgeschaltet statt −inf gerechnet",
+		q.contains("AudioServer.set_bus_mute"))
+	# Das Bild ist die WELT und kein Standbild — sonst altert es gegen das Spiel.
+	_check("Das Titelbild ist die laufende Welt", q.contains("OVERWORLD.instantiate()"))
+	_check("Und sie dreht sich langsam (%.1f °/s)" % 2.4, q.contains("DREH_GRAD_S"))
+	# Und es ist IMMER Nacht. Die Stunde wird nach dem Aufbau gesetzt und die Beleuchtung dann
+	# von Hand angestossen: `_ready()` der Overworld laedt den Spielstand, und darin steht die
+	# Uhrzeit der letzten Runde. Ohne das bekam, wer abends aufgehoert hat, einen
+	# Titelbildschirm im Abendrot — nachgemessen an einem Bild, auf dem 18:57 stand.
+	_check("Der Titel spielt immer nachts",
+		q.find("GameState.hour = STUNDE") > q.find("add_child(_welt)")
+		and q.contains('_welt.call("_apply_daytime")'))
+	# Hinter dem Titel ruht die Welt vollstaendig. Sonst liefe das Spiel im Menue mit: Der Held
+	# stuende auf und redete, waehrend niemand hinsieht.
+	var ow_q: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
+	_check("Hinter dem Titel ruht die Welt",
+		ow_q.contains("if im_titel:\n\t\treturn"))
+	_check("Und es laeuft dort weder Film noch Erwachen", ow_q.contains("\tif im_titel:\n\t\t#"))
+	# Die Flagge wird gesetzt, BEVOR die Welt in den Baum kommt — `_ready()` stoesst sonst schon
+	# den Film an.
+	_check("Die Sperre steht vor dem Aufbau",
+		q.find('_welt.set("im_titel", true)') < q.find("add_child(_welt)"))
+
+	# ── Der erste Gegner ──────────────────────────────────────────────────────
+	var OW4 = load("res://scripts/OverworldView.gd")
+	# EINER, nicht das uebliche Rudel: Wer zum ersten Mal etwas sieht, das hier herumlaeuft,
+	# soll es ansehen koennen.
+	_check("Es ist genau einer", ow_q.contains('_erst_gegner = _make_enemy("outlaw")'))
+	# Und ein Wegelagerer, kein Klaeffer: Der kommt nie allein (`swarm`), und die Frage
+	# „was bist du gewesen" traegt nur bei etwas Menschlichem.
+	_check("Und einer, der allein auftreten darf",
+		not bool(CombatData.ENEMY_TYPES["outlaw"].get("swarm", false)))
+	# Erst wenn er den Krater verlassen hat.
+	_check("Erst ausserhalb des Kraters (%.0f m)" % OW4.ERST_AUSLOESER_M,
+		OW4.ERST_AUSLOESER_M > 20.0)
+	# Und nicht mit leeren Haenden — ohne Waffe waere es eine Hinrichtung ohne Werkzeug.
+	_check("Und nicht mit leeren Haenden", ow_q.contains('if _weapon_id == "":\n\t\treturn   # ohne Waffe'))
+	# Die Beute liegt ERST DANACH da. Der Sinn der Szene ist, dass man es lernt; wer vorher
+	# einsammeln kann, lernt nichts.
+	_check("Die Beute kommt erst nach der Nahaufnahme",
+		ow_q.find("func _erst_beute") > ow_q.find("_erst_leiche_t = ERST_SEK_HIN"))
+	_check("Und die Nahaufnahme dauert (%.1f s)" % OW4.ERST_SEK_LEICHE,
+		OW4.ERST_SEK_LEICHE >= 3.0)
+	# Genau einmal — was erklaert ist, muss nicht noch einmal erklaert werden.
+	_check("Sie laeuft genau einmal", ow_q.contains("GameState.erst_gegner_done = true"))
+	_check("Und steht im Spielstand",
+		FileAccess.get_file_as_string("res://scripts/SaveManager.gd").contains("erst_gegner_done"))
+	# Die letzte Sprechzeile begruendet das Pluendern, statt es als Spielfunktion zu erklaeren.
+	_check("Das Pluendern wird begruendet, nicht erklaert",
+		ow_q.contains("Er braucht sie nicht mehr, und ich schon"))
+
+
+func _test_riss() -> void:
+	print("· Der Riss")
+	var riss: Dictionary = {}
+	for f in WorldManager.TERRAIN:
+		if String(f.get("kind", "crater")) == "spalt":
+			riss = f
+	_check("Es gibt einen Riss", not riss.is_empty())
+	if riss.is_empty():
+		return
+	_check("Er ist zehn Meter breit (%.0f m)" % float(riss["breite"]),
+		is_equal_approx(float(riss["breite"]), 10.0))
+	var c: Vector3 = WorldManager.feature_center(riss)
+	# In der Mitte ist er tief. „Tief genug" heisst: Man sieht unten nichts mehr.
+	#
+	# Gemessen auf der MITTELLINIE, nicht am geometrischen Mittelpunkt: Der Riss schlaengelt um
+	# bis zu 26 m, und am Mittelpunkt liegt deshalb gerade die Kante statt des Grundes. Der
+	# erste Anlauf mass dort 17 m und sah aus wie ein zu flacher Riss — es war ein zu naiver
+	# Messpunkt.
+	var tiefste: float = 0.0
+	for j0 in 121:
+		tiefste = minf(tiefste, WorldManager.height_at(c.x - 60.0 + float(j0), c.z))
+	_check("In der Mitte geht es %.0f m hinunter" % -tiefste, tiefste < -30.0)
+	# Und quer daneben ist die Ebene unberuehrt — sonst waere aus dem Spalt eine Senke geworden.
+	var quer: float = float(riss["breite"]) * 0.5 + float(riss.get("kante_m", 6.0)) \
+		+ float(riss.get("schlenker", 0.0)) + 5.0
+	_check("Daneben ist die Ebene flach (%.2f m)" % WorldManager.height_at(c.x + quer, c.z),
+		absf(WorldManager.height_at(c.x + quer, c.z)) < 0.01)
+	# Er SCHLAENGELT. Ein schnurgerader Riss liest sich als Graben, den jemand gezogen hat.
+	var mitten: Array = []
+	for i in 9:
+		var z: float = c.z + (float(i) / 8.0 - 0.5) * float(riss["laenge"]) * 0.8
+		# Die tiefste Stelle quer suchen — das ist die Mittellinie an dieser Stelle.
+		var tiefste_x: float = c.x
+		var tief: float = 0.0
+		for j in 121:
+			var x: float = c.x - 60.0 + float(j)
+			var h: float = WorldManager.height_at(x, z)
+			if h < tief:
+				tief = h
+				tiefste_x = x
+		mitten.append(tiefste_x - c.x)
+	var min_m: float = 1e9
+	var max_m: float = -1e9
+	for m in mitten:
+		min_m = minf(min_m, float(m))
+		max_m = maxf(max_m, float(m))
+	_check("Er schlaengelt (%.0f m Versatz ueber die Laenge)" % (max_m - min_m),
+		max_m - min_m > 20.0)
+	# An den ENDEN laeuft er aus. Ein Abgrund mit senkrechter Stirnwand mitten in der Ebene
+	# waere ein Bauteil, kein Riss.
+	var ende: float = c.z + float(riss["laenge"]) * 0.5 - 4.0
+	_check("An den Enden laeuft er aus (%.1f m statt %.0f m)"
+		% [-WorldManager.height_at(c.x, ende), float(riss["tiefe"])],
+		WorldManager.height_at(c.x, ende) > -float(riss["tiefe"]) * 0.35)
+	# Das Loch im Boden ist ein STREIFEN und kein Quadrat. Als Quadrat um seine Reichweite
+	# gerechnet waere es ein Drittel der Welt.
+	var halb: Vector2 = WorldManager.feature_halb(riss)
+	_check("Sein Loch im Boden ist ein Streifen (%.0f × %.0f m)" % [halb.x * 2.0, halb.y * 2.0],
+		halb.y > halb.x * 10.0)
+	# Und er liegt dem Prolog nicht im Weg: Grube, Fels und Stadt liegen alle westlich davon.
+	# Ueber die ENTFERNUNG, nicht ueber die Hoehe: Die Schrottgrube ist selbst fuenf Meter tief,
+	# eine Hoehenpruefung wuerde sie faelschlich als „im Riss" melden. Genau dieser Fehler stand
+	# einen Augenblick lang auch in `_am_riss()` — und haette den Prolog vollstaendig gesperrt,
+	# weil der Held am Grund der Grube erwacht und dort jeder Schritt gesperrt gewesen waere.
+	var OW3 = load("res://scripts/OverworldView.gd")
+	var halb0: Vector2 = WorldManager.feature_halb(riss)
+	for ort in ["schrott_minen", "rustwater"]:
+		var p: Vector3 = WorldManager.poi_scene_position(String(ort))
+		_check("%s liegt weit weg vom Riss (%.0f m)" % [String(ort), absf(p.x - c.x)],
+			absf(p.x - c.x) > halb0.x + 200.0)
+	var fels: Vector3 = WorldManager.world_to_scene(Vector2(348.0, 214.0))
+	_check("Der Ausguck auch (%.0f m)" % absf(fels.x - c.x), absf(fels.x - c.x) > halb0.x + 200.0)
+	# Und der Grubengrund ist NICHT gesperrt. Das ist die Regression zu dem Fehler oben.
+	var ow_r := OverworldView.new()
+	ow_r._riss = riss
+	var grube: Vector3 = WorldManager.poi_scene_position("schrott_minen")
+	grube.y = WorldManager.height_at(grube.x, grube.z)
+	_check("Am Grund der Schrottgrube (%.1f m) sperrt der Riss nicht" % grube.y,
+		grube.y < -3.0 and not ow_r._am_riss(grube))
+	ow_r.free()
+	# Die Sperre haengt an der HOEHE, nicht an der Neigung: Die Steigungsgrenze sperrt nur
+	# bergauf, und an einem Riss laeuft man hinunter.
+	_check("Gesperrt wird ueber die Hoehe, nicht ueber die Steigung",
+		OW3.RISS_SPERRE_M > 0.0 and OW3.RISS_SPERRE_M < 3.0)
+	var quelle3: String = FileAccess.get_file_as_string("res://scripts/OverworldView.gd")
+	_check("Und die Sperre haengt im Laufen mit drin",
+		quelle3.contains("or _am_riss(next):"))
+	# Eine unsichtbare Sperre an einem Abgrund ist derselbe Fehler wie an der Palisade, wo die
+	# Fussspur vor der Mauer endete: Man laeuft dagegen und weiss nicht, warum.
+	_check("Die Kante ist zu sehen", quelle3.contains("func _build_riss"))
+	_check("Und sie sagt einmal, was sie ist", quelle3.contains("Zehn Meter Nichts"))
+
+
 func _test_terrain() -> void:
 	print("· Topografie (Senken als Formel)")
 	_check("Genau eine Gelaendeform definiert", WorldManager.TERRAIN.size() >= 1)
@@ -1080,8 +1256,11 @@ func _test_terrain() -> void:
 		flaeche += r.size.x * r.size.y
 	var loch: float = 0.0
 	for tf in WorldManager.TERRAIN:
-		var rr: float = WorldManager.feature_reach(tf) + OverworldView.TERRAIN_MARGIN_M
-		loch += (rr * 2.0) * (rr * 2.0)
+		# Ueber die HALBAUSDEHNUNG, nicht ueber die Reichweite. Bis zum Riss war jede Form rund
+		# und beides dasselbe; ein 10 m breiter und 1900 m langer Spalt ist als Quadrat um seine
+		# Reichweite gerechnet dagegen ein Drittel der Welt.
+		var hh: Vector2 = WorldManager.feature_halb(tf) + Vector2.ONE * OverworldView.TERRAIN_MARGIN_M
+		loch += (hh.x * 2.0) * (hh.y * 2.0)
 	# Toleranz RELATIV, nicht absolut: `Rect2` rechnet in float32, und die Weltflaeche sind
 	# 25 Millionen m². Je Gelaendeform kommt ein Rechteck-Schnitt dazu, und jeder schleppt rund
 	# 8·10⁻⁸ relative Rundung mit — bei elf Formen sind das ein paar Quadratmeter Scheinflaeche.
@@ -4136,6 +4315,12 @@ func _test_walkable_zones() -> void:
 	# die kleinste Gelaendeform, sonst verschluckt er sie wieder.
 	var schmalste: float = 1e9
 	for tf in WorldManager.TERRAIN:
+		# Der Riss hat keinen Radius, sondern eine Breite — und die ist mit 10 m kleiner als
+		# jede Senke. Er gehoert hier trotzdem nicht hinein: Der Trassenstreifen soll keine
+		# GELAENDEFORM zudecken, und ein Spalt, ueber den die Bahn ohnehin nicht faehrt, ist
+		# keine, die zugedeckt werden koennte.
+		if String(tf.get("kind", "crater")) == "spalt":
+			continue
 		schmalste = minf(schmalste, float(tf["radius"]) * 2.0)
 	_check("Der Trassenstreifen ist schmaler als die kleinste Senke",
 		WorldManager.RAIL_CORRIDOR_HALF_W * 2.0 * WorldManager.METERS_PER_UNIT < schmalste,

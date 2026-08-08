@@ -134,6 +134,7 @@ func _ready() -> void:
 	# laesst sich an einem flachen Ring auf schraegem Fels weder Groesse noch Rundheit ablesen.
 	# Beim ersten Anlauf sah er von hinten aus wie ein aufrechter Bilderrahmen, und ohne den
 	# Blick von oben waere unklar geblieben, ob das an der Form liegt oder an der Perspektive.
+	_views.append(["titel", null, "titel"])
 	_views.append(["ausguck_marke", null, "marke"])
 	_views.append(["ausguck_marke_oben", null, "markeoben"])
 	# Die Rundsicht oben auf dem Fels, an vier Stellen. Gleiche Bauweise wie `flug_`/`wach_`.
@@ -389,6 +390,15 @@ func _setup_ui(art: String) -> void:
 			var pl: Node3D = ow._marke.get_node("Puls")
 			var mi: MeshInstance3D = pl.get_child(0) as MeshInstance3D
 			print("· Reif-AABB pos=%s groesse=%s" % [mi.get_aabb().position, mi.get_aabb().size])
+	elif art == "titel":
+		# Der Titelbildschirm. Er laedt seine eigene Welt — also wird hier die des Werkzeugs
+		# beiseitegeschoben und die echte Titelszene davorgesetzt. Alles andere waere ein
+		# Nachbau, und ein Nachbau prueft sich selbst statt des Bildes, das der Spieler sieht.
+		ow.set_process(false)
+		ow.visible = false
+		var titel: Node = load("res://scenes/Title.tscn").instantiate()
+		add_child(titel)
+		_wait = 30
 	elif art == "markeoben":
 		# Senkrecht von oben auf den Ring: Nur so sieht man, ob er RUND ist und wie gross.
 		ow.set_process(true)
