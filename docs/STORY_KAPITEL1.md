@@ -158,8 +158,10 @@ dem Sattel.** Der Weg in die Stadt ist gut einen Kilometer weit; zu Fuß sind da
 im Sattel gut eine.
 
 **4b. Der erste Gegner.** Beim Verlassen des Kraters, und nur mit Waffe in der Hand. Einer statt
-des üblichen Rudels, seitlich vor ihm, hat ihn noch nicht gesehen. **Er schießt selbst** — der
-Spieler drückt nicht. Danach die Kamera langsam auf den Toten, und **erst dann** liegt Beute da.
+des üblichen Rudels, seitlich vor ihm, hat ihn noch nicht gesehen — und eine **Maschine**: ein
+zwei Meter hohes Konzern-Konstrukt. Ein bewaffneter Mann wäre in dieser Wüste keine Überraschung;
+ein Kessel, der aus dem Blech kommt, ist eine, und er stellt die Frage des ganzen Spiels in der
+ersten Minute. **Er schießt selbst** — der Spieler drückt nicht. Danach die Kamera langsam auf den Toten, und **erst dann** liegt Beute da.
 Die ganze Szene steht in `docs/TITEL_UND_GRENZEN.md`; der Kern ist die letzte Sprechzeile, die
 das Plündern begründet statt es als Spielfunktion zu erklären.
 

@@ -81,10 +81,8 @@ einmal erklärt werden.
 
 ### Der Ablauf
 
-1. **Einer.** Nicht das übliche Rudel. Er taucht **seitlich** vor ihm auf und hat ihn noch nicht
-   gesehen — frontal wäre es ein Duell, so ist es eine Begegnung. Ein **Wegelagerer**, kein
-   Kessel-Kläffer: Der kommt nie allein (`swarm`), und die Frage *„was bist du gewesen"* trägt
-   nur bei etwas Menschlichem.
+1. **Einer, und eine Maschine.** Nicht das übliche Rudel. Er taucht **seitlich** vor ihm auf und
+   hat ihn noch nicht gesehen — frontal wäre es ein Duell, so ist es eine Begegnung.
 2. **Die Kamera** setzt sich seitlich hinter seine Schulter, Bildwinkel 44° statt 78°. Hier ist
    die Frage nicht *wo bin ich*, sondern *was ist das*.
 3. **Er schießt selbst.** Der Spieler drückt nicht. Die Figur kann etwas, was der Spieler noch
@@ -95,23 +93,53 @@ einmal erklärt werden.
 5. **Die Kamera fährt auf ihn zu**, 4,6 Sekunden, bis er das Bild füllt.
 6. **Erst jetzt** liegt Beute da.
 
+### Warum eine Maschine
+
+Zuerst stand hier ein **Grenzgänger** — ein Mensch, weil die Frage *„was bist du gewesen"* bei
+etwas Menschlichem am stärksten trägt. Das war die falsche Rechnung: Ein bewaffneter Mann in der
+Wüste ist keine Überraschung, sondern genau das, was man dort erwartet. Ein zweibeiniger Kessel,
+der aus dem Blech kommt, ist eine — und er stellt die Frage, um die es im ganzen Spiel geht,
+gleich in der ersten Minute: **Was ist hier Mensch und was Maschine.** Der Held weiß es von sich
+selbst noch nicht.
+
+Der **Kessel-Kläffer** wäre das schönere Tier gewesen: vierbeinig, hundegroß, mechanisch. Es gibt
+ihn als Gegnertyp mit Werten — nur nicht als **Modell**; `klaeffer.glb` steht noch auf der Liste
+der fehlenden Sachen. Also das nächstliegende, das da ist: das **Konzern-Konstrukt**. Zwei Meter
+hoch, gepanzert, mechanisch — keine Ratte, kein Mensch.
+
+> Ein Test hält das fest: Er prüft, dass es *kein* Kläffer-Modell gibt. Taucht eines auf, fällt er
+> um und erinnert daran, hier noch einmal hinzusehen. Eine Notlösung, die niemanden mehr erinnert,
+> ist keine Notlösung mehr, sondern der Stand.
+
+Dass dieses eine mit einem Schuss fällt und ein späteres nicht, **trägt der Text**: Es ist ein
+Wrack, das halb im Schrott gelegen hat, und der Held sagt es (*„Ein heiler hätte gestanden"*). Wer
+später einem heilen begegnet, ist gewarnt worden.
+
+Die Beute ist aus einer Maschine außerdem selbsterklärend — Schrauben, ein Zahnrad, ein
+**Dampfkern**. Aus einem Menschen wäre sie eine Erklärung gewesen, die man hätte liefern müssen.
+Der Dampfkern wird nicht ausgewürfelt: Der Held spricht ihn aus (*„ein Kern, der noch warm ist"*),
+und was ausgesprochen wird, muss auch dort liegen.
+
 Punkt 6 ist der Sinn der ganzen Szene: Wer vorher einsammeln kann, lernt nichts.
 
-> **DER NAMENLOSE:** „…was bist du denn."
-> „Blech über Fleisch. Oder Fleisch über Blech."
+> **DER NAMENLOSE:** „…was zum."
+> „Das läuft. Das ist Blech, und es läuft."
 > *(er schießt)*
 > „Das ging schnell. Zu schnell."
 > „Ich hab nicht nachgedacht. Meine Hände schon."
-> „Da klappert was."
-> „Schrauben. Ein Kern. Und Patronen — Patronen für was?"
-> „Er hat sie getragen wie einer, der weiß, dass er sie braucht."
-> „Also nehm ich sie. Er braucht sie nicht mehr, und ich schon."
+> „…und woher weiß ich, wo man so ein Ding trifft?"
+> „Der war halb hin. Rost bis zum Kessel. Ein heiler hätte gestanden."
+> „Es zischt noch. Ein Ding, das zischt, wenn es liegt."
+> „Da drin klappert was. Schrauben. Ein Zahnrad. Und ein Kern, der noch warm ist."
+> „Das hat jemand gebaut. Jemand baut so was und lässt es hier laufen."
+> „Also nehm ich, was drin ist. Es braucht das nicht mehr, und ich schon."
 
 Die letzte Zeile ist der Punkt: **Plündern wird begründet, nicht als Spielfunktion erklärt.** Ein
 Spiel, in dem man Leichen durchsucht, sollte einmal aussprechen, was das ist.
 
-**Offen:** die Schuss-Animation. Bis sie da ist, läuft der vorhandene Angriffs-Clip. Der Rest der
-Szene hängt nicht daran — Mündungsfeuer, Leuchtspur und Ton stehen.
+**Offen:** die Schuss-Animation und `klaeffer.glb`. Bis die Animation da ist, läuft der
+vorhandene Angriffs-Clip; der Rest der Szene hängt nicht daran — Mündungsfeuer, Leuchtspur und
+Ton stehen.
 
 ---
 

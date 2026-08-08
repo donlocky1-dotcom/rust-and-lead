@@ -7040,17 +7040,29 @@ func _process_riss(delta: float) -> void:
 ## draussen faengt die Welt an.
 ##
 ## **Einer**, nicht das uebliche Rudel. Wer zum ersten Mal etwas sieht, das hier herumlaeuft,
-## soll es ANSEHEN koennen. Ein Wegelagerer und kein Kessel-Klaeffer: Der kommt nie allein, und
-## die Frage „was bist du gewesen" traegt nur bei etwas Menschlichem.
+## soll es ANSEHEN koennen.
 ##
-## **Er schiesst selbst.** Der Spieler drueckt nicht. Das ist der Kern und keine Bequemlichkeit:
-## Die Figur kann etwas, was der Spieler noch nicht kann, und weiss selbst nicht, woher —
-## dieselbe Frage wie beim Karabiner in der Truhe (*„als haettest du das schon tausendmal
-## gemacht"*).
+## Und eine MASCHINE. Zuerst stand hier ein Grenzgaenger — ein Mensch, weil die Frage „was bist
+## du gewesen" bei etwas Menschlichem am staerksten traegt. Das war die falsche Rechnung: Ein
+## bewaffneter Mann in der Wueste ist keine Ueberraschung, sondern das, was man dort erwartet.
+## Ein zweibeiniger Kessel, der aus dem Blech kommt, ist eine — und er stellt die Frage, um die
+## es im ganzen Spiel geht, gleich in der ersten Minute: Was ist hier Mensch und was Maschine.
+## (Der Held weiss es von sich selbst noch nicht.)
+##
+## Der **Kessel-Klaeffer** waere das schoenere Tier gewesen — vierbeinig, hundegross, es gibt
+## ihn als Gegnertyp. Es gibt ihn nur nicht als MODELL; `klaeffer.glb` steht noch auf der Liste
+## der fehlenden Sachen. Also das naechstliegende, das da ist: das **Konzern-Konstrukt**. Zwei
+## Meter hoch, gepanzert, mechanisch — keine Ratte, kein Mensch.
+##
+## Dass es hier mit einem Schuss faellt und spaeter nicht, traegt der Text: Dieses eine ist ein
+## Wrack, das halb im Schrott gelegen hat. Wer spaeter einem heilen begegnet, merkt den
+## Unterschied, und der Satz vorher hat ihn angekuendigt.
 ##
 ## **Und die Beute ist erst DANACH da.** Nicht vorher: Der Sinn der Szene ist, dass man es
-## lernt, und wer vorher schon einsammeln kann, lernt nichts.
-const ERST_ABSTAND_M: float = 26.0     # so weit vor ihm taucht der eine Gegner auf
+## lernt, und wer vorher schon einsammeln kann, lernt nichts. Aus einer Maschine ist sie
+## ausserdem selbsterklaerend — Schrauben, ein Zahnrad, ein Dampfkern. Aus einem Menschen waere
+## sie eine Erklaerung gewesen, die man haette liefern muessen.
+const ERST_ABSTAND_M: float = 22.0     # so weit vor ihm taucht der eine Gegner auf
 const ERST_AUSLOESER_M: float = 34.0   # so weit vom Kraterrand weg springt die Szene an
 const ERST_SEK_SEHEN: float = 3.2      # sehen, bevor geschossen wird
 const ERST_SEK_SCHUSS: float = 1.6
@@ -7092,7 +7104,7 @@ func _erst_starten() -> void:
 	# nicht gesehen. Frontal waere es ein Duell; so ist es eine Begegnung.
 	var wo: Vector3 = _player.position + blick * ERST_ABSTAND_M + quer * 7.0
 	wo.y = WorldManager.height_at(wo.x, wo.z)
-	_erst_gegner = _make_enemy("outlaw")
+	_erst_gegner = _make_enemy("konstrukt")
 	var n: Node3D = _erst_gegner["node"] as Node3D
 	n.position = wo
 	n.rotation.y = atan2(-quer.x, -quer.z)
@@ -7111,8 +7123,8 @@ func _erst_starten() -> void:
 	]
 	_play_flight(punkte)
 	_play_speech(HELD_NAME, "held", [
-		"„…was bist du denn.“",
-		"„Blech über Fleisch. Oder Fleisch über Blech.“",
+		"„…was zum.“",
+		"„Das läuft. Das ist Blech, und es läuft.“",
 	])
 	_erst_schuss_t = ERST_SEK_SEHEN + ERST_SEK_SCHUSS * 0.55
 
@@ -7173,10 +7185,12 @@ func _erst_abdruecken() -> void:
 	_play_speech(HELD_NAME, "held", [
 		"„Das ging schnell. Zu schnell.“",
 		"„Ich hab nicht nachgedacht. Meine Hände schon.“",
-		"„Da klappert was.“",
-		"„Schrauben. Ein Kern. Und Patronen — Patronen für was?“",
-		"„Er hat sie getragen wie einer, der weiß, dass er sie braucht.“",
-		"„Also nehm ich sie. Er braucht sie nicht mehr, und ich schon.“",
+		"„…und woher weiß ich, wo man so ein Ding trifft?“",
+		"„Der war halb hin. Rost bis zum Kessel. Ein heiler hätte gestanden.“",
+		"„Es zischt noch. Ein Ding, das zischt, wenn es liegt.“",
+		"„Da drin klappert was. Schrauben. Ein Zahnrad. Und ein Kern, der noch warm ist.“",
+		"„Das hat jemand gebaut. Jemand baut so was und lässt es hier laufen.“",
+		"„Also nehm ich, was drin ist. Es braucht das nicht mehr, und ich schon.“",
 	])
 	_erst_leiche_t = ERST_SEK_HIN + ERST_SEK_LEICHE
 
@@ -7194,6 +7208,9 @@ func _erst_beute() -> void:
 	_drop(at, "ammo", { "pool": pool, "amount": AmmoData.roll_drop(pool) })
 	_drop(at + Vector3(1.1, 0.0, 0.4), "material", { "id": "schrott", "amount": 2 })
 	_drop(at + Vector3(-0.9, 0.0, 0.8), "material", { "id": "zahnrad", "amount": 1 })
+	# Der Dampfkern liegt hier GARANTIERT und wird nicht ausgewuerfelt — der Held spricht ihn
+	# aus („ein Kern, der noch warm ist"), und was ausgesprochen wird, muss auch dort liegen.
+	_drop(at + Vector3(0.2, 0.0, -1.0), "material", { "id": "dampfkern", "amount": 1 })
 	n.queue_free()
 	_enemies.erase(_erst_gegner)
 	_erst_gegner = {}

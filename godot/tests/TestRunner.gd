@@ -50,7 +50,7 @@ const TEST_UMFANG: Dictionary = {
 	"_test_ammo": 12,
 	"_test_reload": 18,
 	"_test_weapons": 13,
-	"_test_titel_und_erster": 27,
+	"_test_titel_und_erster": 32,
 	"_test_riss": 15,
 	"_test_terrain": 25,
 	"_test_winding": 4,
@@ -1054,11 +1054,27 @@ func _test_titel_und_erster() -> void:
 	var OW4 = load("res://scripts/OverworldView.gd")
 	# EINER, nicht das uebliche Rudel: Wer zum ersten Mal etwas sieht, das hier herumlaeuft,
 	# soll es ansehen koennen.
-	_check("Es ist genau einer", ow_q.contains('_erst_gegner = _make_enemy("outlaw")'))
-	# Und ein Wegelagerer, kein Klaeffer: Der kommt nie allein (`swarm`), und die Frage
-	# „was bist du gewesen" traegt nur bei etwas Menschlichem.
+	_check("Es ist genau einer", ow_q.contains('_erst_gegner = _make_enemy("konstrukt")'))
+	# Und eine MASCHINE. Zuerst stand hier ein Grenzgaenger — ein Mensch, weil „was bist du
+	# gewesen" bei etwas Menschlichem am staerksten traegt. Falsch gerechnet: Ein bewaffneter
+	# Mann in der Wueste ist keine Ueberraschung, sondern das, was man dort erwartet.
+	_check("Und es ist eine Maschine",
+		String(CombatData.ENEMY_TYPES["konstrukt"]["class"]) == CombatData.MECHANICAL)
+	# Nicht rattenklein: Aus der Kamerahaltung der Szene muss man es als Ding erkennen.
+	var groesse: float = float(AssetRegistry.TARGET_HEIGHT.get("enemy_konstrukt", 0.0))
+	_check("Und gross genug, um sie anzusehen (%.1f m)" % groesse, groesse >= 1.5)
+	# Einer, der allein auftreten darf — Schwarmtiere kommen nie einzeln.
 	_check("Und einer, der allein auftreten darf",
-		not bool(CombatData.ENEMY_TYPES["outlaw"].get("swarm", false)))
+		not bool(CombatData.ENEMY_TYPES["konstrukt"].get("swarm", false)))
+	# Der Kessel-Klaeffer waere das schoenere Tier gewesen: vierbeinig, hundegross, mechanisch.
+	# Es gibt ihn als Gegnertyp und NICHT als Modell — und genau das haelt diese Pruefung fest.
+	# Taucht `klaeffer.glb` eines Tages auf, faellt sie um und erinnert daran, hier noch einmal
+	# hinzusehen.
+	_check("Der Klaeffer waere schoener, hat aber noch kein Modell",
+		not AssetRegistry.has_model("enemy_klaeffer"))
+	# Dass es hier mit einem Schuss faellt und spaeter nicht, traegt der Text.
+	_check("Dass dieses eine ein Wrack ist, wird gesagt",
+		ow_q.contains("Ein heiler hätte gestanden"))
 	# Erst wenn er den Krater verlassen hat.
 	_check("Erst ausserhalb des Kraters (%.0f m)" % OW4.ERST_AUSLOESER_M,
 		OW4.ERST_AUSLOESER_M > 20.0)
@@ -1076,7 +1092,10 @@ func _test_titel_und_erster() -> void:
 		FileAccess.get_file_as_string("res://scripts/SaveManager.gd").contains("erst_gegner_done"))
 	# Die letzte Sprechzeile begruendet das Pluendern, statt es als Spielfunktion zu erklaeren.
 	_check("Das Pluendern wird begruendet, nicht erklaert",
-		ow_q.contains("Er braucht sie nicht mehr, und ich schon"))
+		ow_q.contains("Es braucht das nicht mehr, und ich schon"))
+	# Und was der Held ausspricht, liegt auch da: Der Dampfkern wird nicht ausgewuerfelt.
+	_check("Der Kern, den er nennt, liegt garantiert da",
+		ow_q.contains('"id": "dampfkern", "amount": 1'))
 
 
 func _test_riss() -> void:

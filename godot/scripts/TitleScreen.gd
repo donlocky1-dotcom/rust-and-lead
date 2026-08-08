@@ -77,7 +77,9 @@ func _bau_oberflaeche() -> void:
 	unter.text = "Ein Steampunk-Western"
 	unter.add_theme_font_size_override("font_size", 21)
 	unter.add_theme_color_override("font_color", Color(0.72, 0.66, 0.56))
-	unter.position = Vector2(84.0, 162.0)
+	# 186 und nicht 162: Bei 78 px Schriftgroesse reicht der Titelkasten bis etwa 170 hinunter,
+	# und die Unterzeile sass in seinen Unterlaengen. Im Bild klebten beide aneinander.
+	unter.position = Vector2(86.0, 186.0)
 	_wurzel.add_child(unter)
 
 	var spalte := VBoxContainer.new()
